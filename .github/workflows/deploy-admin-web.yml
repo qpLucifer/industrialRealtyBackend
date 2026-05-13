@@ -1,0 +1,50 @@
+# Build on GitHub, upload dist tarball, extract to Nginx site root — no git on server.
+name: Deploy admin-web (artifact)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install and build
+        run: npm ci && npm run build
+
+      - name: Pack dist
+        run: tar -czf admin-dist.tgz -C dist .
+
+      - name: Upload dist bundle to server
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT }}
+          source: admin-dist.tgz
+          target: /tmp/
+
+      - name: Publish static files
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT }}
+          script: |
+            set -eu
+            PUB_DIR="${{ secrets.SERVER_ADMIN_PUBLIC_DIR }}"
+            test -d "${PUB_DIR}"
+            cd "${PUB_DIR}"
+            find . -mindepth 1 -delete
+            tar -xzf /tmp/admin-dist.tgz -C "${PUB_DIR}"
+            rm -f /tmp/admin-dist.tgz
