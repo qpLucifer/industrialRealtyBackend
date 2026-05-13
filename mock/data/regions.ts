@@ -8,8 +8,6 @@ export interface RegionTreeLine {
 export interface RegionBindingRow {
   staffName: string
   nodeIds: string
-  crossExport: '禁止' | '允许'
-  crossView: '禁止' | '允许'
 }
 
 export const mockRegionTreeLines: RegionTreeLine[] = [
@@ -20,6 +18,6 @@ export const mockRegionTreeLines: RegionTreeLine[] = [
 ]
 
 export const mockRegionBindings: RegionBindingRow[] = [
-  { staffName: '陈思远', nodeIds: '440112, 440118', crossExport: '禁止', crossView: '禁止' },
-  { staffName: '赵琦', nodeIds: '440115', crossExport: '禁止', crossView: '禁止' },
+  { staffName: '陈思远', nodeIds: '黄埔区,增城区' },
+  { staffName: '赵琦', nodeIds: '南沙区' },
 ]

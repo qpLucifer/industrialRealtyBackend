@@ -1,27 +1,58 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { fetchCustomers, postCustomerFollowUp } from '@/api/admin'
-import type { CustomerRow } from '@/types/domain'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  deleteCustomerBySlug,
+  fetchCustomerDetail,
+  fetchCustomers,
+  postCustomer,
+  postCustomerFollowUp,
+  putCustomerApi,
+} from '@/api/admin'
+import type { CustomerDetail, CustomerGrade, CustomerRow } from '@/types/domain'
 
 const list = ref<CustomerRow[]>([])
-const q = ref('')
-const followOpen = ref(false)
-const dimRemind = ref(false)
+const scopeFilter = ref<'all' | 'private' | 'public'>('all')
+const gradeFilter = ref<string>('all')
+const dealFilter = ref<string>('all')
+const searchQ = ref('')
 
-onMounted(async () => {
-  const { list: rows } = await fetchCustomers()
-  list.value = rows
+const drawer = ref(false)
+const drawerMode = ref<'detail' | 'edit' | 'new'>('detail')
+const activeSlug = ref('')
+const detail = ref<CustomerDetail | null>(null)
+
+const editForm = reactive({
+  company: '',
+  contactName: '',
+  titleLine: '',
+  phone: '',
+  grade: 'B 类' as CustomerGrade,
+  dealStatus: '洽谈中',
+  demandSummary: '',
+  addressHint: '',
+  ownerName: '',
+  scope: '私有' as '私有' | '公有',
 })
 
-const filtered = computed(() => {
-  const s = q.value.trim().toLowerCase()
-  if (!s) return list.value
-  return list.value.filter((r) => {
-    const blob = `${r.phoneMasked} ${r.name} ${r.addressHint} ${r.demandSummary} ${r.timelineHtml}`.toLowerCase()
-    return blob.includes(s)
+const followNote = ref('')
+const followOccurredAt = ref('')
+const followGrade = ref<'' | CustomerGrade>('')
+const followNextAt = ref('')
+
+async function load() {
+  const { list: rows } = await fetchCustomers({
+    scope: scopeFilter.value,
+    grade: gradeFilter.value,
+    deal: dealFilter.value,
+    q: searchQ.value,
   })
-})
+  list.value = rows
+}
+
+onMounted(load)
+
+const pendingFollowCount = computed(() => list.value.filter((r) => r.nextReminder !== '—').length)
 
 function gradeClass(g: string) {
   if (g.startsWith('A')) return 'mint'
@@ -29,48 +60,153 @@ function gradeClass(g: string) {
   return 'rose'
 }
 
-function onRemind() {
-  ElMessage.success('今日待跟进：3 条（含 1 条 A 类超时）· 已推送小程序待办')
-  dimRemind.value = true
-  window.setTimeout(() => {
-    dimRemind.value = false
-  }, 2400)
+function drawerTitle() {
+  if (drawerMode.value === 'new') return '新增客户'
+  if (drawerMode.value === 'edit') return '编辑客户'
+  return detail.value ? `客户详情 · ${detail.value.name}` : '客户详情'
+}
+
+function resetFollowFields() {
+  followNote.value = ''
+  followOccurredAt.value = new Date().toISOString().slice(0, 16)
+  followGrade.value = ''
+  followNextAt.value = ''
+}
+
+async function openDetail(row: CustomerRow) {
+  const slug = row.slug || row.id
+  if (!slug) {
+    ElMessage.warning('缺少客户标识')
+    return
+  }
+  activeSlug.value = slug
+  drawerMode.value = 'detail'
+  detail.value = await fetchCustomerDetail(slug)
+  resetFollowFields()
+  drawer.value = true
+}
+
+function openNew() {
+  activeSlug.value = ''
+  drawerMode.value = 'new'
+  detail.value = null
+  editForm.company = ''
+  editForm.contactName = ''
+  editForm.titleLine = ''
+  editForm.phone = ''
+  editForm.grade = 'B 类'
+  editForm.dealStatus = '洽谈中'
+  editForm.demandSummary = ''
+  editForm.addressHint = ''
+  editForm.ownerName = ''
+  editForm.scope = '私有'
+  drawer.value = true
+}
+
+async function openEdit(row: CustomerRow) {
+  const slug = row.slug || row.id
+  if (!slug) return
+  const d = await fetchCustomerDetail(slug)
+  activeSlug.value = slug
+  drawerMode.value = 'edit'
+  detail.value = d
+  editForm.company = d.company || ''
+  editForm.contactName = d.contactName
+  editForm.titleLine =
+    (d.titleLine || '').trim() || [d.contactName, d.company].filter(Boolean).join(' · ') || d.company || ''
+  editForm.phone = d.phone
+  editForm.grade = d.grade
+  editForm.dealStatus = d.dealStatus || '洽谈中'
+  editForm.demandSummary = d.demandSummary
+  editForm.addressHint = d.addressHint
+  editForm.ownerName = d.ownerName
+  editForm.scope = d.badgesHtml?.includes('公有') ? '公有' : '私有'
+  drawer.value = true
+}
+
+async function onSaveCustomer() {
+  if (!editForm.company.trim() || !editForm.contactName.trim() || !String(editForm.phone).trim()) {
+    ElMessage.warning('公司、联系人、手机为必填')
+    return
+  }
+  if (drawerMode.value === 'new') {
+    await postCustomer({ ...editForm })
+    ElMessage.success('已新增客户')
+  } else {
+    await putCustomerApi(activeSlug.value, { ...editForm })
+    ElMessage.success('已保存')
+  }
+  drawer.value = false
+  await load()
+}
+
+async function onDelete(row: CustomerRow) {
+  const slug = row.slug || row.id
+  if (!slug) return
+  try {
+    await ElMessageBox.confirm(`确定删除客户「${row.name}」？此操作不可恢复。`, '确认删除', { type: 'warning' })
+  } catch {
+    return
+  }
+  await deleteCustomerBySlug(slug)
+  ElMessage.success('已删除')
+  if (activeSlug.value === slug) drawer.value = false
+  await load()
 }
 
 async function onSaveFollow() {
-  await postCustomerFollowUp({})
-  ElMessage.success('跟进已写入 · 时间轴与提醒已更新（原型）')
-  followOpen.value = false
+  if (!detail.value) return
+  const slug = activeSlug.value
+  if (!followNote.value.trim()) {
+    ElMessage.warning('请填写跟进内容')
+    return
+  }
+  const payload: Record<string, string> = {
+    slug,
+    note: followNote.value.trim(),
+    occurredAt: followOccurredAt.value.replace('T', ' '),
+  }
+  if (followGrade.value) payload.grade = followGrade.value
+  if (followNextAt.value) {
+    payload.nextReminderAt = followNextAt.value.replace('T', ' ')
+    payload.nextReminder = followNextAt.value.replace('T', ' ')
+  }
+  await postCustomerFollowUp(payload)
+  ElMessage.success('跟进已保存')
+  detail.value = await fetchCustomerDetail(slug)
+  resetFollowFields()
+  await load()
 }
 
-function rowDimClass(row: CustomerRow) {
-  if (!dimRemind.value) return false
-  return !row.hasNextReminderTag
+function onRemind() {
+  ElMessage.success(`今日待跟进相关客户约 ${pendingFollowCount.value} 条（下次提醒非「—」）`)
 }
 </script>
 
 <template>
   <section class="panel active">
     <div class="toolbar">
-      <select>
-        <option>全部范围</option>
-        <option>仅私有</option>
-        <option>仅公有</option>
+      <select v-model="scopeFilter" @change="load">
+        <option value="all">全部范围</option>
+        <option value="private">仅私有</option>
+        <option value="public">仅公有</option>
       </select>
-      <select>
-        <option>客户等级</option>
-        <option>A 类重点</option>
-        <option>B 类培育</option>
-        <option>C 类观察</option>
+      <select v-model="gradeFilter" @change="load">
+        <option value="all">全部等级</option>
+        <option value="A 类">A 类</option>
+        <option value="B 类">B 类</option>
+        <option value="C 类">C 类</option>
       </select>
-      <select>
-        <option>成交状态</option>
-        <option>洽谈中</option>
-        <option>已成交</option>
-        <option>搁置</option>
+      <select v-model="dealFilter" @change="load">
+        <option value="all">全部成交状态</option>
+        <option value="洽谈中">洽谈中</option>
+        <option value="已成交">已成交</option>
+        <option value="搁置">搁置</option>
       </select>
-      <input v-model="q" type="search" placeholder="电话尾号 / 公司 / 需求关键词…" style="min-width: 240px" />
-      <button type="button" class="btn btn-primary" @click="onRemind">今日待跟进</button>
+      <input v-model="searchQ" type="search" placeholder="电话尾号 / 公司 / 需求关键词…" style="min-width: 240px" @keyup.enter="load" />
+      <button type="button" class="btn btn-primary" @click="load">查询</button>
+      <button type="button" class="btn btn-primary" @click="openNew">＋ 新增客户</button>
+      <button type="button" class="btn" @click="onRemind">今日待跟进</button>
     </div>
     <div
       class="card"
@@ -81,85 +217,268 @@ function rowDimClass(row: CustomerRow) {
         border-color: rgba(251, 191, 36, 0.35);
       "
     >
-      <strong style="font-size: 13px">客户跟进台账（与业务 Excel 同源字段）</strong>
-      <p class="hint" style="margin-top: 6px">
-        四列结构：联系电话 · 客户名称与地址 · 需求摘要 · 跟进时间轴；支持 ABC 分级与「下次沟通」系统提醒。
-      </p>
+      <strong style="font-size: 13px">客户统筹</strong>
+      <p class="hint" style="margin-top: 6px">列表来自 MySQL；详情内维护跟进时间轴。成交状态在列表直接展示。</p>
     </div>
-    <div class="card" style="padding: 0; overflow-x: auto">
+    <div class="card crm-list-card" style="padding: 0; overflow-x: auto">
       <table class="data data-crm">
         <thead>
           <tr>
             <th style="min-width: 110px">联系电话</th>
-            <th style="min-width: 200px">客户名称 / 地址</th>
-            <th style="min-width: 260px">需求摘要</th>
-            <th style="min-width: 120px">等级</th>
-            <th style="min-width: 130px">最近跟进时间</th>
+            <th style="min-width: 200px">公司 / 主体</th>
+            <th style="min-width: 180px">主题（列表标题行）</th>
+            <th style="min-width: 160px">客户名称</th>
+            <th style="min-width: 160px">地址 / 区域</th>
+            <th style="min-width: 200px">需求摘要</th>
+            <th style="min-width: 100px">等级</th>
+            <th style="min-width: 100px">成交状态</th>
+            <th style="min-width: 130px">最近跟进</th>
             <th style="min-width: 130px">下次提醒</th>
-            <th style="min-width: 320px">跟进时间轴</th>
             <th style="min-width: 90px">负责人</th>
-            <th>操作</th>
+            <th style="min-width: 200px">操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in filtered" :key="r.id" :class="{ 'row-dim': rowDimClass(r) }">
+          <tr v-for="r in list" :key="r.slug || r.id">
             <td>{{ r.phoneMasked }}</td>
             <td>
-              <strong>{{ r.name }}</strong><br />
-              <span class="hint">{{ r.addressHint }}</span>
+              <span class="crm-cell-strong">{{ r.company || '—' }}</span>
             </td>
+            <td class="cell-wrap hint-sm">{{ r.titleLine || '—' }}</td>
+            <td>
+              <span class="crm-cell-strong">{{ r.contactName || r.name }}</span>
+            </td>
+            <td class="cell-wrap hint-sm">{{ r.addressHint || '—' }}</td>
             <td class="cell-wrap">{{ r.demandSummary }}</td>
             <td><span class="tag" :class="gradeClass(r.grade)">{{ r.grade }}</span></td>
+            <td>{{ r.dealStatus || '—' }}</td>
             <td>{{ r.lastFollowAt }}</td>
             <td>
               <template v-if="r.nextReminder === '—'">—</template>
               <span v-else class="tag" :class="r.hasNextReminderTag === 'amber' ? 'amber' : 'mint'">{{ r.nextReminder }}</span>
             </td>
-            <td class="cell-wrap cell-timeline" v-html="r.timelineHtml" />
             <td>{{ r.ownerName }}</td>
-            <td><button type="button" class="btn btn-primary" style="padding: 6px 10px" @click="followOpen = true">写跟进</button></td>
+            <td style="white-space: nowrap">
+              <button type="button" class="btn btn-primary" style="padding: 6px 10px" @click="openDetail(r)">详情</button>
+              <button type="button" class="btn" style="padding: 6px 10px" @click="openEdit(r)">编辑</button>
+              <button type="button" class="btn" style="padding: 6px 10px; color: var(--rose)" @click="onDelete(r)">删除</button>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p class="hint" style="margin-top: 12px">
-      登记建档沿用「全量登记表」展开录入（与小程序新建客户同源）；系统按「下次提醒」推送小程序 / 企微待办。业务员侧号码默认脱敏。
-    </p>
 
-    <Teleport to="body">
-      <div class="modal-center" :class="{ show: followOpen }" @click.self="followOpen = false">
-        <div class="modal-box" style="max-width: 560px">
-          <h3>追加跟进记录</h3>
-          <p class="hint">写入后更新「最近跟进时间」；可同步设置系统提醒（下次沟通）。</p>
-          <div class="form-grid" style="margin-top: 14px">
+    <el-drawer v-model="drawer" :title="drawerTitle()" size="min(560px, 92vw)" destroy-on-close class="crm-drawer">
+      <template v-if="drawerMode === 'detail' && detail">
+        <div class="crm-hero">
+          <div class="crm-hero-title">{{ detail.company || '—' }}</div>
+          <div class="crm-hero-sub">{{ detail.titleLine || [detail.contactName, detail.company].filter(Boolean).join(' · ') }}</div>
+          <div class="crm-hero-meta">
+            <span>{{ detail.contactName }}</span>
+            <span class="crm-dot">·</span>
+            <span>手机 {{ detail.phone || '—' }}</span>
+            <span class="crm-dot">·</span>
+            <span>负责人 {{ detail.ownerName || '—' }}</span>
+            <span class="crm-dot">·</span>
+            <span>成交 {{ detail.dealStatus }}</span>
+          </div>
+        </div>
+
+        <div class="crm-card">
+          <div class="crm-card-title">需求与地址</div>
+          <p class="crm-card-body">{{ detail.demandSummary || '—' }}</p>
+          <p class="crm-card-muted">{{ detail.addressHint || '—' }}</p>
+        </div>
+
+        <div class="crm-card">
+          <div class="crm-card-title">跟进时间轴</div>
+          <div v-if="detail.timelineHtml" class="crm-timeline cell-wrap" v-html="detail.timelineHtml" />
+          <p v-else class="crm-card-muted">（暂无记录）</p>
+        </div>
+
+        <div class="crm-card crm-card-accent">
+          <div class="crm-card-title">写跟进</div>
+          <div class="form-grid">
             <div class="full">
               <label>跟进内容<span style="color: var(--rose)">*</span></label>
-              <textarea rows="4" placeholder="事实描述、客户原话摘要、下一步" />
+              <textarea v-model="followNote" rows="3" placeholder="事实描述、客户原话摘要、下一步" />
             </div>
             <div>
-              <label>跟进发生时间<span style="color: var(--rose)">*</span></label>
-              <input type="datetime-local" />
+              <label>跟进时间<span style="color: var(--rose)">*</span></label>
+              <input v-model="followOccurredAt" type="datetime-local" />
             </div>
             <div>
               <label>客户等级调整</label>
-              <select>
-                <option>保持 A 类</option>
-                <option>降为 B 类</option>
-                <option>降为 C 类</option>
-                <option>升为 A 类</option>
+              <select v-model="followGrade">
+                <option value="">不调整</option>
+                <option value="A 类">A 类</option>
+                <option value="B 类">B 类</option>
+                <option value="C 类">C 类</option>
               </select>
             </div>
             <div class="full">
-              <label>下次沟通提醒（系统推送）</label>
-              <input type="datetime-local" />
+              <label>下次沟通提醒（可选）</label>
+              <input v-model="followNextAt" type="datetime-local" />
             </div>
           </div>
-          <div style="display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end">
-            <button type="button" class="btn" @click="followOpen = false">取消</button>
-            <button type="button" class="btn btn-primary" @click="onSaveFollow">保存</button>
+          <button type="button" class="btn btn-primary crm-follow-btn" @click="onSaveFollow">保存跟进</button>
+        </div>
+      </template>
+
+      <template v-else>
+        <div class="form-grid">
+          <div class="full">
+            <label>公司 / 主体<span style="color: var(--rose)">*</span></label>
+            <input v-model="editForm.company" type="text" maxlength="255" />
+          </div>
+          <div class="full">
+            <label>主题（列表摘要行）</label>
+            <input v-model="editForm.titleLine" type="text" maxlength="255" placeholder="例：张晨 · 某某公司" />
+          </div>
+          <div>
+            <label>联系人<span style="color: var(--rose)">*</span></label>
+            <input v-model="editForm.contactName" type="text" maxlength="64" />
+          </div>
+          <div>
+            <label>手机<span style="color: var(--rose)">*</span></label>
+            <input v-model="editForm.phone" type="text" maxlength="32" />
+          </div>
+          <div>
+            <label>等级</label>
+            <select v-model="editForm.grade">
+              <option value="A 类">A 类</option>
+              <option value="B 类">B 类</option>
+              <option value="C 类">C 类</option>
+            </select>
+          </div>
+          <div>
+            <label>成交状态</label>
+            <select v-model="editForm.dealStatus">
+              <option value="洽谈中">洽谈中</option>
+              <option value="已成交">已成交</option>
+              <option value="搁置">搁置</option>
+            </select>
+          </div>
+          <div>
+            <label>公私海</label>
+            <select v-model="editForm.scope">
+              <option value="私有">私有</option>
+              <option value="公有">公有</option>
+            </select>
+          </div>
+          <div class="full">
+            <label>地址 / 区域提示</label>
+            <input v-model="editForm.addressHint" type="text" maxlength="255" />
+          </div>
+          <div class="full">
+            <label>需求摘要</label>
+            <textarea v-model="editForm.demandSummary" rows="3" maxlength="2000" />
+          </div>
+          <div class="full">
+            <label>负责人</label>
+            <input v-model="editForm.ownerName" type="text" maxlength="64" />
           </div>
         </div>
-      </div>
-    </Teleport>
+        <div style="display: flex; gap: 10px; margin-top: 20px">
+          <button type="button" class="btn btn-primary" @click="onSaveCustomer">{{ drawerMode === 'new' ? '创建' : '保存' }}</button>
+          <button type="button" class="btn" @click="drawer = false">取消</button>
+        </div>
+      </template>
+    </el-drawer>
   </section>
 </template>
+
+<style scoped>
+.crm-list-card {
+  border-radius: 10px;
+}
+.hint-sm {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+}
+.crm-cell-strong {
+  font-weight: 600;
+  color: #0f172a;
+}
+.crm-hero {
+  padding: 16px 18px;
+  margin: -8px -4px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 55%, #f8fafc 100%);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+.crm-hero-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+.crm-hero-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.45;
+}
+.crm-hero-meta {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+  font-size: 12px;
+  color: #64748b;
+}
+.crm-dot {
+  opacity: 0.45;
+  padding: 0 2px;
+}
+.crm-card {
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.crm-card-accent {
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  border-color: rgba(59, 130, 246, 0.18);
+}
+.crm-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+.crm-card-body {
+  margin: 0;
+  font-size: 14px;
+  color: #1e293b;
+  line-height: 1.55;
+}
+.crm-card-muted {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+}
+.crm-timeline {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #334155;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px dashed rgba(100, 116, 139, 0.35);
+}
+.crm-follow-btn {
+  margin-top: 14px;
+}
+:deep(.crm-drawer .el-drawer__body) {
+  padding-top: 8px;
+}
+</style>

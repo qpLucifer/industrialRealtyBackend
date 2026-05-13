@@ -1,22 +1,135 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { fetchWhitelist } from '@/api/admin'
+import { onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { createWhitelistRow, deleteWhitelistRow, fetchWhitelist, updateWhitelistRow } from '@/api/admin'
 import type { WhitelistRow } from '@/types/domain'
 
 const list = ref<WhitelistRow[]>([])
+const drawer = ref(false)
+const editingId = ref<number | null>(null)
+const form = reactive({ phone: '', name: '', remark: '' })
 
-onMounted(async () => {
+async function load() {
   const { list: rows } = await fetchWhitelist()
   list.value = rows
-})
+}
+
+function openNew() {
+  editingId.value = null
+  form.phone = ''
+  form.name = ''
+  form.remark = ''
+  drawer.value = true
+}
+
+function openEdit(row: WhitelistRow) {
+  editingId.value = row.id
+  form.phone = row.phone
+  form.name = row.name
+  form.remark = row.remark
+  drawer.value = true
+}
+
+async function onSave() {
+  const phone = form.phone.trim()
+  if (!/^\d{11}$/.test(phone)) {
+    ElMessage.warning('请输入 11 位数字手机号')
+    return
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  const updatedBy = '后台管理员'
+  if (editingId.value == null) {
+    await createWhitelistRow({
+      phone,
+      name: form.name.trim().slice(0, 50),
+      remark: form.remark.trim().slice(0, 200),
+      updatedBy,
+      updatedAt: today,
+    })
+    ElMessage.success('已新增')
+  } else {
+    await updateWhitelistRow(editingId.value, {
+      phone,
+      name: form.name.trim().slice(0, 50),
+      remark: form.remark.trim().slice(0, 200),
+      updatedBy,
+      updatedAt: today,
+    })
+    ElMessage.success('已保存')
+  }
+  drawer.value = false
+  await load()
+}
+
+async function onDelete(row: WhitelistRow) {
+  try {
+    await ElMessageBox.confirm(`删除白名单号码 ${row.phone}？`, '确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  await deleteWhitelistRow(row.id)
+  ElMessage.success('已删除')
+  await load()
+}
+
+function onDownloadTemplate() {
+  const csv = 'phone,name,remark\n13800138000,示例用户,备注可选\n'
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = 'whitelist-template.csv'
+  a.click()
+  URL.revokeObjectURL(a.href)
+  ElMessage.success('已下载模板')
+}
+
+function onImportClick() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.csv,text/csv'
+  input.onchange = () => {
+    const file = input.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const text = String(reader.result || '')
+      const lines = text.split(/\r?\n/).filter(Boolean)
+      if (lines.length < 2) {
+        ElMessage.warning('CSV 至少需要表头 + 一行数据')
+        return
+      }
+      const today = new Date().toISOString().slice(0, 10)
+      let n = 0
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
+        const phone = cols[0]
+        if (!phone) continue
+        await createWhitelistRow({
+          phone,
+          name: cols[1] || '',
+          remark: cols[2] || '',
+          updatedBy: 'CSV导入',
+          updatedAt: today,
+        })
+        n++
+      }
+      ElMessage.success(`已导入 ${n} 条`)
+      await load()
+    }
+    reader.readAsText(file, 'UTF-8')
+  }
+  input.click()
+}
+
+onMounted(load)
 </script>
 
 <template>
   <section class="panel active">
     <div class="toolbar">
-      <button type="button" class="btn btn-primary">导入白名单</button>
-      <button type="button" class="btn">下载模板</button>
-      <button type="button" class="btn">同步 HR（预留）</button>
+      <button type="button" class="btn btn-primary" @click="openNew">＋ 新增白名单</button>
+      <button type="button" class="btn btn-primary" @click="onImportClick">导入 CSV</button>
+      <button type="button" class="btn" @click="onDownloadTemplate">下载模板</button>
     </div>
     <div class="card">
       <h3>准入号码池（与小程序联动）</h3>
@@ -28,18 +141,46 @@ onMounted(async () => {
             <th>备注</th>
             <th>更新人</th>
             <th>时间</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(r, i) in list" :key="i">
+          <tr v-for="r in list" :key="r.id">
             <td>{{ r.phone }}</td>
             <td>{{ r.name }}</td>
             <td>{{ r.remark }}</td>
             <td>{{ r.updatedBy }}</td>
             <td>{{ r.updatedAt }}</td>
+            <td>
+              <div class="row-actions">
+                <button type="button" class="btn btn-primary" style="padding: 6px 10px" @click="openEdit(r)">编辑</button>
+                <button type="button" class="btn" style="padding: 6px 10px; color: var(--rose)" @click="onDelete(r)">删除</button>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <el-drawer v-model="drawer" title="白名单" direction="rtl" size="min(420px, 100%)">
+      <div class="form-grid">
+        <div class="full">
+          <label>手机号<span style="color: var(--rose)">*</span></label>
+          <input v-model="form.phone" type="text" maxlength="11" inputmode="numeric" placeholder="11 位手机号" />
+        </div>
+        <div class="full">
+          <label>姓名</label>
+          <input v-model="form.name" type="text" maxlength="50" />
+        </div>
+        <div class="full">
+          <label>备注</label>
+          <textarea v-model="form.remark" rows="3" maxlength="200" placeholder="最长 200 字" />
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 18px">
+        <button type="button" class="btn btn-primary" @click="onSave">保存</button>
+        <button type="button" class="btn" @click="drawer = false">取消</button>
+      </div>
+    </el-drawer>
   </section>
 </template>

@@ -19,7 +19,7 @@ async function onEnter() {
   <div class="login-wrap">
     <div class="login-card">
       <h2>管理后台登录</h2>
-      <p>企业内网 · 支持账号密码 / 企业微信扫码（原型占位）</p>
+      <p>企业内网登录；账号密码与企业微信扫码能力可按公司 IdP 对接扩展。</p>
       <div class="field">
         <label>账号</label>
         <input type="text" value="admin@company.internal" readonly />

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { AuthUser } from '@/types/domain'
-import { loginApi, fetchMe } from '@/api/auth'
+import { loginApi, fetchMe, logoutApi } from '@/api/auth'
 
 const TOKEN_KEY = 'admin_token'
 
@@ -23,7 +23,12 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = u
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await logoutApi()
+    } catch {
+      /* still clear session if server unreachable */
+    }
     token.value = null
     user.value = null
     localStorage.removeItem(TOKEN_KEY)

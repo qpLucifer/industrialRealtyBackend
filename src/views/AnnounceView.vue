@@ -1,36 +1,108 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { fetchAnnouncements, publishAnnouncement } from '@/api/admin'
+import { onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  deleteAnnouncementApi,
+  fetchAnnouncements,
+  publishAnnouncement,
+  updateAnnouncementApi,
+} from '@/api/admin'
 import type { AnnouncementRow } from '@/types/domain'
 
 const list = ref<AnnouncementRow[]>([])
 const modal = ref(false)
+const editingId = ref<number | null>(null)
+const form = reactive({
+  title: '',
+  body: '',
+  scope: '全员',
+  popup: '否',
+  schedule: '立即',
+  status: '已发送' as AnnouncementRow['status'],
+  statusTone: 'mint' as AnnouncementRow['statusTone'],
+})
 
-onMounted(async () => {
+async function load() {
   const { list: rows } = await fetchAnnouncements()
   list.value = rows
-})
+}
 
 function statusClass(t: AnnouncementRow['statusTone']) {
   return t === 'mint' ? 'mint' : 'amber'
 }
 
-async function onPublish() {
-  await publishAnnouncement({})
-  ElMessage.success('公告已发布 · 小程序将推送提醒策略')
-  modal.value = false
+function openCreate() {
+  editingId.value = null
+  form.title = ''
+  form.body = ''
+  form.scope = '全员'
+  form.popup = '否'
+  form.schedule = '立即'
+  form.status = '已发送'
+  form.statusTone = 'mint'
+  modal.value = true
 }
 
-function toastSwitch(label: string, on: boolean) {
-  ElMessage.info(`${label} → ${on ? '开启' : '关闭'}`)
+function openEdit(row: AnnouncementRow) {
+  editingId.value = row.id
+  form.title = row.title
+  form.body = row.body || ''
+  form.scope = row.scope
+  form.popup = row.popup
+  form.schedule = row.schedule
+  form.status = row.status
+  form.statusTone = row.statusTone
+  modal.value = true
 }
+
+async function onPublish() {
+  if (!form.title.trim()) {
+    ElMessage.warning('请填写标题')
+    return
+  }
+  if (!form.body.trim()) {
+    ElMessage.warning('请填写正文')
+    return
+  }
+  const payload = {
+    title: form.title.trim(),
+    body: form.body.trim(),
+    scope: form.scope,
+    popup: form.popup,
+    schedule: form.schedule,
+    status: form.status,
+    statusTone: form.statusTone,
+  }
+  if (editingId.value == null) {
+    await publishAnnouncement(payload)
+    ElMessage.success('公告已发布')
+  } else {
+    await updateAnnouncementApi(editingId.value, payload)
+    ElMessage.success('公告已更新')
+  }
+  modal.value = false
+  await load()
+}
+
+async function onDelete(row: AnnouncementRow) {
+  try {
+    await ElMessageBox.confirm(`删除公告「${row.title}」？`, '确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  await deleteAnnouncementApi(row.id)
+  ElMessage.success('已删除')
+  await load()
+}
+
+onMounted(load)
 </script>
 
 <template>
   <section class="panel active">
     <div class="toolbar">
-      <button type="button" class="btn btn-primary" @click="modal = true">＋ 新建公告</button>
+      <button type="button" class="btn btn-primary" @click="openCreate">＋ 新建公告</button>
+      <button type="button" class="btn" @click="load">刷新</button>
     </div>
     <div class="card" style="padding: 0; overflow: hidden">
       <table class="data">
@@ -41,15 +113,20 @@ function toastSwitch(label: string, on: boolean) {
             <th>弹窗</th>
             <th>定时</th>
             <th>状态</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(r, i) in list" :key="i">
+          <tr v-for="r in list" :key="r.id">
             <td>{{ r.title }}</td>
             <td>{{ r.scope }}</td>
             <td>{{ r.popup }}</td>
             <td>{{ r.schedule }}</td>
             <td><span class="tag" :class="statusClass(r.statusTone)">{{ r.status }}</span></td>
+            <td>
+              <button type="button" class="btn btn-primary" style="padding: 6px 10px" @click="openEdit(r)">编辑</button>
+              <button type="button" class="btn" style="padding: 6px 10px; color: var(--rose)" @click="onDelete(r)">删除</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -57,51 +134,59 @@ function toastSwitch(label: string, on: boolean) {
 
     <Teleport to="body">
       <div class="modal-center" :class="{ show: modal }" @click.self="modal = false">
-        <div class="modal-box">
-          <h3>新建公告</h3>
-          <p class="hint">推送策略：全员 / 按角色 / 按区域 · 支持定时与小程序弹窗。</p>
+        <div class="modal-box" style="max-width: 560px">
+          <h3>{{ editingId == null ? '新建公告' : '编辑公告' }}</h3>
+          <p class="hint">数据写入 announcements 表；小程序端读取列表接口展示。</p>
           <div class="form-grid" style="margin-top: 14px">
             <div class="full">
               <label>标题<span style="color: var(--rose)">*</span></label>
-              <input type="text" placeholder="例如：佣金结算周期调整说明" />
+              <input v-model="form.title" type="text" placeholder="例如：佣金结算周期调整说明" />
             </div>
             <div class="full">
-              <label>正文（富文本 Markdown）<span style="color: var(--rose)">*</span></label>
-              <textarea rows="5" placeholder="支持附件链接（仅内网域名）" />
+              <label>正文<span style="color: var(--rose)">*</span></label>
+              <textarea v-model="form.body" rows="5" placeholder="纯文本或 Markdown" />
             </div>
-            <div class="full">
-              <label>推送范围（多选）</label>
-              <div class="chip-toggle" data-multi style="margin-top: 6px">
-                <span class="on" data-v="all">全员</span>
-                <span data-v="sales">业务员</span>
-                <span data-v="mgr">部门经理</span>
-                <span data-v="440112">黄埔区授权用户</span>
-              </div>
+            <div>
+              <label>推送范围</label>
+              <select v-model="form.scope">
+                <option>全员</option>
+                <option>业务员</option>
+                <option>部门经理</option>
+                <option>黄埔区授权用户</option>
+              </select>
+            </div>
+            <div>
+              <label>小程序弹窗</label>
+              <select v-model="form.popup">
+                <option>否</option>
+                <option>是</option>
+              </select>
             </div>
             <div>
               <label>定时发送</label>
-              <input type="datetime-local" />
-            </div>
-            <div>
-              <label>优先级</label>
-              <select>
-                <option>普通</option>
-                <option selected>重要</option>
-                <option>紧急</option>
+              <select v-model="form.schedule">
+                <option>立即</option>
+                <option>计划中</option>
               </select>
             </div>
-            <div class="full switch-row" style="border: none; padding-top: 4px">
-              <span>小程序启动弹窗（强提醒）</span>
-              <el-switch :model-value="true" @change="(v) => toastSwitch('公告弹窗', Boolean(v))" />
+            <div>
+              <label>状态</label>
+              <select v-model="form.status">
+                <option value="已发送">已发送</option>
+                <option value="计划中">计划中</option>
+              </select>
             </div>
-            <div class="full switch-row" style="border: none">
-              <span>要求已读回执（抽查）</span>
-              <el-switch :model-value="false" @change="(v) => toastSwitch('已读回执', Boolean(v))" />
+            <div>
+              <label>状态色调</label>
+              <select v-model="form.statusTone">
+                <option value="mint">mint</option>
+                <option value="amber">amber</option>
+              </select>
             </div>
           </div>
           <div style="display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end">
             <button type="button" class="btn" @click="modal = false">取消</button>
-            <button type="button" class="btn btn-primary" @click="onPublish">发布</button>
+            <button type="button" class="btn btn-primary" @click="onPublish">{{ editingId == null ? '发布' : '保存' }}</button>
           </div>
         </div>
       </div>

@@ -1,89 +1,20 @@
-/** Full property form — maps to property + extension tables (mini-app publish wizard) */
+/** Full property form for mock detail — aligned with `src/types/domain` PropertyFullForm */
 
-export interface PropertyFullForm {
-  code: string
-  types: string[]
-  companyName: string
-  address: string
-  lat: string
-  lng: string
-  mapTitle: string
-  ownerContact: string
-  photoChecklist: string[]
-  mediaUrls: string
-  landMu: number
-  actualLandMu: number
-  buildingArea: number
-  actualUseArea: number
-  floors: number
-  loadPerSqm: number
-  workshopSize: string
-  loadNote: string
-  structureTypes: string[]
-  structureOther: string
-  powerKva: number
-  transformers: number
-  freightLifts: number
-  liftLoadT: number
-  liftDims: string
-  platformHeightCm: number
-  turnRadiusM: number
-  dormRent: number
-  dormDistanceKm: number
-  dining: string
-  transitStation: string
-  stationDistanceM: number
-  selfUseSqm: number
-  rentEstimateYear: number
-  coTenantCount: number
-  annualRent: number | null
-  tenantCompanies: string
-  contractYearsLeft: number | null
-  vacantMonths: number
-  usageRemark: string
-  propertyRights: string[]
-  propertyRightsOther: string
-  landUse: string[]
-  landUseOther: string
-  certificates: string[]
-  mortgageDispute: string
-  mortgageNote: string
-  landlordPriceWan: number | null
-  tradeMode: string
-  taxFeeNote: string
-  allowedIndustries: string
-  specialLimits: string
-  fireSystems: string[]
-  fireOther: string
-  firePass: string
-  monitorCoverage: string
-  fireFailReason: string
-  highwayKm: number
-  portAirportKm: number
-  roadLimits: string
-  rushHour: string
-  subsidy: string
-  subsidyDetail: string
-  taxBenefit: string
-  envLevel: string
-  dischargePermit: string
-  solar: string
-  highlights: string
-  risks: string
-  assessment: string
-  externalStatus: string
-  rentSaleType: string
-  rentListSqm: number
-  propertyFee: number
-  contactName: string
-  contactPhone: string
-  viewingNote: string
-  internalNote: string
-}
+import type { PropertyFullForm } from '../../src/types/domain'
+
+export type { PropertyFullForm }
 
 export function createDefaultPropertyForm(code: string): PropertyFullForm {
   return {
     code,
+    listTitle: '黄埔科学城 · 单层高标准厂房',
+    district: '黄埔区',
+    listingLine1: '已上架 · v3',
+    listingLine2: '审核→发布→对内可见',
+    auditTag: '待审核',
+    riskTag: 'Mock 风险标签',
+    submitterName: '陈思远',
+    rowMuted: false,
     types: ['标准厂房'],
     companyName: '广州××实业有限公司',
     address: '广州市黄埔区科学城 XX 路 88 号 A 区',

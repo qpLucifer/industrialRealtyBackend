@@ -4,9 +4,17 @@ import { mockKpis, mockRegionBars, mockStaffActivity } from './data/dashboard'
 import { mockStaffRows, mockStaffFormDefault } from './data/staff'
 import { mockWhitelistRows } from './data/whitelist'
 import { mockRegionTreeLines, mockRegionBindings } from './data/regions'
+import { mockRegionDefs, mockCreateRegionDef, mockUpdateRegionDef, mockDeleteRegionDef } from './data/regionDefs'
 import { mockPropertyRows } from './data/properties'
 import { mockAuditQueue } from './data/audit'
-import { mockCustomers } from './data/customers'
+import {
+  getMockCustomerDetail,
+  mockAppendCustomerFollow,
+  mockCustomerCreate,
+  mockCustomerDelete,
+  mockCustomerRows,
+  mockCustomerUpdate,
+} from './data/customers'
 import { mockVideoFaqRows } from './data/videoFaq'
 import { mockViewingRows, mockDealRows } from './data/viewings'
 import { mockAnnouncements } from './data/announcements'
@@ -31,6 +39,11 @@ export default [
     url: '/api/me',
     method: 'get',
     response: () => ok(mockAuthUser),
+  },
+  {
+    url: '/api/auth/logout',
+    method: 'post',
+    response: () => ok({ success: true }),
   },
   {
     url: '/api/dashboard/summary',
@@ -58,6 +71,39 @@ export default [
     response: () => ok({ list: mockWhitelistRows }),
   },
   {
+    url: '/api/regions/defs',
+    method: 'get',
+    response: () => ok({ list: mockRegionDefs.map((r) => ({ ...r })) }),
+  },
+  {
+    url: '/api/regions/defs',
+    method: 'post',
+    response: ({ body }: { body: { name?: string } }) => {
+      const row = mockCreateRegionDef(String(body?.name || ''))
+      return ok({ success: true, id: row.id, name: row.name, sortOrder: row.sortOrder })
+    },
+  },
+  {
+    url: '/api/regions/defs/:id',
+    method: 'put',
+    response: (opt: { url?: string; body?: { name?: string } }) => {
+      const m = String(opt.url || '').match(/\/defs\/(\d+)/)
+      const id = m ? Number(m[1]) : NaN
+      const row = mockUpdateRegionDef(id, String(opt.body?.name || ''))
+      return ok({ success: true, id: row.id, name: row.name })
+    },
+  },
+  {
+    url: '/api/regions/defs/:id',
+    method: 'delete',
+    response: (opt: { url?: string }) => {
+      const m = String(opt.url || '').match(/\/defs\/(\d+)/)
+      const id = m ? Number(m[1]) : NaN
+      mockDeleteRegionDef(id)
+      return ok({ success: true })
+    },
+  },
+  {
     url: '/api/regions/tree',
     method: 'get',
     response: () => ok({ lines: mockRegionTreeLines }),
@@ -70,7 +116,15 @@ export default [
   {
     url: '/api/properties',
     method: 'get',
-    response: () => ok({ list: mockPropertyRows }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) => {
+      const raw = query?.district
+      const d = (Array.isArray(raw) ? raw[0] : raw) || 'all'
+      let list = [...mockPropertyRows]
+      if (d && d !== 'all') {
+        list = list.filter((row) => String(row.district || '').includes(String(d)))
+      }
+      return ok({ list })
+    },
   },
   {
     url: '/api/property/detail',
@@ -89,7 +143,51 @@ export default [
   {
     url: '/api/customers',
     method: 'get',
-    response: () => ok({ list: mockCustomers }),
+    response: () => ok({ list: mockCustomerRows.map((r) => ({ ...r })) }),
+  },
+  {
+    url: '/api/customers/:slug',
+    method: 'get',
+    response: (opt: { url?: string }) => {
+      const m = String(opt.url || '').match(/\/customers\/([^/?]+)/)
+      const slug = m ? decodeURIComponent(m[1]) : ''
+      const d = getMockCustomerDetail(slug)
+      if (!d) return { code: 404, message: 'not found', result: null }
+      return ok(d)
+    },
+  },
+  {
+    url: '/api/customers',
+    method: 'post',
+    response: ({ body }: { body: Record<string, unknown> }) => {
+      try {
+        const out = mockCustomerCreate(body || {})
+        return ok({ success: true, ...out })
+      } catch (e: unknown) {
+        const err = e as { message?: string }
+        return { code: 400, message: err?.message || 'create failed', result: null }
+      }
+    },
+  },
+  {
+    url: '/api/customers/:slug',
+    method: 'put',
+    response: (opt: { url?: string; body: Record<string, unknown> }) => {
+      const m = String(opt.url || '').match(/\/customers\/([^/?]+)/)
+      const slug = m ? decodeURIComponent(m[1]) : ''
+      mockCustomerUpdate(slug, opt.body || {})
+      return ok({ success: true })
+    },
+  },
+  {
+    url: '/api/customers/:slug',
+    method: 'delete',
+    response: (opt: { url?: string }) => {
+      const m = String(opt.url || '').match(/\/customers\/([^/?]+)/)
+      const slug = m ? decodeURIComponent(m[1]) : ''
+      mockCustomerDelete(slug)
+      return ok({ success: true })
+    },
   },
   {
     url: '/api/video-faq',
@@ -135,6 +233,21 @@ export default [
     response: () => ok({ success: true }),
   },
   {
+    url: '/api/upload/oss',
+    method: 'post',
+    response: () => ok({ url: 'https://example.com/mock-oss/object.jpg', key: 'mock/object.jpg' }),
+  },
+  {
+    url: '/api/properties/bulk-follow',
+    method: 'post',
+    response: () => ok({ success: true, count: 1 }),
+  },
+  {
+    url: '/api/staff/import-csv',
+    method: 'post',
+    response: () => ok({ created: 0, updated: 0, errors: [] }),
+  },
+  {
     url: '/api/audit/reject',
     method: 'post',
     response: () => ok({ success: true }),
@@ -152,7 +265,15 @@ export default [
   {
     url: '/api/customers/follow-up',
     method: 'post',
-    response: () => ok({ success: true }),
+    response: ({ body }: { body: Record<string, string> }) => {
+      const slug = String(body.slug || body.customerId || 'zhangchen')
+      const note = String(body.note || '')
+      const occurredAt = String(body.occurredAt || '').replace('T', ' ')
+      const line = `${occurredAt} · ${note}`
+      const short = occurredAt.slice(0, 16)
+      mockAppendCustomerFollow(slug, line, short)
+      return ok({ success: true })
+    },
   },
   {
     url: '/api/properties/snapshot',

@@ -1,8 +1,186 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { fetchPropertyDetail, savePropertySnapshot } from '@/api/admin'
-import type { PropertyFullForm } from '@/types/domain'
+import { fetchPropertyDetail, fetchRegionDefs, savePropertySnapshot, uploadOssFile } from '@/api/admin'
+import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
+
+/** Ensure arrays / flags exist so chips and toggles never throw. */
+function ensurePropertyFormShape(f: PropertyFullForm) {
+  if (!Array.isArray(f.types) || f.types.length === 0) f.types = ['标准厂房']
+  if (!Array.isArray(f.photoChecklist)) f.photoChecklist = []
+  if (!Array.isArray(f.structureTypes)) f.structureTypes = []
+  if (!Array.isArray(f.propertyRights)) f.propertyRights = []
+  if (!Array.isArray(f.landUse)) f.landUse = []
+  if (!Array.isArray(f.certificates)) f.certificates = []
+  if (!Array.isArray(f.fireSystems)) f.fireSystems = []
+  if (typeof f.rowMuted !== 'boolean') f.rowMuted = Boolean(f.rowMuted)
+  if (f.listTitle === undefined || f.listTitle === null) f.listTitle = ''
+  if (f.district === undefined || f.district === null) f.district = ''
+  if (f.listingLine1 === undefined || f.listingLine1 === null) f.listingLine1 = ''
+  if (f.listingLine2 === undefined || f.listingLine2 === null) f.listingLine2 = ''
+  if (f.auditTag === undefined || f.auditTag === null) f.auditTag = '—'
+  if (f.riskTag === undefined || f.riskTag === null) f.riskTag = ''
+  if (f.submitterName === undefined || f.submitterName === null) f.submitterName = ''
+}
+
+type RoKey = keyof PropertyFullForm | '_img' | '_vid'
+
+const RO_SECTIONS: { title: string; fields: { key: RoKey; label: string }[] }[] = [
+  {
+    title: '列表与审核 · 对外状态',
+    fields: [
+      { key: 'code', label: '编号' },
+      { key: 'listTitle', label: '列表标题' },
+      { key: 'district', label: '所属区域' },
+      { key: 'listingLine1', label: '列表副行 1' },
+      { key: 'listingLine2', label: '列表副行 2（含跟进状态文案）' },
+      { key: 'auditTag', label: '审核状态' },
+      { key: 'riskTag', label: '风险标签（审核队列 / DB risk_tag）' },
+      { key: 'submitterName', label: '提交人' },
+      { key: 'rowMuted', label: '列表弱化行' },
+      { key: 'externalStatus', label: '对外状态' },
+    ],
+  },
+  {
+    title: '分类 · 主体 · 地图',
+    fields: [
+      { key: 'types', label: '房源类型' },
+      { key: 'companyName', label: '公司名称' },
+      { key: 'address', label: '详细地址' },
+      { key: 'lat', label: '纬度' },
+      { key: 'lng', label: '经度' },
+      { key: 'mapTitle', label: '地图标题' },
+      { key: 'ownerContact', label: '业主联系人' },
+      { key: 'photoChecklist', label: '现场必拍清单' },
+      { key: '_img', label: '图片 URL（每行）' },
+      { key: '_vid', label: '视频 URL（每行）' },
+    ],
+  },
+  {
+    title: '土地与建筑',
+    fields: [
+      { key: 'landMu', label: '土地（亩）' },
+      { key: 'actualLandMu', label: '实际土地（亩）' },
+      { key: 'buildingArea', label: '建筑面积（㎡）' },
+      { key: 'actualUseArea', label: '实际使用面积（㎡）' },
+      { key: 'floors', label: '总层数' },
+      { key: 'loadPerSqm', label: '承重（吨/m²）' },
+      { key: 'workshopSize', label: '车间长宽高（米）' },
+      { key: 'loadNote', label: '承重注明区域' },
+      { key: 'structureTypes', label: '结构类型' },
+      { key: 'structureOther', label: '结构 · 其他' },
+    ],
+  },
+  {
+    title: '电力 · 货梯 · 配套',
+    fields: [
+      { key: 'powerKva', label: '电力总容量（kVA）' },
+      { key: 'transformers', label: '变压器（台）' },
+      { key: 'freightLifts', label: '货梯（台）' },
+      { key: 'liftLoadT', label: '货梯载重（吨）' },
+      { key: 'liftDims', label: '货梯尺寸（米）' },
+      { key: 'platformHeightCm', label: '装卸平台高度（cm）' },
+      { key: 'turnRadiusM', label: '转弯半径（米）' },
+      { key: 'dormRent', label: '宿舍租金（元/房）' },
+      { key: 'dormDistanceKm', label: '宿舍距离（km）' },
+      { key: 'dining', label: '餐饮' },
+      { key: 'transitStation', label: '公交/地铁站点' },
+      { key: 'stationDistanceM', label: '站点距离（米）' },
+    ],
+  },
+  {
+    title: '使用情况',
+    fields: [
+      { key: 'selfUseSqm', label: '自用（㎡）' },
+      { key: 'rentEstimateYear', label: '租金估算（元/年）' },
+      { key: 'coTenantCount', label: '共租（家）' },
+      { key: 'annualRent', label: '年租金（元/年）' },
+      { key: 'tenantCompanies', label: '租客公司' },
+      { key: 'contractYearsLeft', label: '合同剩余（年）' },
+      { key: 'vacantMonths', label: '腾空周期（月）' },
+      { key: 'usageRemark', label: '使用情况备注' },
+    ],
+  },
+  {
+    title: '产权 · 证件 · 抵押',
+    fields: [
+      { key: 'propertyRights', label: '产权性质' },
+      { key: 'propertyRightsOther', label: '产权 · 其他' },
+      { key: 'landUse', label: '土地用途' },
+      { key: 'landUseOther', label: '土地用途 · 其他' },
+      { key: 'certificates', label: '证件齐全' },
+      { key: 'mortgageDispute', label: '抵押/纠纷' },
+      { key: 'mortgageNote', label: '抵押/纠纷说明' },
+    ],
+  },
+  {
+    title: '交易 · 行业限制',
+    fields: [
+      { key: 'landlordPriceWan', label: '房东心理价位（万）' },
+      { key: 'tradeMode', label: '交易方式' },
+      { key: 'taxFeeNote', label: '交易税费说明' },
+      { key: 'allowedIndustries', label: '允许产业类型' },
+      { key: 'specialLimits', label: '特殊限制' },
+    ],
+  },
+  {
+    title: '消防 · 物流',
+    fields: [
+      { key: 'fireSystems', label: '消防系统' },
+      { key: 'fireOther', label: '消防 · 其他' },
+      { key: 'firePass', label: '通过验收' },
+      { key: 'monitorCoverage', label: '监控覆盖' },
+      { key: 'fireFailReason', label: '消防未通过原因' },
+      { key: 'highwayKm', label: '最近高速口（km）' },
+      { key: 'portAirportKm', label: '港口/机场（km）' },
+      { key: 'roadLimits', label: '道路限高/限重' },
+      { key: 'rushHour', label: '高峰期拥堵' },
+    ],
+  },
+  {
+    title: '政策 · 环保 · 能源',
+    fields: [
+      { key: 'subsidy', label: '地方产业补贴' },
+      { key: 'subsidyDetail', label: '补贴说明' },
+      { key: 'taxBenefit', label: '税收优惠' },
+      { key: 'envLevel', label: '环评等级' },
+      { key: 'dischargePermit', label: '排污许可证' },
+      { key: 'solar', label: '光伏' },
+    ],
+  },
+  {
+    title: '亮点 · 风险 · 评估',
+    fields: [
+      { key: 'highlights', label: '厂房亮点' },
+      { key: 'risks', label: '潜在风险提示' },
+      { key: 'assessment', label: '评估建议' },
+    ],
+  },
+  {
+    title: '租售挂牌 · 联系人 · 备注',
+    fields: [
+      { key: 'rentSaleType', label: '租售类型' },
+      { key: 'rentListSqm', label: '租金挂牌（元/㎡·月）' },
+      { key: 'propertyFee', label: '物业费（元/㎡·月）' },
+      { key: 'contactName', label: '联系人姓名' },
+      { key: 'contactPhone', label: '联系人电话' },
+      { key: 'viewingNote', label: '看房预约备注' },
+      { key: 'internalNote', label: '内部备注' },
+    ],
+  },
+]
+
+function roVal(key: RoKey): string {
+  if (key === '_img') return (mediaImageBlock.value || '').trim() || '—'
+  if (key === '_vid') return (mediaVideoBlock.value || '').trim() || '—'
+  const v = form[key as keyof PropertyFullForm] as unknown
+  if (v === null || v === undefined) return '—'
+  if (typeof v === 'boolean') return v ? '是' : '否'
+  if (Array.isArray(v)) return v.length ? v.filter(Boolean).join('、') : '—'
+  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '—'
+  const s = String(v).trim()
+  return s || '—'
+}
 
 const props = defineProps<{
   visible: boolean
@@ -12,13 +190,19 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:visible', v: boolean): void
+  (e: 'saved'): void
 }>()
 
 const form = reactive<PropertyFullForm>({} as PropertyFullForm)
 const tab = ref(0)
+const uploadingImage = ref(false)
+const uploadingVideo = ref(false)
+const mediaImageBlock = ref('')
+const mediaVideoBlock = ref('')
+const regionDefs = ref<RegionDefRow[]>([])
 
 const typeOptions = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺'] as const
-const photoOptions = ['门口形象照', '路口进出照', '车间照片', '货梯', '厂房屋顶', '视频'] as const
+const photoOptions = ['门口形象照', '路口进出照', '车间照片', '货梯', '厂房屋顶'] as const
 const structureOptions = ['钢构', '框架', '其他'] as const
 const rightsOptions = ['国有土地', '出让', '划拨', '集体土地', '其他'] as const
 const landUseOptions = ['工业', '仓储', '其他'] as const
@@ -31,12 +215,40 @@ function toggle(arr: string[], v: string) {
   else arr.push(v)
 }
 
+function isVideoUrl(line: string) {
+  return /\.(mp4|mpe?g|webm|mov|m4v|avi)(\?.*)?$/i.test(String(line || '').trim())
+}
+
+function syncMediaBlocksFromForm() {
+  const lines = String(form.mediaUrls || '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  mediaImageBlock.value = lines.filter((l) => !isVideoUrl(l)).join('\n')
+  mediaVideoBlock.value = lines.filter((l) => isVideoUrl(l)).join('\n')
+}
+
+function mergeMediaBlocksToForm() {
+  const imgs = mediaImageBlock.value
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  const vids = mediaVideoBlock.value
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  form.mediaUrls = [...imgs, ...vids].join('\n')
+}
+
 watch(
   () => [props.visible, props.code] as const,
   async ([vis, code]) => {
     if (!vis) return
-    const d = await fetchPropertyDetail(code)
+    const [{ list }, d] = await Promise.all([fetchRegionDefs(), fetchPropertyDetail(code)])
+    regionDefs.value = list
     Object.assign(form, d)
+    ensurePropertyFormShape(form)
+    syncMediaBlocksFromForm()
   },
 )
 
@@ -44,46 +256,185 @@ function close() {
   emit('update:visible', false)
 }
 
-async function onSave() {
-  await savePropertySnapshot({ ...form, mode: props.mode, code: props.code })
-  ElMessage.success(props.mode === 'edit' ? '房源已保存 · 新版本已生效（原型）' : '房源后台快照已保存')
+function onBackdropClick() {
+  if (props.mode === 'edit') return
   close()
 }
 
 function setTab(i: number) {
   tab.value = i
 }
+
+async function onSave() {
+  if (props.mode !== 'edit') return
+  mergeMediaBlocksToForm()
+  const miss: string[] = []
+  if (!String(form.listTitle || '').trim()) miss.push('列表标题')
+  if (!Array.isArray(form.types) || !form.types.length) miss.push('房源类型')
+  if (!String(form.companyName || '').trim()) miss.push('公司名称')
+  if (!String(form.address || '').trim()) miss.push('详细地址')
+  if (!String(form.lat || '').trim() || !String(form.lng || '').trim()) miss.push('地图坐标（纬经度）')
+  if (!Array.isArray(form.photoChecklist) || !form.photoChecklist.length) miss.push('现场必拍清单')
+  const hasImg = mediaImageBlock.value
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean).length
+  const hasVid = mediaVideoBlock.value
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean).length
+  if (!hasImg && !hasVid) miss.push('图片或视频 URL（至少一类）')
+  if (form.landMu == null || Number(form.landMu) <= 0) miss.push('土地（亩）')
+  if (form.powerKva == null || Number(form.powerKva) <= 0) miss.push('电力总容量')
+  if (!String(form.rentSaleType || '').trim()) miss.push('租售类型')
+  if (!String(form.contactName || '').trim()) miss.push('联系人姓名')
+  if (!String(form.contactPhone || '').trim()) miss.push('联系人电话')
+  if (String(form.listTitle || '').length > 120) {
+    ElMessage.error('列表标题不超过 120 字')
+    return
+  }
+  if (String(form.address || '').length > 200) {
+    ElMessage.error('详细地址不超过 200 字')
+    return
+  }
+  if (miss.length) {
+    ElMessage.error(`请完善必填项：${miss.join('、')}`)
+    return
+  }
+  await savePropertySnapshot({ ...form, mode: props.mode, code: props.code })
+  ElMessage.success('房源已保存')
+  emit('saved')
+  close()
+}
+
+function onTogglePhoto(p: string) {
+  if (props.mode === 'view') return
+  toggle(form.photoChecklist, p)
+}
+
+function onToggleType(t: string) {
+  if (props.mode === 'view') return
+  toggle(form.types, t)
+}
+
+async function onPickImages(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const files = input.files
+  if (!files?.length) return
+  uploadingImage.value = true
+  try {
+    const folder = `properties/${encodeURIComponent(props.code)}/images`
+    const lines = mediaImageBlock.value
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+    for (const file of Array.from(files)) {
+      const { url } = await uploadOssFile(file, folder)
+      lines.push(url)
+    }
+    mediaImageBlock.value = lines.join('\n')
+    ElMessage.success(`已上传 ${files.length} 张图片`)
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(err?.message || '上传失败')
+  } finally {
+    uploadingImage.value = false
+    input.value = ''
+  }
+}
+
+async function onPickVideos(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const files = input.files
+  if (!files?.length) return
+  uploadingVideo.value = true
+  try {
+    const folder = `properties/${encodeURIComponent(props.code)}/videos`
+    const lines = mediaVideoBlock.value
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+    for (const file of Array.from(files)) {
+      const { url } = await uploadOssFile(file, folder)
+      lines.push(url)
+    }
+    mediaVideoBlock.value = lines.join('\n')
+    ElMessage.success(`已上传 ${files.length} 个视频`)
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(err?.message || '上传失败')
+  } finally {
+    uploadingVideo.value = false
+    input.value = ''
+  }
+}
 </script>
 
 <template>
   <Teleport to="body">
-    <div class="modal-center" :class="{ show: visible }" @click.self="close">
+    <div class="modal-center" :class="{ show: visible }" @click.self="onBackdropClick">
       <div class="modal-box modal-prop-box">
         <div class="modal-prop-head">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 14px">
             <div>
               <h3 style="margin: 0">
-                {{ mode === 'edit' ? '编辑房源 · #' + code : '房源全字段 · #' + code }}
+                {{ mode === 'edit' ? '编辑房源 · #' + code : '房源详情 · #' + code }}
               </h3>
               <p class="hint" style="margin-top: 6px">
                 {{
                   mode === 'edit'
-                    ? '在此修改任意 Tab 字段后保存；将生成新版本并写入审计（原型）· 与小程序对外展示字段联动。'
-                    : '与小程序「发布房源」同源模型 · 分 Tab 查看 · 含 GPS 坐标（小程序详情页底部地图）· 支持快照。'
+                    ? '在此修改字段后保存，将写入 properties。点击空白处不会关闭本窗口。'
+                    : '只读查看；关闭请点右上角或底部按钮。'
                 }}
               </p>
             </div>
             <button type="button" class="modal-close-icon" aria-label="关闭" @click="close">×</button>
           </div>
-          <div class="admin-modal-tabs">
-            <button type="button" :class="{ active: tab === 0 }" @click="setTab(0)">Step 1 · 分类 · 基础 · 媒体</button>
-            <button type="button" :class="{ active: tab === 1 }" @click="setTab(1)">Step 2 · 土地 · 配套 · 使用（2–5）</button>
-            <button type="button" :class="{ active: tab === 2 }" @click="setTab(2)">Step 3 · 产权 · 合规 · 跟进（7–13）</button>
+          <div v-if="mode === 'edit'" class="admin-modal-tabs">
+            <button type="button" :class="{ active: tab === 0 }" @click="setTab(0)">分类 · 基础 · 媒体</button>
+            <button type="button" :class="{ active: tab === 1 }" @click="setTab(1)">土地 · 配套 · 使用</button>
+            <button type="button" :class="{ active: tab === 2 }" @click="setTab(2)">产权 · 合规 · 跟进</button>
           </div>
         </div>
         <div class="modal-prop-scroll">
+          <template v-if="mode === 'edit'">
           <div class="prop-admin-panel" :class="{ active: tab === 0 }">
             <div class="form-grid" style="margin-top: 0">
+              <div class="form-section-h">列表与审核（与表格列一致）</div>
+              <div class="full">
+                <label>列表标题（房源列）<span style="color: var(--rose)">*</span></label>
+                <input v-model="form.listTitle" type="text" maxlength="120" placeholder="例：黄埔科学城 · 单层厂房" />
+                <span class="hint" style="font-size: 11px">{{ String(form.listTitle || '').length }}/120</span>
+              </div>
+              <div class="full">
+                <label>所属区域（与员工负责区、权限配置一致）</label>
+                <el-select
+                  v-model="form.district"
+                  clearable
+                  placeholder="请选择区县"
+                  style="width: 100%; margin-top: 6px"
+                >
+                  <el-option v-for="d in regionDefs" :key="d.id" :label="d.name" :value="d.name" />
+                </el-select>
+                <p class="hint" style="margin-top: 6px">选项来自「区域权限」维护的名称，与员工绑定、列表筛选一致。</p>
+              </div>
+              <div>
+                <label>提交人（列表）</label>
+                <input v-model="form.submitterName" type="text" maxlength="40" placeholder="业务员姓名" />
+              </div>
+              <div>
+                <label>审核状态（列表）</label>
+                <select v-model="form.auditTag" style="margin-top: 5px">
+                  <option value="已通过">已通过</option>
+                  <option value="待审核">待审核</option>
+                  <option value="—">—</option>
+                </select>
+              </div>
+              <div class="full">
+                <label>风险标签（审核中心展示，保存至数据库 risk_tag）</label>
+                <input v-model="form.riskTag" type="text" maxlength="64" placeholder="如：资料待核、无、首次发布" />
+              </div>
+              <div class="form-section-h" style="margin-top: 8px">分类 · 基础 · 媒体</div>
               <div class="full">
                 <label>房源类型（多选）<span style="color: var(--rose)">*</span></label>
                 <div class="chip-toggle" data-multi style="margin-top: 6px">
@@ -91,35 +442,32 @@ function setTab(i: number) {
                     v-for="t in typeOptions"
                     :key="t"
                     :class="{ on: form.types?.includes(t) }"
-                    @click="toggle(form.types, t)"
+                    @click="onToggleType(t)"
                     >{{ t }}</span
                   >
                 </div>
               </div>
               <div class="full">
                 <label>公司名称<span style="color: var(--rose)">*</span></label>
-                <input v-model="form.companyName" type="text" />
+                <input v-model="form.companyName" type="text" maxlength="120" />
               </div>
               <div class="full">
                 <label>详细地址<span style="color: var(--rose)">*</span></label>
-                <input v-model="form.address" type="text" />
+                <input v-model="form.address" type="text" maxlength="200" />
+                <span class="hint" style="font-size: 11px">{{ String(form.address || '').length }}/200</span>
               </div>
               <div class="form-section-h" style="margin-top: 4px">地图定位（小程序房源详情底部展示）</div>
               <div>
                 <label>纬度 WGS84<span style="color: var(--rose)">*</span></label>
-                <input v-model="form.lat" type="text" placeholder="例：23.179455" />
+                <input v-model="form.lat" type="text" maxlength="20" placeholder="例：23.179455" />
               </div>
               <div>
                 <label>经度 WGS84<span style="color: var(--rose)">*</span></label>
-                <input v-model="form.lng" type="text" placeholder="例：113.429512" />
-              </div>
-              <div class="full">
-                <label>地图显示名称</label>
-                <input v-model="form.mapTitle" type="text" />
+                <input v-model="form.lng" type="text" maxlength="20" placeholder="例：113.429512" />
               </div>
               <div class="full">
                 <label>业主联系人</label>
-                <input v-model="form.ownerContact" type="text" />
+                <input v-model="form.ownerContact" type="text" maxlength="40" />
               </div>
               <div class="full">
                 <label>现场必拍清单（多选）<span style="color: var(--rose)">*</span></label>
@@ -128,14 +476,40 @@ function setTab(i: number) {
                     v-for="p in photoOptions"
                     :key="p"
                     :class="{ on: form.photoChecklist?.includes(p) }"
-                    @click="toggle(form.photoChecklist, p)"
+                    @click="onTogglePhoto(p)"
                     >{{ p }}</span
                   >
                 </div>
               </div>
               <div class="full">
-                <label>媒体 URL（图片 · 短视频）<span style="color: var(--rose)">*</span></label>
-                <textarea v-model="form.mediaUrls" rows="3" />
+                <label>图片 URL（每行一条）<span style="color: var(--rose)">*</span></label>
+                <textarea v-model="mediaImageBlock" rows="3" placeholder="https://…jpg / png / webp" />
+              </div>
+              <div class="full">
+                <label>视频 URL（每行一条）</label>
+                <textarea v-model="mediaVideoBlock" rows="2" placeholder="https://…mp4 / mov（可与图片同时存在）" />
+              </div>
+              <div class="full">
+                <label>上传图片到 OSS</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  :disabled="uploadingImage"
+                  @change="onPickImages"
+                />
+                <p class="hint">图片写入「图片 URL」列表；需后端配置 OSS_*。</p>
+              </div>
+              <div class="full">
+                <label>上传视频到 OSS</label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  multiple
+                  :disabled="uploadingVideo"
+                  @change="onPickVideos"
+                />
+                <p class="hint">视频写入「视频 URL」列表。</p>
               </div>
             </div>
           </div>
@@ -478,10 +852,13 @@ function setTab(i: number) {
 
               <div class="form-section-h">内部跟进（小程序同源）</div>
               <div>
-                <label>对外状态</label>
+                <label>对外状态（列表「状态」列）</label>
                 <select v-model="form.externalStatus">
+                  <option>草稿</option>
                   <option>待租</option>
+                  <option>已租</option>
                   <option>待售</option>
+                  <option>已售</option>
                   <option>意向中</option>
                   <option>下架封存</option>
                 </select>
@@ -520,12 +897,83 @@ function setTab(i: number) {
               </div>
             </div>
           </div>
+          </template>
+          <div v-else class="prop-readonly-summary">
+            <p class="hint" style="margin: 0 0 14px">
+              以下为与编辑表单一致的完整字段；媒体 URL 与编辑区「图片 / 视频」分行一致。
+            </p>
+            <section v-for="sec in RO_SECTIONS" :key="sec.title" class="ro-sec">
+              <h4 class="ro-h4">{{ sec.title }}</h4>
+              <dl class="ro-dl">
+                <template v-for="f in sec.fields" :key="f.key">
+                  <dt>{{ f.label }}</dt>
+                  <dd
+                    :class="{
+                      'ro-dd-multiline': f.key === '_img' || f.key === '_vid',
+                    }"
+                  >
+                    {{ roVal(f.key) }}
+                  </dd>
+                </template>
+              </dl>
+            </section>
+          </div>
         </div>
         <div class="modal-prop-foot">
           <button type="button" class="btn" @click="close">关闭</button>
-          <button type="button" class="btn btn-primary" @click="onSave">{{ mode === 'edit' ? '保存修改' : '保存快照' }}</button>
+          <button v-if="mode === 'edit'" type="button" class="btn btn-primary" @click="onSave">保存修改</button>
         </div>
       </div>
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.prop-readonly-summary {
+  padding: 8px 4px 16px;
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
+.ro-sec {
+  margin-bottom: 18px;
+}
+.ro-h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.ro-dl {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+.ro-dl dt {
+  margin: 0;
+  color: #64748b;
+  font-weight: 600;
+}
+.ro-dl dd {
+  margin: 0;
+  color: #1e293b;
+  word-break: break-word;
+}
+.ro-dd-multiline {
+  white-space: pre-wrap;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.ro-pre {
+  margin: 0;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+</style>

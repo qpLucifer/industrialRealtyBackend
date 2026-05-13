@@ -19,7 +19,7 @@ export const navMeta: Record<
   announce: { title: '公告通知', crumb: '范围推送 · 弹窗策略' },
   logs: { title: '日志审计', crumb: '房源 / 客户 / 账号溯源' },
   settings: { title: '系统设置', crumb: '审核 · 脱敏 · 导出 · 自定义预留' },
-  future: { title: '扩展预留', crumb: '财务 / 打卡 / 招商菜单占位' },
+  future: { title: '扩展预留', crumb: '财务 / 打卡 / 招商等扩展接口清单' },
 }
 
 export const appRoutes: RouteRecordRaw[] = [

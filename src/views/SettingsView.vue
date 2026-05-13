@@ -16,6 +16,10 @@ async function onToggle(row: SecuritySwitch, val: boolean) {
   await putSecuritySettings(switches.value)
   ElMessage.info(`${row.label} → ${val ? '开启' : '关闭'}`)
 }
+
+function onLowCodeInfo() {
+  ElMessage.info('Low-code 表单设计器尚未接入；安全策略上方开关已直连 /api/settings/security。')
+}
 </script>
 
 <template>
@@ -30,7 +34,9 @@ async function onToggle(row: SecuritySwitch, val: boolean) {
     <div class="card" style="margin-top: 14px">
       <h3>扩展配置（预留）</h3>
       <p class="hint">字段自定义、标签库、权限模板批量下发、Webhook 通知第三方 ERP。</p>
-      <button type="button" class="btn btn-primary" style="margin-top: 12px">打开 Low-code 表单设计器（占位）</button>
+      <button type="button" class="btn btn-primary" style="margin-top: 12px" @click="onLowCodeInfo">
+        打开 Low-code 表单设计器（预留）
+      </button>
     </div>
   </section>
 </template>

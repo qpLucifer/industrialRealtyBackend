@@ -9,12 +9,14 @@ export interface AuthUser {
 export interface KpiItem {
   label: string
   value: string
-  trend: string
+  trend?: string
 }
 
 export interface RegionBar {
   label: string
   heightPct: number
+  /** Raw property count in this bucket (for charts) */
+  count?: number
 }
 
 export interface StaffActivityRow {
@@ -39,6 +41,7 @@ export interface StaffRow {
 }
 
 export interface StaffForm {
+  id?: string
   employeeNo: string
   name: string
   phone: string
@@ -50,12 +53,15 @@ export interface StaffForm {
   role: StaffRole
   regionIds: string[]
   dataScopeHint: string
-  wecomUserId: string
-  openIdHint: string
+  /** WeChat display name (stored in staff.wecom_user_id) */
+  wechatNickname: string
+  /** Mini program OpenId hint (stored in staff.open_id_hint) */
+  miniProgramOpenId: string
   remark: string
 }
 
 export interface WhitelistRow {
+  id: number
   phone: string
   name: string
   remark: string
@@ -69,10 +75,17 @@ export interface RegionTreeLine {
 }
 
 export interface RegionBindingRow {
+  id?: number
   staffName: string
+  /** Comma-separated region names (same as region_defs.name) */
   nodeIds: string
-  crossExport: '禁止' | '允许'
-  crossView: '禁止' | '允许'
+}
+
+/** Master list of business region names — CRUD in 区域权限 */
+export interface RegionDefRow {
+  id: number
+  name: string
+  sortOrder?: number
 }
 
 export type PropertyStatusTag = '待租' | '已租' | '待售' | '已售' | '意向中' | '下架封存' | '草稿'
@@ -90,6 +103,8 @@ export interface PropertyRow {
   submitter: string
   audit: AuditTag
   rowMuted?: boolean
+  /** Derived: listing_line2 contains 已跟进 → 已跟进 */
+  followUpDone?: boolean
 }
 
 export interface AuditQueueRow {
@@ -97,23 +112,49 @@ export interface AuditQueueRow {
   title: string
   submitter: string
   submittedAt: string
+  /** From `properties.risk_tag`, editable in 房源编辑 */
   riskTag: string
+  district?: string
+  type?: string
+  listingLine1?: string
+  listingLine2?: string
+  metaLine?: string
+  specLine?: string
+  priceLine?: string
+  auditHint?: string
+  detailTitle?: string
 }
 
 export type CustomerGrade = 'A 类' | 'B 类' | 'C 类'
 
 export interface CustomerRow {
   id: string
+  /** DB slug for follow-up API */
+  slug?: string
+  company?: string
+  /** contact_name */
+  contactName?: string
+  /** title_line — list card headline */
+  titleLine?: string
   phoneMasked: string
   name: string
   addressHint: string
   demandSummary: string
   grade: CustomerGrade
+  /** Pipeline status, e.g. 洽谈中 / 已成交 / 搁置 */
+  dealStatus: string
   lastFollowAt: string
   nextReminder: string | '—'
-  timelineHtml: string
+  timelineHtml?: string
   ownerName: string
   hasNextReminderTag?: 'amber' | 'mint'
+}
+
+/** Full customer row for detail drawer (includes phone) */
+export interface CustomerDetail extends CustomerRow {
+  contactName: string
+  phone: string
+  badgesHtml?: string
 }
 
 export interface VideoFaqRow {
@@ -125,9 +166,12 @@ export interface VideoFaqRow {
   tags: { label: string; tone: 'cyan' | 'mint' | 'amber' }[]
   miniProgramSearch: boolean
   updatedAt: string
+  summary?: string
+  metaLine?: string
 }
 
 export interface ViewingRow {
+  id?: number
   start: string
   end: string
   propertyRef: string
@@ -137,6 +181,7 @@ export interface ViewingRow {
 }
 
 export interface DealRow {
+  id?: number
   contractType: string
   amount: string
   commission: string
@@ -145,18 +190,23 @@ export interface DealRow {
 }
 
 export interface AnnouncementRow {
+  id: number
   title: string
   scope: string
   popup: string
   schedule: string
   status: '已发送' | '计划中'
   statusTone: 'mint' | 'amber'
+  body?: string | null
 }
 
 export type LogKind = 'prop' | 'cust' | 'acct'
 export type LogAction = 'login' | 'view' | 'edit' | 'share' | 'export'
 
 export interface LogRow {
+  id?: number
+  /** Server-side timestamp for date-range filter */
+  loggedAt?: string
   time: string
   actor: string
   objectLabel: string
@@ -174,6 +224,22 @@ export interface SecuritySwitch {
 
 export interface PropertyFullForm {
   code: string
+  /** List column `title` — short headline in property table */
+  listTitle: string
+  /** Administrative region label (list column `district`) */
+  district: string
+  /** Primary line under 上架流程 (maps to listing_line1) */
+  listingLine1: string
+  /** Secondary line (maps to listing_line2) */
+  listingLine2: string
+  /** List audit badge: 已通过 | 待审核 | — */
+  auditTag: AuditTag
+  /** Shown in audit queue; persisted as `properties.risk_tag` */
+  riskTag?: string
+  /** Submitter shown in list */
+  submitterName: string
+  /** Dim row in admin list */
+  rowMuted: boolean
   types: string[]
   companyName: string
   address: string

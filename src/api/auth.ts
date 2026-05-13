@@ -10,3 +10,8 @@ export async function fetchMe() {
   const res = await http.get('/me')
   return unwrap(res) as AuthUser
 }
+
+export async function logoutApi() {
+  const res = await http.post('/auth/logout')
+  return unwrap(res) as { success: boolean }
+}

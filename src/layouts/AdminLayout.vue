@@ -1,11 +1,24 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
 import { navMeta } from '@/router/routes'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+const router = useRouter()
 const route = computed(() => useRoute())
+
+async function onUserMenu(command: string) {
+  if (command !== 'logout') return
+  try {
+    await ElMessageBox.confirm('确定退出登录？', '退出登录', { type: 'warning', confirmButtonText: '退出', cancelButtonText: '取消' })
+  } catch {
+    return
+  }
+  await auth.logout()
+  await router.push({ name: 'login', query: {} })
+}
 
 const pageTitle = computed(() => {
   const name = route.value.name?.toString() ?? 'dashboard'
@@ -240,13 +253,20 @@ function isActive(name: string) {
           <h1>{{ pageTitle }}</h1>
           <div class="crumb">{{ pageCrumb }}</div>
         </div>
-        <div class="user-pill">
-          <div class="avatar" />
-          <div>
-            <div style="font-weight: 700; font-size: 13px">{{ auth.user?.displayName ?? '—' }}</div>
-            <div style="font-size: 11px; color: var(--muted)">{{ auth.user?.roleLine ?? '' }}</div>
+        <el-dropdown trigger="click" @command="onUserMenu">
+          <div class="user-pill" role="button" tabindex="0" title="账户菜单">
+            <div class="avatar" aria-hidden="true" />
+            <div>
+              <div style="font-weight: 700; font-size: 13px">{{ auth.user?.displayName ?? '—' }}</div>
+              <div style="font-size: 11px; color: var(--muted)">{{ auth.user?.roleLine ?? '' }}</div>
+            </div>
           </div>
-        </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </header>
 
       <div class="content">
@@ -259,5 +279,14 @@ function isActive(name: string) {
 <style scoped>
 a.nav-btn {
   text-decoration: none;
+}
+
+.user-pill {
+  cursor: pointer;
+  outline: none;
+}
+
+.user-pill:hover {
+  border-color: rgba(13, 148, 136, 0.35);
 }
 </style>

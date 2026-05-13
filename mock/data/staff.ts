@@ -27,8 +27,8 @@ export interface StaffForm {
   role: StaffRole
   regionIds: string[]
   dataScopeHint: string
-  wecomUserId: string
-  openIdHint: string
+  wechatNickname: string
+  miniProgramOpenId: string
   remark: string
 }
 
@@ -48,7 +48,7 @@ export const mockStaffRows: StaffRow[] = [
     name: '王敏',
     phoneMasked: '139****2048',
     role: '部门经理',
-    regions: '华南大区（辖）',
+    regions: '花都区',
     status: '正常',
   },
 ]
@@ -63,16 +63,9 @@ export const mockStaffFormDefault: StaffForm = {
   hireDate: '2024-03-01',
   accountStatus: '正常',
   role: '业务员',
-  regionIds: ['440112', '440118'],
-  dataScopeHint: '授权区域内房源 + 本人私有客户 + 公有池只读',
-  wecomUserId: 'ChenSiYuan',
-  openIdHint: 'oXXXX … 已绑定',
+  regionIds: ['黄埔区', '增城区'],
+  dataScopeHint: '授权区域：黄埔区、增城区',
+  wechatNickname: '陈思远',
+  miniProgramOpenId: 'oXXXX_mock_openid_chen',
   remark: '已通过保密培训 2026-Q1',
 }
-
-export const mockRegionChipOptions = [
-  { id: '440112', label: '黄埔区' },
-  { id: '440118', label: '增城区' },
-  { id: '440115', label: '南沙区' },
-  { id: '440114', label: '花都区' },
-]

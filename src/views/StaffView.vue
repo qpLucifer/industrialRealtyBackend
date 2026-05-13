@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { fetchStaffForm, fetchStaffList, saveStaffForm } from '@/api/admin'
-import type { StaffForm, StaffRow } from '@/types/domain'
-import { regionChipOptions } from '@/constants/regionChips'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { deleteStaffApi, fetchRegionDefs, fetchStaffForm, fetchStaffList, patchStaffStatusApi, postStaffImportCsv, saveStaffForm } from '@/api/admin'
+import type { RegionDefRow, StaffForm, StaffRow } from '@/types/domain'
 
 const list = ref<StaffRow[]>([])
+const regionDefs = ref<RegionDefRow[]>([])
 const drawer = ref(false)
 const form = reactive<StaffForm>({} as StaffForm)
+const editingStaffId = ref<string | undefined>(undefined)
+const staffQ = ref('')
+const staffRole = ref<string>('all')
 
 function tagClass(role: string) {
   if (role === '业务员') return 'cyan'
@@ -15,48 +18,180 @@ function tagClass(role: string) {
   return 'mint'
 }
 
-async function openDrawer() {
+async function loadRegionDefs() {
+  const { list: rows } = await fetchRegionDefs()
+  regionDefs.value = rows
+}
+
+async function loadList() {
+  const { list: rows } = await fetchStaffList({ q: staffQ.value, role: staffRole.value })
+  list.value = rows
+}
+
+async function openDrawerForNew() {
+  editingStaffId.value = undefined
   const f = await fetchStaffForm()
+  Object.assign(form, f, { id: undefined, employeeNo: '', name: '', phone: '' })
+  drawer.value = true
+}
+
+async function openEdit(row: StaffRow) {
+  editingStaffId.value = row.id
+  const f = await fetchStaffForm(row.id)
   Object.assign(form, f)
   drawer.value = true
 }
 
-async function openEdit() {
-  await openDrawer()
-}
-
 onMounted(async () => {
-  const { list: rows } = await fetchStaffList()
-  list.value = rows
+  await loadRegionDefs()
+  await loadList()
 })
 
-function toggleRegion(id: string) {
+watch(
+  () => [...(form.regionIds || [])].sort().join(','),
+  () => {
+    const names = (form.regionIds || []).filter(Boolean)
+    form.dataScopeHint = names.length ? `授权区域：${names.join('、')}` : '未选择区域'
+  },
+)
+
+function toggleRegion(name: string) {
   const set = new Set(form.regionIds)
-  if (set.has(id)) set.delete(id)
-  else set.add(id)
+  if (set.has(name)) set.delete(name)
+  else {
+    if (set.size >= 2) {
+      ElMessage.warning('负责区域最多选择 2 个')
+      return
+    }
+    set.add(name)
+  }
   form.regionIds = Array.from(set)
 }
 
 async function onSave() {
-  await saveStaffForm({ ...form })
-  ElMessage.success('员工权限已保存（原型）')
+  const emp = String(form.employeeNo || '').trim()
+  const nm = String(form.name || '').trim()
+  const ph = String(form.phone || '').replace(/\s/g, '')
+  const dept = String(form.department || '').trim()
+  if (!emp || emp.length > 32) {
+    ElMessage.error('工号必填，最长 32 字符')
+    return
+  }
+  if (!nm || nm.length > 50) {
+    ElMessage.error('姓名必填，最长 50 字符')
+    return
+  }
+  if (!/^\d{11}$/.test(ph)) {
+    ElMessage.error('请输入 11 位数字手机号')
+    return
+  }
+  if (!dept || dept.length > 64) {
+    ElMessage.error('部门必填，最长 64 字符')
+    return
+  }
+  if (!form.role) {
+    ElMessage.error('请选择角色')
+    return
+  }
+  if ((form.regionIds?.length || 0) > 2) {
+    ElMessage.error('负责区域最多选择 2 个')
+    return
+  }
+  const payload = { ...form, employeeNo: emp, name: nm, phone: ph, department: dept, id: form.id || editingStaffId.value }
+  await saveStaffForm(payload)
+  ElMessage.success('已保存')
   drawer.value = false
+  await loadList()
+}
+
+async function onDisable(row: StaffRow) {
+  try {
+    await ElMessageBox.confirm(`确定将「${row.name}」设为禁用？`, '确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  await patchStaffStatusApi(row.id, '禁用')
+  ElMessage.success('状态已更新')
+  await loadList()
+}
+
+async function onDelete(row: StaffRow) {
+  try {
+    await ElMessageBox.confirm(`确定删除员工「${row.name}」？此操作不可恢复。`, '危险操作', { type: 'warning' })
+  } catch {
+    return
+  }
+  await deleteStaffApi(row.id)
+  ElMessage.success('已删除')
+  await loadList()
+}
+
+function csvEscape(cell: string) {
+  const s = String(cell ?? '')
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
+}
+
+function onExportStaffCsv() {
+  const header = ['id', 'employeeNo', 'name', 'phoneMasked', 'role', 'regions', 'status']
+  const rows = list.value.map((r) =>
+    [r.id, r.employeeNo, r.name, r.phoneMasked, r.role, r.regions, r.status].map(csvEscape).join(','),
+  )
+  const csv = [header.join(','), ...rows].join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `staff-${Date.now()}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
+  ElMessage.success('已导出当前列表为 CSV')
+}
+
+function onImportCsv() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.csv,text/csv'
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    const out = await postStaffImportCsv(text)
+    const errMsg = out.errors?.length ? `；${out.errors.slice(0, 3).join('；')}` : ''
+    ElMessage.success(`导入完成：新建 ${out.created}，更新 ${out.updated}${errMsg}`)
+    await loadList()
+  }
+  input.click()
+}
+
+function onDownloadStaffTemplate() {
+  const header = ['employee_no', 'name', 'phone', 'department', 'role', 'region_ids', 'email', 'title', 'hire_date', 'remark']
+  const example = ['E001', '张三', '13800138000', '招商部', '业务员', '黄埔区,增城区', '', '', '2024-01-01', '']
+  const csv = [header.join(','), example.join(',')].join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = 'staff-import-template.csv'
+  a.click()
+  URL.revokeObjectURL(a.href)
+  ElMessage.success('已下载员工导入 CSV 模板')
 }
 </script>
 
 <template>
   <section class="panel active">
     <div class="toolbar">
-      <button type="button" class="btn btn-primary" @click="openDrawer">＋ 新建员工</button>
-      <button type="button" class="btn">批量导入 Excel</button>
-      <button type="button" class="btn">权限模板</button>
-      <input type="search" placeholder="搜索：姓名 / 手机 / 工号" style="min-width: 220px" />
-      <select>
-        <option>全部角色</option>
+      <button type="button" class="btn btn-primary" @click="openDrawerForNew">＋ 新建员工</button>
+      <button type="button" class="btn" @click="onImportCsv">导入 CSV</button>
+      <button type="button" class="btn" @click="onExportStaffCsv">导出 CSV</button>
+      <button type="button" class="btn" @click="onDownloadStaffTemplate">下载导入模板</button>
+      <input v-model="staffQ" type="search" placeholder="搜索：姓名 / 手机 / 工号" style="min-width: 220px" @keyup.enter="loadList" />
+      <select v-model="staffRole" @change="loadList">
+        <option value="all">全部角色</option>
         <option>超级管理员</option>
         <option>部门经理</option>
         <option>业务员</option>
       </select>
+      <button type="button" class="btn btn-primary" @click="loadList">查询</button>
     </div>
     <div class="card" style="padding: 0; overflow: hidden">
       <table class="data">
@@ -78,11 +213,12 @@ async function onSave() {
             <td>{{ s.phoneMasked }}</td>
             <td><span class="tag" :class="tagClass(s.role)">{{ s.role }}</span></td>
             <td>{{ s.regions }}</td>
-            <td><span class="tag mint">{{ s.status }}</span></td>
+            <td><span class="tag" :class="s.status === '正常' ? 'mint' : 'rose'">{{ s.status }}</span></td>
             <td>
               <div class="row-actions">
-                <button type="button" class="btn btn-primary" @click="openEdit">编辑</button>
-                <button type="button" class="btn">禁用</button>
+                <button type="button" class="btn btn-primary" @click="openEdit(s)">编辑</button>
+                <button type="button" class="btn" @click="onDisable(s)">禁用</button>
+                <button type="button" class="btn" style="color: var(--rose)" @click="onDelete(s)">删除</button>
               </div>
             </td>
           </tr>
@@ -99,31 +235,38 @@ async function onSave() {
       <div class="form-grid">
         <div>
           <label>工号<span style="color: var(--rose)">*</span></label>
-          <input v-model="form.employeeNo" type="text" />
+          <input v-model="form.employeeNo" type="text" maxlength="32" placeholder="最长 32 字符" />
         </div>
         <div>
           <label>姓名<span style="color: var(--rose)">*</span></label>
-          <input v-model="form.name" type="text" />
+          <input v-model="form.name" type="text" maxlength="50" />
         </div>
         <div>
           <label>手机号<span style="color: var(--rose)">*</span></label>
-          <input v-model="form.phone" type="text" />
+          <input v-model="form.phone" type="text" maxlength="11" inputmode="numeric" placeholder="11 位" />
         </div>
         <div>
           <label>邮箱</label>
-          <input v-model="form.email" type="text" />
+          <input v-model="form.email" type="email" maxlength="120" />
         </div>
         <div>
           <label>部门<span style="color: var(--rose)">*</span></label>
-          <input v-model="form.department" type="text" />
+          <input v-model="form.department" type="text" maxlength="64" />
         </div>
         <div>
           <label>职位</label>
-          <input v-model="form.title" type="text" />
+          <input v-model="form.title" type="text" maxlength="64" />
         </div>
         <div>
           <label>入职日期</label>
-          <input v-model="form.hireDate" type="text" />
+          <el-date-picker
+            v-model="form.hireDate"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="选择日期"
+            style="width: 100%; margin-top: 4px"
+            clearable
+          />
         </div>
         <div>
           <label>账号状态</label>
@@ -142,34 +285,33 @@ async function onSave() {
           </select>
         </div>
         <div class="full">
-          <label>负责区域（最多选 2 个叶子节点）</label>
-          <div class="chip-toggle" data-multi style="margin-top: 6px">
+          <label>负责区域（最多 2 个，与「区域权限」名称一致）</label>
+          <div class="chip-toggle region-chip-panel" data-multi style="margin-top: 6px">
             <span
-              v-for="opt in regionChipOptions"
-              :key="opt.id"
-              :class="{ on: form.regionIds?.includes(opt.id) }"
-              :data-v="opt.id"
-              @click="toggleRegion(opt.id)"
-              >{{ opt.label }}</span
+              v-for="d in regionDefs"
+              :key="d.id"
+              :class="{ on: form.regionIds?.includes(d.name) }"
+              @click="toggleRegion(d.name)"
+              >{{ d.name }}</span
             >
           </div>
-          <p class="hint" style="margin-top: 8px">数据库保存 region_ids JSON · 服务端强制校验数量 ≤2。</p>
+          <p class="hint" style="margin-top: 8px">与房源「区域」、区域权限页使用相同名称。</p>
         </div>
         <div class="full">
           <label>数据可见范围（自动生成）</label>
           <input v-model="form.dataScopeHint" type="text" readonly />
         </div>
         <div>
-          <label>企业微信 UserId</label>
-          <input v-model="form.wecomUserId" type="text" />
+          <label>微信名称（对外展示）</label>
+          <input v-model="form.wechatNickname" type="text" maxlength="128" placeholder="客户在微信中看到的昵称" />
         </div>
         <div>
-          <label>小程序 OpenID</label>
-          <input v-model="form.openIdHint" type="text" readonly />
+          <label>小程序 OpenId</label>
+          <input v-model="form.miniProgramOpenId" type="text" maxlength="255" placeholder="用户小程序 openid" />
         </div>
         <div class="full">
           <label>备注（人事 / 合规）</label>
-          <textarea v-model="form.remark" />
+          <textarea v-model="form.remark" maxlength="500" rows="3" placeholder="最长 500 字" />
         </div>
       </div>
       <div style="display: flex; gap: 10px; margin-top: 22px">
