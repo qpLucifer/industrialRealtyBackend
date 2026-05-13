@@ -73,7 +73,7 @@ function isActive(name: string) {
       <div class="brand">
         <div class="brand-mark">INDUSTRIAL OS</div>
         <div class="brand-sub">
-          工业地产 · 内部治理与业务中台<br />小程序数据同源 · 加密存储
+          工业地产 · 内部治理与业务中台<br />小程序数据同源
         </div>
       </div>
 
