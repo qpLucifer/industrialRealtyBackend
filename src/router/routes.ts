@@ -1,0 +1,54 @@
+import type { RouteRecordRaw } from 'vue-router'
+
+export const navMeta: Record<
+  string,
+  {
+    title: string
+    crumb: string
+  }
+> = {
+  dashboard: { title: '数据总览', crumb: '全局 KPI · 区域分布 · 活跃度' },
+  staff: { title: '员工与账号', crumb: '角色 · 区域绑定 · 禁用策略' },
+  whitelist: { title: '手机号白名单', crumb: '小程序准入双重校验' },
+  regions: { title: '区域权限', crumb: '行政区树 · 员工隔离' },
+  properties: { title: '房源管理', crumb: '全字段维护 · 审核状态' },
+  audit: { title: '审核中心', crumb: '待审队列 · 风控' },
+  customers: { title: '客户统筹', crumb: '跟进表 · ABC 分级 · 系统提醒' },
+  'video-faq': { title: '视频 FAQ', crumb: '客户问题采集 · 短视频库 · 小程序可搜' },
+  viewings: { title: '带看 / 成交', crumb: '台账 · 财务预留字段' },
+  announce: { title: '公告通知', crumb: '范围推送 · 弹窗策略' },
+  logs: { title: '日志审计', crumb: '房源 / 客户 / 账号溯源' },
+  settings: { title: '系统设置', crumb: '审核 · 脱敏 · 导出 · 自定义预留' },
+  future: { title: '扩展预留', crumb: '财务 / 打卡 / 招商菜单占位' },
+}
+
+export const appRoutes: RouteRecordRaw[] = [
+  { path: '/', redirect: '/app/dashboard' },
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { public: true, title: '登录' },
+  },
+  {
+    path: '/app',
+    component: () => import('@/layouts/AdminLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: '/app/dashboard' },
+      { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
+      { path: 'staff', name: 'staff', component: () => import('@/views/StaffView.vue') },
+      { path: 'whitelist', name: 'whitelist', component: () => import('@/views/WhitelistView.vue') },
+      { path: 'regions', name: 'regions', component: () => import('@/views/RegionsView.vue') },
+      { path: 'properties', name: 'properties', component: () => import('@/views/PropertiesView.vue') },
+      { path: 'audit', name: 'audit', component: () => import('@/views/AuditView.vue') },
+      { path: 'customers', name: 'customers', component: () => import('@/views/CustomersView.vue') },
+      { path: 'video-faq', name: 'video-faq', component: () => import('@/views/VideoFaqView.vue') },
+      { path: 'viewings', name: 'viewings', component: () => import('@/views/ViewingsView.vue') },
+      { path: 'announce', name: 'announce', component: () => import('@/views/AnnounceView.vue') },
+      { path: 'logs', name: 'logs', component: () => import('@/views/LogsView.vue') },
+      { path: 'settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
+      { path: 'future', name: 'future', component: () => import('@/views/FutureView.vue') },
+    ],
+  },
+]
