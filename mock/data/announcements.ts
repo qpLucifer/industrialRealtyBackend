@@ -10,6 +10,6 @@ export interface AnnouncementRow {
 }
 
 export const mockAnnouncements: AnnouncementRow[] = [
-  { title: '电费计价调整', scope: '全员', popup: '是', schedule: '立即', status: '已发送', statusTone: 'mint' },
+  { title: '电费计价调整', scope: '全员', popup: '否', schedule: '立即', status: '已发送', statusTone: 'mint' },
   { title: '报备流程培训', scope: '业务员', popup: '否', schedule: '周五 15:00', status: '计划中', statusTone: 'amber' },
 ]
