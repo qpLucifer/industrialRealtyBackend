@@ -35,6 +35,14 @@ printf '%s' "$(cat .env)" | base64 -w0   # Linux；macOS 去掉 -w0
 
 将输出的**整段**粘贴到 Secret `SERVER_DOTENV_B64`。勿把 `.env` 提交到 Git。
 
+### 高德地图仍报「搜索失败 / 缺安全密钥」时排查
+
+1. **Vite 只在 `npm run build` 时读 `.env`**：站点目录（如 `admin-web-test`）里**没有 `.env` 是正常的**；若 CI 未注入或构建时变量为空，线上会一直缺 Key/安全码。看 Actions / 服务器脚本日志里是否有 **`SERVER_DOTENV_B64 is set`**、**`VITE_AMAP_SECURITY_JS_CODE is non-empty`**。
+2. **Secret 内容必须是「仅 base64 字符串」**：不要带 `data:...` 前缀；Windows 请用 WSL/Git Bash 生成，避免 PowerShell `ConvertTo-Base64` 换行/编码与 Linux `base64 -d` 不兼容。
+3. **必须用 `admin-web/.env` 做源文件**（含 `VITE_` 前缀）；不要用后端仓库的 `.env` 去生成 admin 的 Secret。
+4. **用 IP 访问后台时**：高德「**Key 名称 → 安全设置 → 域名白名单**」里不能只填 `xxx.com`，需增加 **`http://你的IP/*`** 或 **`https://你的IP/*`**（与浏览器地址栏一致）；地图能显示但搜索失败，多半是 **PlaceSearch 鉴权** 与白名单/安全码有关。
+5. **Key 类型**：须为 **Web 端（JS API）**，不要用「Web 服务」REST Key 混用。
+
 ## 仅静态产物部署（GitHub 上 build）
 
 若使用 **`admin-web/.github/workflows/deploy-admin-web.yml`** 且已放到仓库根 `.github/workflows`（或单独 admin-web 仓库）：

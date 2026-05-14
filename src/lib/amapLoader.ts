@@ -8,12 +8,13 @@ export function loadAmapScript(): Promise<void> {
   if (w.AMap) return Promise.resolve()
   if (loadPromise) return loadPromise
 
-  const key = import.meta.env.VITE_AMAP_WEB_KEY
+  const key = String(import.meta.env.VITE_AMAP_WEB_KEY || '').trim()
   if (!key) {
     return Promise.reject(new Error('缺少 VITE_AMAP_WEB_KEY（高德开放平台 → 应用管理 → Web端(JS API) Key）'))
   }
 
-  const securityJsCode = import.meta.env.VITE_AMAP_SECURITY_JS_CODE
+  // Keys created after 2021-12-02 require securityJsCode before loading the script; trim CR/BOM from .env lines.
+  const securityJsCode = String(import.meta.env.VITE_AMAP_SECURITY_JS_CODE || '').trim()
   if (securityJsCode) {
     w._AMapSecurityConfig = { securityJsCode }
   }

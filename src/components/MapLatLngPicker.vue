@@ -104,10 +104,14 @@ function runPlaceSearch(keyword: string) {
 
       if (statusLc === 'error') {
         searchResults.value = []
-        ElMessage.error(
-          info ||
-            '地点搜索失败（请确认 VITE_AMAP_WEB_KEY；2021-12-02 后申请的 Key 需配置 VITE_AMAP_SECURITY_JS_CODE，并在控制台绑定 JS API 域名白名单）',
-        )
+        const msg = String((result as { message?: string }).message || '')
+        const infocode = (result as { infocode?: string | number }).infocode
+        const detail = [info, msg, infocode != null && infocode !== '' ? `infocode=${infocode}` : '']
+          .filter(Boolean)
+          .join(' · ')
+        const fallback =
+          '地点搜索失败：请确认构建时已注入 VITE_AMAP_WEB_KEY / VITE_AMAP_SECURITY_JS_CODE（见部署日志）；高德控制台 Key 类型须为「Web端(JS API)」；若用 IP 打开后台，白名单须包含该 IP（如 http://39.x.x.x/*），仅填域名无效。'
+        ElMessage.error(detail || fallback)
         return
       }
 
