@@ -1,9 +1,11 @@
-import { http, unwrap } from './http'
+import { http, unwrap, type ApiResult } from './http'
 import type { AuthUser } from '@/types/domain'
 
-export async function loginApi() {
-  const res = await http.post('/auth/login')
-  return unwrap(res) as { token: string; user: AuthUser }
+export async function loginApi(username: string, password: string) {
+  const res = await http.post<
+    ApiResult<{ token: string; user: AuthUser; expiresAt: string; expiresIn: number }>
+  >('/auth/login', { username, password }, { validateStatus: () => true })
+  return unwrap(res) as { token: string; user: AuthUser; expiresAt: string; expiresIn: number }
 }
 
 export async function fetchMe() {

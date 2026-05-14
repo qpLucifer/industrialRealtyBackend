@@ -4,6 +4,10 @@ export interface AuthUser {
   displayName: string
   roleLine: string
   avatarUrl?: string
+  /** ISO8601 — session expiry from token (see /api/me) */
+  sessionExpiresAt?: string
+  /** Seconds remaining for this session */
+  sessionExpiresIn?: number
 }
 
 /** sys_users with user_kind=admin — admin panel operators */

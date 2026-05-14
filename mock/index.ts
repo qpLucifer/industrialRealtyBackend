@@ -1,5 +1,4 @@
 import type { MockMethod } from 'vite-plugin-mock'
-import { mockAuthUser } from './data/auth'
 import { mockKpis, mockRegionBars, mockStaffActivity } from './data/dashboard'
 import { mockStaffRows, mockStaffFormDefault } from './data/staff'
 import { mockWhitelistRows } from './data/whitelist'
@@ -27,7 +26,10 @@ import {
   mockSysAdminUserCreate,
   mockSysAdminUserUpdate,
   mockSysAdminUserDelete,
+  mockTryAdminLogin,
+  mockGetAdminUserForMe,
 } from './data/sysAdminUsers'
+import { encodeMockAdminToken, decodeMockAdminToken } from './lib/mockAdminToken'
 
 const ok = <T,>(result: T) => ({ code: 200, message: 'success', result })
 
@@ -35,16 +37,39 @@ export default [
   {
     url: '/api/auth/login',
     method: 'post',
-    response: () =>
-      ok({
-        token: 'mock-jwt-admin-session',
-        user: mockAuthUser,
-      }),
+    response: ({ body }: { body?: Record<string, string> }) => {
+      const username = String(body?.username || '').trim().toLowerCase()
+      const password = String(body?.password || '')
+      const r = mockTryAdminLogin(username, password)
+      if (!r.ok) {
+        return { code: r.code, message: r.message, result: null }
+      }
+      const { token, expiresAt, expiresIn } = encodeMockAdminToken(r.id)
+      return ok({ token, user: r.user, expiresAt, expiresIn })
+    },
   },
   {
     url: '/api/me',
     method: 'get',
-    response: () => ok(mockAuthUser),
+    response: (opt: { headers?: Record<string, string | string[] | undefined> }) => {
+      const h = opt.headers?.authorization ?? opt.headers?.Authorization
+      const raw = Array.isArray(h) ? h[0] : h
+      const m = raw && String(raw).match(/^Bearer\s+(.+)$/i)
+      const token = m ? m[1].trim() : ''
+      const dec = decodeMockAdminToken(token)
+      if (!dec) {
+        return { code: 401, message: '未登录或已过期', result: null }
+      }
+      const u = mockGetAdminUserForMe(dec.sub)
+      if (!u) {
+        return { code: 401, message: '用户不存在', result: null }
+      }
+      return ok({
+        ...u,
+        sessionExpiresAt: new Date(dec.expMs).toISOString(),
+        sessionExpiresIn: Math.max(0, Math.floor((dec.expMs - Date.now()) / 1000)),
+      })
+    },
   },
   {
     url: '/api/auth/logout',
