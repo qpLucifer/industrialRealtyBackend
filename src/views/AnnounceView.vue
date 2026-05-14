@@ -28,22 +28,6 @@ function toneDbToCn(t: string): '青绿色' | '琥珀色' {
   return t === 'amber' ? '琥珀色' : '青绿色'
 }
 
-function parsePopupWindow(schedule: string): { start: string; end: string } {
-  const s = String(schedule || '').trim()
-  const parts = s.split('|')
-  if (parts.length >= 2) {
-    return { start: parts[0].trim(), end: parts[1].trim() }
-  }
-  return { start: '', end: '' }
-}
-
-function buildPopupWindowRange(): string {
-  const a = form.popupStart.trim()
-  const b = form.popupEnd.trim()
-  if (!a || !b) return ''
-  return `${a}|${b}`
-}
-
 async function load() {
   const { list: rows } = await fetchAnnouncements()
   list.value = rows
@@ -55,7 +39,8 @@ function statusClass(t: AnnouncementRow['statusTone']) {
 
 function popupWindowLabel(row: AnnouncementRow): string {
   if (row.popup !== '是') return '—'
-  const { start, end } = parsePopupWindow(row.schedule)
+  const start = String(row.popupStart || '').trim()
+  const end = String(row.popupEnd || '').trim()
   if (!start && !end) return '—'
   return `${start || '—'} ~ ${end || '—'}`
 }
@@ -78,9 +63,8 @@ function openEdit(row: AnnouncementRow) {
   form.body = row.body || ''
   form.scope = row.scope
   form.popup = row.popup
-  const win = parsePopupWindow(row.schedule)
-  form.popupStart = win.start
-  form.popupEnd = win.end
+  form.popupStart = String(row.popupStart || '').trim()
+  form.popupEnd = String(row.popupEnd || '').trim()
   form.statusToneCn = toneDbToCn(row.statusTone)
   modal.value = true
 }
@@ -100,13 +84,13 @@ async function onPublish() {
       return
     }
   }
-  const popupWindowRange = form.popup === '是' ? buildPopupWindowRange() : ''
   const payload = {
     title: form.title.trim(),
     body: form.body.trim(),
     scope: form.scope,
     popup: form.popup,
-    popupWindowRange,
+    popupStart: form.popup === '是' ? form.popupStart.trim() : '',
+    popupEnd: form.popup === '是' ? form.popupEnd.trim() : '',
     statusToneCn: form.statusToneCn,
   }
   if (editingId.value == null) {
@@ -147,7 +131,7 @@ onMounted(load)
             <th>标题</th>
             <th>推送范围</th>
             <th>小程序弹窗</th>
-            <th>弹窗展示时间</th>
+            <th>开始 / 结束时间</th>
             <th>列表强调色</th>
             <th>操作</th>
           </tr>
@@ -206,13 +190,13 @@ onMounted(load)
               </select>
             </div>
             <div v-if="form.popup === '是'" class="full">
-              <label>弹窗展示时间范围<span style="color: var(--rose)">*</span></label>
-              <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 6px">
-                <input v-model="form.popupStart" type="datetime-local" style="flex: 1; min-width: 180px" />
-                <span class="hint" style="white-space: nowrap">至</span>
-                <input v-model="form.popupEnd" type="datetime-local" style="flex: 1; min-width: 180px" />
-              </div>
-              <p class="hint" style="margin-top: 6px">仅在小程序弹窗选「是」时需要填写；将写入服务端时间窗字段。</p>
+              <label>开始时间<span style="color: var(--rose)">*</span></label>
+              <input v-model="form.popupStart" type="datetime-local" style="margin-top: 6px; width: 100%; max-width: 320px" />
+            </div>
+            <div v-if="form.popup === '是'" class="full">
+              <label>结束时间<span style="color: var(--rose)">*</span></label>
+              <input v-model="form.popupEnd" type="datetime-local" style="margin-top: 6px; width: 100%; max-width: 320px" />
+              <p class="hint" style="margin-top: 6px">仅在小程序弹窗选「是」时必填。</p>
             </div>
             <div class="full">
               <label>列表强调色（中文）</label>

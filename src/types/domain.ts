@@ -213,8 +213,9 @@ export interface AnnouncementRow {
   title: string
   scope: string
   popup: string
-  /** When popup is 是: stores "start|end" window (reuses legacy schedule column) */
-  schedule: string
+  /** When popup is 是: MySQL DATETIME formatted as YYYY-MM-DDTHH:mm for datetime-local */
+  popupStart?: string | null
+  popupEnd?: string | null
   status: string
   statusTone: 'mint' | 'amber'
   body?: string | null
