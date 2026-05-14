@@ -1,6 +1,6 @@
 # Build on GitHub, upload dist tarball, extract to Nginx site root — no git on server.
-# Optional: GitHub secret SERVER_DOTENV_B64 = base64 of admin-web/.env (Vite bakes VITE_* at build time).
-# Create:  printf '%s' "$(cat .env)" | base64 -w0
+# Optional: GitHub secret SERVER_DOTENV_B64 = base64 of repo-root .env (Vite bakes VITE_* at build time).
+# Create (Linux):  printf '%s' "$(cat .env)" | base64 -w0
 name: Deploy admin-web (artifact)
 
 on:
@@ -13,37 +13,53 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Single source of truth: .env must live next to package.json used for npm run build.
+      - name: Resolve Vite project directory
+        id: vite
+        run: |
+          set -eu
+          if [ -f package.json ]; then
+            echo "root=." >> "$GITHUB_OUTPUT"
+            echo "lock=package-lock.json" >> "$GITHUB_OUTPUT"
+            echo "Using repo root (standalone admin-web repository)."
+          elif [ -f admin-web/package.json ]; then
+            echo "root=admin-web" >> "$GITHUB_OUTPUT"
+            echo "lock=admin-web/package-lock.json" >> "$GITHUB_OUTPUT"
+            echo "Using admin-web/ (multi-package repo layout)."
+          else
+            echo "ERROR: no package.json in ./ or admin-web/" >&2
+            exit 1
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: ${{ steps.vite.outputs.lock }}
 
-      - name: Write admin-web .env from SERVER_DOTENV_B64 (optional)
+      - name: Write .env from SERVER_DOTENV_B64 (optional)
         env:
           SERVER_DOTENV_B64: ${{ secrets.SERVER_DOTENV_B64 }}
         run: |
           set -eu
           if [ -z "${SERVER_DOTENV_B64:-}" ]; then
-            echo "SERVER_DOTENV_B64 unset; Vite build uses repo files / defaults."
+            echo "SERVER_DOTENV_B64 unset; Vite build uses repo .env / defaults."
             exit 0
           fi
-          if [ -d admin-web ]; then
-            printf '%s' "$SERVER_DOTENV_B64" | base64 -d > admin-web/.env
-            echo "Wrote admin-web/.env for CI build."
-          else
-            printf '%s' "$SERVER_DOTENV_B64" | base64 -d > .env
-            echo "Wrote .env for CI build (repo root)."
-          fi
+          R="${{ steps.vite.outputs.root }}"
+          printf '%s' "$SERVER_DOTENV_B64" | base64 -d | sed '1s/^\xEF\xBB\xBF//' > "${R}/.env"
+          echo "Wrote ${R}/.env from SERVER_DOTENV_B64"
 
       - name: Install and build
         run: |
-          if [ -d admin-web ]; then cd admin-web; fi
+          set -eu
+          cd "${{ steps.vite.outputs.root }}"
           npm ci && npm run build
 
       - name: Pack dist
         run: |
-          if [ -d admin-web ]; then cd admin-web; fi
+          set -eu
+          cd "${{ steps.vite.outputs.root }}"
           tar -czf "${GITHUB_WORKSPACE}/admin-dist.tgz" -C dist .
 
       - name: Upload dist bundle to server
