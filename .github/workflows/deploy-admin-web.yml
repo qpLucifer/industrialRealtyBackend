@@ -45,6 +45,7 @@ jobs:
             PUB_DIR="${{ secrets.SERVER_ADMIN_PUBLIC_DIR }}"
             test -d "${PUB_DIR}"
             cd "${PUB_DIR}"
-            find . -mindepth 1 -delete
+            # Baota may create .user.ini (often immutable); never delete it. Optional: keep .htaccess if you customize it.
+            find . -mindepth 1 ! -name '.user.ini' ! -name '.htaccess' -delete
             tar -xzf /tmp/admin-dist.tgz -C "${PUB_DIR}"
             rm -f /tmp/admin-dist.tgz
