@@ -41,10 +41,6 @@ async function onSubmit() {
   <div class="login-wrap">
     <div class="login-card">
       <h2>管理后台登录</h2>
-      <p>使用「用户管理」中维护的 <strong>admin</strong> 类型账号登录；密码与后台保存一致。</p>
-      <p class="hint" style="margin-bottom: 12px">
-        全新库执行 <code>npm run db:reset</code> 后，默认 <code>admin</code> / <code>Admin123!</code>（请及时在用户管理中修改）。
-      </p>
       <div class="field">
         <label>登录名</label>
         <input v-model="username" type="text" autocomplete="username" placeholder="admin" @keyup.enter="onSubmit" />
@@ -53,6 +49,9 @@ async function onSubmit() {
         <label>密码</label>
         <input v-model="password" type="password" autocomplete="current-password" placeholder="请输入密码" @keyup.enter="onSubmit" />
       </div>
+      <p class="hint" style="margin-bottom: 12px">
+        默认 <code>admin</code> / <code>Admin123!</code>（请及时在用户管理中修改）。
+      </p>
       <button
         type="button"
         class="btn btn-primary"

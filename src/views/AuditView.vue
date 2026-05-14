@@ -59,11 +59,6 @@ async function onReject(row: AuditQueueRow) {
     </div>
     <div class="card">
       <h3>待审核队列</h3>
-      <p class="hint audit-hint">
-        「风险标签」来自数据库字段
-        <strong>properties.risk_tag</strong>
-        ，在<strong>房源管理 → 编辑房源</strong>表单的「风险标签」中填写并保存即可维护；种子数据或历史导入也可能写入该字段。
-      </p>
       <div class="audit-table-wrap">
         <table class="data audit-table">
           <thead>

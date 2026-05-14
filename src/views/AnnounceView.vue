@@ -143,7 +143,6 @@ onMounted(load)
       <div class="modal-center" :class="{ show: modal }" @click.self="modal = false">
         <div class="modal-box" style="max-width: 560px">
           <h3>{{ editingId == null ? '新建公告' : '编辑公告' }}</h3>
-          <p class="hint">数据写入 announcements 表；小程序端读取列表接口展示。</p>
           <div class="form-grid" style="margin-top: 14px">
             <div class="full">
               <label>标题<span style="color: var(--rose)">*</span></label>

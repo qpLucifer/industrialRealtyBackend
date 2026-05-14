@@ -449,13 +449,6 @@ async function onPickVideos(ev: Event) {
               <h3 style="margin: 0">
                 {{ mode === 'edit' ? '编辑房源 · #' + code : '房源详情 · #' + code }}
               </h3>
-              <p class="hint" style="margin-top: 6px">
-                {{
-                  mode === 'edit'
-                    ? '在此修改字段后保存，将写入 properties。点击空白处不会关闭本窗口。'
-                    : '只读查看；关闭请点右上角或底部按钮。'
-                }}
-              </p>
             </div>
             <button type="button" class="modal-close-icon" aria-label="关闭" @click="close">×</button>
           </div>
@@ -572,15 +565,10 @@ async function onPickVideos(ev: Event) {
                 <textarea v-model="mediaImageBlock" rows="5" placeholder="https://…jpg / png / webp" />
               </div>
               <div class="full">
-                <label>上传图片到 OSS</label>
                 <input type="file" accept="image/*" multiple :disabled="uploadingImage" @change="onPickImages" />
-                <p class="hint">追加到上方列表；需后端配置 OSS_*。</p>
               </div>
               <div v-if="imagePreviewUrls.length" class="full media-preview-block">
                 <label>预览（点击放大）</label>
-                <p class="hint" style="margin: 0 0 8px">
-                  使用无 Referer 请求以降低 OSS 防盗链 403；若仍失败请在 Bucket 中放行本后台域名或关闭 Referer 白名单。
-                </p>
                 <div class="media-preview-grid">
                   <img
                     v-for="(url, i) in imagePreviewUrls"
@@ -610,13 +598,10 @@ async function onPickVideos(ev: Event) {
                 <textarea v-model="mediaVideoBlock" rows="4" placeholder="https://…mp4 / mov（可与图片同时存在）" />
               </div>
               <div class="full">
-                <label>上传视频到 OSS</label>
                 <input type="file" accept="video/*" multiple :disabled="uploadingVideo" @change="onPickVideos" />
-                <p class="hint">追加到上方列表。</p>
               </div>
               <div v-if="videoPreviewUrls.length" class="full media-preview-block">
                 <label>预览</label>
-                <p class="hint" style="margin: 0 0 8px">与图片相同：已加无 Referer 策略；若 403 请检查 OSS 读权限与防盗链。</p>
                 <div class="media-video-list">
                   <div v-for="(url, i) in videoPreviewUrls" :key="`${url}-${i}`" class="media-video-item">
                     <video :src="url" controls preload="metadata" class="media-video" referrerpolicy="no-referrer" />

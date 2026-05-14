@@ -182,7 +182,6 @@ onMounted(load)
         </tbody>
       </table>
     </div>
-    <p class="hint" style="margin-top: 12px">标签列以英文逗号分隔写入 tags_json。</p>
 
     <el-drawer v-model="drawer" :title="editingId ? '编辑视频 FAQ' : '新建视频 FAQ'" direction="rtl" size="min(480px, 100%)">
       <div class="form-grid">

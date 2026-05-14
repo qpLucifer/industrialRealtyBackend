@@ -86,9 +86,6 @@ onMounted(loadDefs)
 
 <template>
   <section class="panel active regions-page">
-    <p class="regions-hint">
-      在此维护业务区域名称；房源「所属区域」、员工「负责区域」下拉选项均来自本列表。员工具体负责哪几个区域请在<strong>员工与账号</strong>中编辑，无需在本页重复绑定。
-    </p>
     <div class="regions-single card-like">
       <h3 class="col-title">区域名称</h3>
       <p class="col-sub">新增 / 编辑 / 删除；与列表筛选、小程序数据范围使用同一套名称。</p>
