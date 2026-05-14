@@ -12,7 +12,7 @@ import {
 } from '@/api/admin'
 import type { CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
-import { isPhone11Cn, sanitizeDigitsInt } from '@/lib/inputValidators'
+import { isPhone11Cn, normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 
 const list = ref<CustomerRow[]>([])
 const scopeFilter = ref<'all' | 'private' | 'public'>('all')
@@ -66,7 +66,7 @@ function validatePhoneClient(phone: string): string | null {
 }
 
 function onEditPhoneInput(e: Event) {
-  editForm.phone = sanitizeDigitsInt((e.target as HTMLInputElement).value).slice(0, 11)
+  editForm.phone = normalizeCnMobileInput((e.target as HTMLInputElement).value)
 }
 
 function ownerNamesFromStaffIds(ids: string[]) {
@@ -155,7 +155,7 @@ async function openEdit(row: CustomerRow) {
   editForm.contactName = d.contactName
   editForm.titleLine =
     (d.titleLine || '').trim() || [d.contactName, d.company].filter(Boolean).join(' · ') || d.company || ''
-  editForm.phone = d.phone
+  editForm.phone = normalizeCnMobileInput(d.phone)
   editForm.grade = d.grade
   editForm.dealStatus = d.dealStatus || '洽谈中'
   editForm.demandSummary = d.demandSummary
@@ -180,7 +180,7 @@ async function onSaveCustomer() {
     company: editForm.company.trim(),
     contactName: editForm.contactName.trim(),
     titleLine: editForm.titleLine.trim(),
-    phone: editForm.phone.replace(/\s/g, ''),
+    phone: normalizeCnMobileInput(editForm.phone),
     grade: editForm.grade,
     dealStatus: editForm.dealStatus,
     demandSummary: editForm.demandSummary.trim(),
@@ -398,7 +398,13 @@ function onRemind() {
               autocomplete="tel"
               maxlength="11"
               inputmode="numeric"
+              lang="en"
+              pattern="[0-9]*"
               placeholder="11 位手机号"
+              @beforeinput="preventNonDigitPhoneBeforeInput"
+              @compositionend="onCnMobileCompositionEnd($event as CompositionEvent, (v) => (editForm.phone = v))"
+              @keydown="preventNonDigitPhoneKeys"
+              @paste="handleCnMobilePaste($event as ClipboardEvent, () => editForm.phone, (v) => (editForm.phone = v))"
               @input="onEditPhoneInput"
             />
           </div>

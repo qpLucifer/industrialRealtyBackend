@@ -1,3 +1,4 @@
+import { popUploadLoading, pushUploadLoading } from '@/lib/uploadOssLoading'
 import { http, unwrap } from './http'
 import type {
   AnnouncementRow,
@@ -161,11 +162,16 @@ export async function postPropertiesBulkFollow(codes: string[], actor?: string) 
 }
 
 export async function uploadOssFile(file: File, folder?: string) {
-  const fd = new FormData()
-  fd.append('file', file)
-  if (folder) fd.append('folder', folder)
-  const res = await http.post('/upload/oss', fd)
-  return unwrap(res) as { url: string; key: string }
+  pushUploadLoading()
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    if (folder) fd.append('folder', folder)
+    const res = await http.post('/upload/oss', fd)
+    return unwrap(res) as { url: string; key: string }
+  } finally {
+    popUploadLoading()
+  }
 }
 
 export async function fetchAuditQueue() {

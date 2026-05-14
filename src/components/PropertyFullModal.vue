@@ -6,7 +6,12 @@ import MapLatLngPicker from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
 import {
   isPhone11Cn,
+  normalizeCnMobileInput,
+  onCnMobileCompositionEnd,
   parseOptionalNumber,
+  preventNonDigitPhoneBeforeInput,
+  preventNonDigitPhoneKeys,
+  handleCnMobilePaste,
   sanitizeDigitsDecimal,
   sanitizeDigitsInt,
 } from '@/lib/inputValidators'
@@ -28,6 +33,8 @@ function ensurePropertyFormShape(f: PropertyFullForm) {
   if (f.auditTag === undefined || f.auditTag === null) f.auditTag = '—'
   if (f.riskTag === undefined || f.riskTag === null) f.riskTag = ''
   if (f.submitterName === undefined || f.submitterName === null) f.submitterName = ''
+  if (f.contactPhone === undefined || f.contactPhone === null) f.contactPhone = ''
+  else f.contactPhone = normalizeCnMobileInput(String(f.contactPhone))
   // Map picker expects string props; API may omit or send numbers.
   if (f.lat === undefined || f.lat === null) f.lat = ''
   else f.lat = String(f.lat).trim()
@@ -48,12 +55,12 @@ const RO_SECTIONS: { title: string; fields: { key: RoKey; label: string }[] }[] 
       { key: 'code', label: '编号' },
       { key: 'listTitle', label: '列表标题' },
       { key: 'district', label: '所属区域' },
-      { key: 'listingLine1', label: '列表副行 1' },
-      { key: 'listingLine2', label: '列表副行 2（含跟进状态文案）' },
+      // { key: 'listingLine1', label: '列表副行 1' },
+      // { key: 'listingLine2', label: '列表副行 2（含跟进状态文案）' },
       { key: 'auditTag', label: '审核状态' },
-      { key: 'riskTag', label: '风险标签（审核队列 / DB risk_tag）' },
+      { key: 'riskTag', label: '风险标签' },
       { key: 'submitterName', label: '提交人' },
-      { key: 'rowMuted', label: '列表弱化行' },
+      // { key: 'rowMuted', label: '列表弱化行' },
       { key: 'externalStatus', label: '对外状态' },
     ],
   },
@@ -244,7 +251,7 @@ const emit = defineEmits<{
 
 const form = reactive<PropertyFullForm>({} as PropertyFullForm)
 const tab = ref(0)
-const detailViewTab = ref(0)
+const detailViewTab = ref(2)
 const uploadingImage = ref(false)
 const uploadingVideo = ref(false)
 const mediaImageBlock = ref('')
@@ -299,8 +306,7 @@ function onCoordInput(which: 'lat' | 'lng', e: Event) {
 }
 
 function onPhone11Input(e: Event) {
-  const v = sanitizeDigitsInt((e.target as HTMLInputElement).value).slice(0, 11)
-  form.contactPhone = v
+  form.contactPhone = normalizeCnMobileInput((e.target as HTMLInputElement).value)
 }
 
 const structureOtherDisabled = computed(() => !form.structureTypes?.includes('其他'))
@@ -383,7 +389,7 @@ watch(
   () => [props.visible, props.code] as const,
   async ([vis, code]) => {
     if (!vis) return
-    detailViewTab.value = 0
+    detailViewTab.value = 2
     const [{ list }, d] = await Promise.all([fetchRegionDefs(), fetchPropertyDetail(code)])
     regionDefs.value = list
     Object.assign(form, d)
@@ -528,7 +534,7 @@ async function onPickVideos(ev: Event) {
             </div>
             <button type="button" class="modal-close-icon" aria-label="关闭" @click="close">×</button>
           </div>
-          <div v-if="mode === 'edit'" class="admin-modal-tabs">
+          <div v-if="mode === 'edit'" class="admin-modal-tabs" data-skip-tap>
             <button type="button" :class="{ active: tab === 0 }" @click="setTab(0)">分类 · 基础 · 清单</button>
             <button type="button" :class="{ active: tab === 1 }" @click="setTab(1)">地图定位</button>
             <button type="button" :class="{ active: tab === 2 }" @click="setTab(2)">图片</button>
@@ -1141,8 +1147,14 @@ async function onPickVideos(ev: Event) {
                   type="tel"
                   inputmode="numeric"
                   maxlength="11"
+                  lang="en"
+                  pattern="[0-9]*"
                   placeholder="11 位手机号"
                   autocomplete="tel"
+                  @beforeinput="preventNonDigitPhoneBeforeInput"
+                  @compositionend="onCnMobileCompositionEnd($event as CompositionEvent, (v) => (form.contactPhone = v))"
+                  @keydown="preventNonDigitPhoneKeys"
+                  @paste="handleCnMobilePaste($event as ClipboardEvent, () => form.contactPhone, (v) => (form.contactPhone = v))"
                   @input="onPhone11Input"
                 />
               </div>
@@ -1158,10 +1170,10 @@ async function onPickVideos(ev: Event) {
           </div>
           </template>
           <div v-else class="prop-readonly-summary">
-            <div v-if="mode === 'view'" class="admin-modal-tabs" style="margin-bottom: 14px">
+            <div v-if="mode === 'view'" class="admin-modal-tabs" data-skip-tap style="margin-bottom: 14px">
+              <button type="button" :class="{ active: detailViewTab === 2 }" @click="detailViewTab = 2">房源明细</button>
               <button type="button" :class="{ active: detailViewTab === 0 }" @click="detailViewTab = 0">图片</button>
               <button type="button" :class="{ active: detailViewTab === 1 }" @click="detailViewTab = 1">视频</button>
-              <button type="button" :class="{ active: detailViewTab === 2 }" @click="detailViewTab = 2">其它信息</button>
             </div>
 
             <div v-show="detailViewTab === 0">

@@ -69,7 +69,7 @@ async function onReject(row: AuditQueueRow) {
               <th>类型</th>
               <th>提交人</th>
               <th>提交时间</th>
-              <th>列表行 1 / 2</th>
+              <!-- <th>列表行 1 / 2</th> -->
               <th>摘要行</th>
               <th>规格 / 价格</th>
               <th>审核提示</th>
@@ -85,10 +85,10 @@ async function onReject(row: AuditQueueRow) {
               <td>{{ r.type || '—' }}</td>
               <td>{{ r.submitter }}</td>
               <td class="nowrap">{{ r.submittedAt }}</td>
-              <td class="cell-wrap hint-sm">
+              <!-- <td class="cell-wrap hint-sm">
                 <div>{{ r.listingLine1 || '—' }}</div>
                 <div>{{ r.listingLine2 || '—' }}</div>
-              </td>
+              </td> -->
               <td class="cell-wrap hint-sm">{{ r.metaLine || '—' }}</td>
               <td class="cell-wrap hint-sm">
                 <div>{{ r.specLine || '—' }}</div>

@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createWhitelistRow, deleteWhitelistRow, fetchWhitelist, updateWhitelistRow } from '@/api/admin'
 import type { WhitelistRow } from '@/types/domain'
 import { Delete, Edit } from '@element-plus/icons-vue'
-import { sanitizeDigitsInt } from '@/lib/inputValidators'
+import { normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 
 const list = ref<WhitelistRow[]>([])
 const drawer = ref(false)
@@ -26,14 +26,14 @@ function openNew() {
 
 function openEdit(row: WhitelistRow) {
   editingId.value = row.id
-  form.phone = row.phone
+  form.phone = normalizeCnMobileInput(row.phone)
   form.name = row.name
   form.remark = row.remark
   drawer.value = true
 }
 
 async function onSave() {
-  const phone = form.phone.trim()
+  const phone = normalizeCnMobileInput(form.phone)
   if (!/^\d{11}$/.test(phone)) {
     ElMessage.warning('请输入 11 位数字手机号')
     return
@@ -104,7 +104,7 @@ function onImportClick() {
       let n = 0
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
-        const phone = cols[0]
+        const phone = normalizeCnMobileInput(cols[0] || '')
         if (!phone) continue
         await createWhitelistRow({
           phone,
@@ -177,8 +177,14 @@ onMounted(load)
             type="tel"
             maxlength="11"
             inputmode="numeric"
+            lang="en"
+            pattern="[0-9]*"
             placeholder="11 位手机号"
-            @input="form.phone = sanitizeDigitsInt(($event.target as HTMLInputElement).value).slice(0, 11)"
+            @beforeinput="preventNonDigitPhoneBeforeInput"
+            @compositionend="onCnMobileCompositionEnd($event as CompositionEvent, (v) => (form.phone = v))"
+            @keydown="preventNonDigitPhoneKeys"
+            @paste="handleCnMobilePaste($event as ClipboardEvent, () => form.phone, (v) => (form.phone = v))"
+            @input="form.phone = normalizeCnMobileInput(($event.target as HTMLInputElement).value)"
           />
         </div>
         <div class="full">

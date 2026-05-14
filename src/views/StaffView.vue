@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteStaffApi, fetchRegionDefs, fetchStaffForm, fetchStaffList, patchStaffStatusApi, postStaffImportCsv, saveStaffForm } from '@/api/admin'
 import type { RegionDefRow, StaffForm, StaffRow } from '@/types/domain'
 import { Delete, Edit, Lock } from '@element-plus/icons-vue'
-import { isValidEmail, sanitizeDigitsInt } from '@/lib/inputValidators'
+import {
+  emailFormatErrorMessage,
+  handleCnMobilePaste,
+  normalizeCnMobileInput,
+  onCnMobileCompositionEnd,
+  preventNonDigitPhoneBeforeInput,
+  preventNonDigitPhoneKeys,
+} from '@/lib/inputValidators'
 
 const list = ref<StaffRow[]>([])
 const regionDefs = ref<RegionDefRow[]>([])
@@ -18,6 +25,13 @@ function tagClass(role: string) {
   if (role === '业务员') return 'cyan'
   if (role === '部门经理') return 'amber'
   return 'mint'
+}
+
+const staffEmailError = computed(() => emailFormatErrorMessage(String(form.email || '')))
+
+function onStaffEmailBlur() {
+  const msg = staffEmailError.value
+  if (msg) ElMessage.warning(msg)
 }
 
 async function loadRegionDefs() {
@@ -47,6 +61,7 @@ async function openEdit(row: StaffRow) {
   editingStaffId.value = row.id
   const f = await fetchStaffForm(row.id)
   Object.assign(form, f)
+  form.phone = normalizeCnMobileInput(String(form.phone || ''))
   drawer.value = true
 }
 
@@ -66,7 +81,7 @@ watch(
 async function onSave() {
   const emp = String(form.employeeNo || '').trim()
   const nm = String(form.name || '').trim()
-  const ph = sanitizeDigitsInt(String(form.phone || '')).slice(0, 11)
+  const ph = normalizeCnMobileInput(String(form.phone || ''))
   const dept = String(form.department || '').trim()
   if (!emp || emp.length > 32) {
     ElMessage.error('工号必填，最长 32 字符')
@@ -80,8 +95,9 @@ async function onSave() {
     ElMessage.error('请输入 11 位数字手机号')
     return
   }
-  if (String(form.email || '').trim() && !isValidEmail(String(form.email))) {
-    ElMessage.error('邮箱格式不正确')
+  const emailErr = emailFormatErrorMessage(String(form.email || ''))
+  if (emailErr) {
+    ElMessage.error(emailErr)
     return
   }
   if (!dept || dept.length > 64) {
@@ -253,14 +269,29 @@ function onDownloadStaffTemplate() {
             type="tel"
             maxlength="11"
             inputmode="numeric"
+            lang="en"
+            pattern="[0-9]*"
             placeholder="11 位"
             autocomplete="tel"
-            @input="form.phone = sanitizeDigitsInt(($event.target as HTMLInputElement).value).slice(0, 11)"
+            @beforeinput="preventNonDigitPhoneBeforeInput"
+            @compositionend="onCnMobileCompositionEnd($event as CompositionEvent, (v) => (form.phone = v))"
+            @keydown="preventNonDigitPhoneKeys"
+            @paste="handleCnMobilePaste($event as ClipboardEvent, () => form.phone, (v) => (form.phone = v))"
+            @input="form.phone = normalizeCnMobileInput(($event.target as HTMLInputElement).value)"
           />
         </div>
         <div>
           <label>邮箱</label>
-          <input v-model="form.email" type="text" maxlength="120" autocomplete="email" placeholder="name@company.com" />
+          <input
+            v-model="form.email"
+            type="email"
+            maxlength="120"
+            autocomplete="email"
+            class="staff-field"
+            :class="{ 'staff-field--invalid': staffEmailError }"
+            placeholder="name@company.com"
+            @blur="onStaffEmailBlur"
+          />
         </div>
         <div>
           <label>部门<span style="color: var(--rose)">*</span></label>
@@ -337,3 +368,10 @@ function onDownloadStaffTemplate() {
     </el-drawer>
   </section>
 </template>
+
+<style scoped>
+.staff-field--invalid {
+  border-color: #f43f5e !important;
+  box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.25);
+}
+</style>
