@@ -1,6 +1,16 @@
-/** Properties listing — maps to property, listing_workflow, audit_state */
+/** Properties listing — status_tag merges workflow (草稿/待审核/驳回) + business states after pass */
 
-export type PropertyStatusTag = '待租' | '已租' | '待售' | '已售' | '意向中' | '下架封存' | '草稿'
+export type PropertyStatusTag =
+  | '草稿'
+  | '待审核'
+  | '驳回'
+  | '待租'
+  | '已租'
+  | '待售'
+  | '已售'
+  | '意向中'
+  | '下架封存'
+
 export type AuditTag = '已通过' | '待审核' | '—'
 
 export interface PropertyRow {
@@ -13,7 +23,6 @@ export interface PropertyRow {
   listingLine1: string
   listingLine2: string
   submitter: string
-  audit: AuditTag
   rowMuted?: boolean
 }
 
@@ -25,10 +34,9 @@ export const mockPropertyRows: PropertyRow[] = [
     district: '黄埔区',
     type: '标准厂房',
     status: '待租',
-    listingLine1: '已上架 · v3',
-    listingLine2: '审核→发布→对内可见',
+    listingLine1: '待租',
+    listingLine2: '审核通过 · 已上架',
     submitter: '陈思远',
-    audit: '已通过',
   },
   {
     id: 'p2',
@@ -36,11 +44,10 @@ export const mockPropertyRows: PropertyRow[] = [
     title: '花都汽车城 · 独院',
     district: '花都区',
     type: '独门独院厂房',
-    status: '意向中',
+    status: '待审核',
     listingLine1: '待审核',
-    listingLine2: '提交后排队中',
+    listingLine2: '已提交发布，等待审核',
     submitter: '赵琦',
-    audit: '待审核',
   },
   {
     id: 'p3',
@@ -50,9 +57,8 @@ export const mockPropertyRows: PropertyRow[] = [
     type: '仓库',
     status: '草稿',
     listingLine1: '仅草稿',
-    listingLine2: '未提交审核 · 可继续改',
+    listingLine2: '保存为草稿 · 发布后进入待审核',
     submitter: '陈思远',
-    audit: '—',
     rowMuted: true,
   },
 ]

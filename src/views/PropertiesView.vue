@@ -40,6 +40,8 @@ onMounted(async () => {
 
 function statusTagClass(s: string) {
   if (s === '待租') return 'mint'
+  if (s === '待审核') return 'amber'
+  if (s === '驳回') return 'rose'
   if (s === '意向中') return 'amber'
   if (s === '草稿') return 'neutral'
   if (s === '已租' || s === '已售') return 'cyan'
@@ -70,7 +72,6 @@ async function onDeleteRow(row: PropertyRow) {
   ElMessage.success('已删除')
   await loadList()
 }
-
 </script>
 
 <template>
@@ -92,6 +93,8 @@ async function onDeleteRow(row: PropertyRow) {
       <select v-model="filterStatus">
         <option value="all">全部状态</option>
         <option>草稿</option>
+        <option>待审核</option>
+        <option>驳回</option>
         <option>待租</option>
         <option>已租</option>
         <option>待售</option>
@@ -113,13 +116,12 @@ async function onDeleteRow(row: PropertyRow) {
             <th>类型</th>
             <th>状态</th>
             <th>提交人</th>
-            <th>审核</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="list.length === 0">
-            <td colspan="8" class="hint" style="padding: 24px; text-align: center">暂无数据，请调整筛选或新建草稿。</td>
+            <td colspan="7" class="hint" style="padding: 24px; text-align: center">暂无数据，请调整筛选或新建草稿。</td>
           </tr>
           <tr v-for="r in list" :key="r.id">
             <td>{{ r.code }}</td>
@@ -128,10 +130,6 @@ async function onDeleteRow(row: PropertyRow) {
             <td>{{ r.type }}</td>
             <td><span class="tag" :class="statusTagClass(r.status)">{{ r.status }}</span></td>
             <td>{{ r.submitter }}</td>
-            <td>
-              <span v-if="r.audit === '—'">—</span>
-              <span v-else class="tag" :class="r.audit === '已通过' ? 'mint' : 'amber'">{{ r.audit }}</span>
-            </td>
             <td class="table-actions">
               <el-tooltip content="编辑" placement="top">
                 <el-button type="primary" :icon="Edit" circle plain size="small" @click="openProp('edit', r.code)" />

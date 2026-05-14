@@ -146,6 +146,11 @@ export async function savePropertySnapshot(payload: unknown) {
   return unwrap(res) as { success: boolean }
 }
 
+export async function publishPropertyApi(payload: { code: string }) {
+  const res = await http.post('/properties/publish', payload)
+  return unwrap(res) as { success: boolean }
+}
+
 export async function createPropertyDraft(payload?: { submitterName?: string }) {
   const res = await http.post('/properties', payload ?? {})
   return unwrap(res) as { code: string }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { fetchPropertyDetail, fetchRegionDefs, savePropertySnapshot, uploadOssFile } from '@/api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { fetchPropertyDetail, fetchRegionDefs, publishPropertyApi, savePropertySnapshot, uploadOssFile } from '@/api/admin'
 import MapLatLngPicker from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
 import {
@@ -31,6 +31,8 @@ function ensurePropertyFormShape(f: PropertyFullForm) {
   if (f.listingLine1 === undefined || f.listingLine1 === null) f.listingLine1 = ''
   if (f.listingLine2 === undefined || f.listingLine2 === null) f.listingLine2 = ''
   if (f.auditTag === undefined || f.auditTag === null) f.auditTag = '—'
+  if (f.auditState === undefined || f.auditState === null) f.auditState = 'draft'
+  if (f.auditHint === undefined || f.auditHint === null) f.auditHint = ''
   if (f.riskTag === undefined || f.riskTag === null) f.riskTag = ''
   if (f.submitterName === undefined || f.submitterName === null) f.submitterName = ''
   if (f.contactPhone === undefined || f.contactPhone === null) f.contactPhone = ''
@@ -50,18 +52,15 @@ type RoKey = keyof PropertyFullForm | '_img' | '_vid'
 
 const RO_SECTIONS: { title: string; fields: { key: RoKey; label: string }[] }[] = [
   {
-    title: '列表与审核 · 对外状态',
+    title: '列表与状态',
     fields: [
       { key: 'code', label: '编号' },
       { key: 'listTitle', label: '列表标题' },
       { key: 'district', label: '所属区域' },
-      // { key: 'listingLine1', label: '列表副行 1' },
-      // { key: 'listingLine2', label: '列表副行 2（含跟进状态文案）' },
-      { key: 'auditTag', label: '审核状态（只读）' },
+      { key: 'externalStatus', label: '当前状态（草稿 / 待审核 / 驳回 / 上架后租售状态）' },
+      { key: 'auditHint', label: '驳回原因 / 审核说明' },
       { key: 'riskTag', label: '风险标签' },
       { key: 'submitterName', label: '提交人' },
-      // { key: 'rowMuted', label: '列表弱化行' },
-      { key: 'externalStatus', label: '对外状态' },
     ],
   },
   {
@@ -258,8 +257,11 @@ const mediaImageBlock = ref('')
 const mediaVideoBlock = ref('')
 const regionDefs = ref<RegionDefRow[]>([])
 
-/** Only after audit pass (live) may listing status_tag / 对外状态 be changed. */
-const canChangeListingStatus = computed(() => form.auditTag === '已通过')
+/** Only after audit pass (live) may business listing status (待租/已租/…) be changed. */
+const canChangeListingStatus = computed(() => form.auditState === 'live')
+
+/** Draft or rejected: can submit for audit via 发布 */
+const canPublishForAudit = computed(() => form.auditState === 'draft' || form.auditState === 'rejected')
 
 function splitMediaLines(block: string) {
   return String(block || '')
@@ -417,6 +419,30 @@ function setTab(i: number) {
 async function onSave() {
   if (props.mode !== 'edit') return
   mergeMediaBlocksToForm()
+  const miss = collectPropertyRequiredMiss()
+  if (miss.length) {
+    ElMessage.error(`请完善必填项：${miss.join('、')}`)
+    return
+  }
+  if (String(form.listTitle || '').length > 120) {
+    ElMessage.error('列表标题不超过 120 字')
+    return
+  }
+  if (String(form.address || '').length > 200) {
+    ElMessage.error('详细地址不超过 200 字')
+    return
+  }
+  if (!isPhone11Cn(String(form.contactPhone || ''))) {
+    ElMessage.error('联系人电话须为 11 位数字（1 开头）')
+    return
+  }
+  await savePropertySnapshot({ ...form, mode: props.mode, code: props.code })
+  ElMessage.success('房源已保存')
+  emit('saved')
+  close()
+}
+
+function collectPropertyRequiredMiss(): string[] {
   const miss: string[] = []
   if (!String(form.listTitle || '').trim()) miss.push('列表标题')
   if (!Array.isArray(form.types) || !form.types.length) miss.push('房源类型')
@@ -438,6 +464,24 @@ async function onSave() {
   if (!String(form.rentSaleType || '').trim()) miss.push('租售类型')
   if (!String(form.contactName || '').trim()) miss.push('联系人姓名')
   if (!String(form.contactPhone || '').trim()) miss.push('联系人电话')
+  return miss
+}
+
+async function reloadPropertyForm() {
+  const d = await fetchPropertyDetail(props.code)
+  Object.assign(form, d)
+  ensurePropertyFormShape(form)
+  syncMediaBlocksFromForm()
+}
+
+async function onPublish() {
+  if (props.mode !== 'edit') return
+  mergeMediaBlocksToForm()
+  const miss = collectPropertyRequiredMiss()
+  if (miss.length) {
+    ElMessage.error(`发布前请完善：${miss.join('、')}`)
+    return
+  }
   if (String(form.listTitle || '').length > 120) {
     ElMessage.error('列表标题不超过 120 字')
     return
@@ -446,18 +490,29 @@ async function onSave() {
     ElMessage.error('详细地址不超过 200 字')
     return
   }
-  if (miss.length) {
-    ElMessage.error(`请完善必填项：${miss.join('、')}`)
-    return
-  }
   if (!isPhone11Cn(String(form.contactPhone || ''))) {
     ElMessage.error('联系人电话须为 11 位数字（1 开头）')
     return
   }
-  await savePropertySnapshot({ ...form, mode: props.mode, code: props.code })
-  ElMessage.success('房源已保存')
-  emit('saved')
-  close()
+  try {
+    await ElMessageBox.confirm(
+      '确定提交发布？提交后房源将进入「待审核」队列，管理员审核通过后为「待租」，驳回需填写原因。',
+      '确认发布',
+      { type: 'warning', confirmButtonText: '确认发布', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await savePropertySnapshot({ ...form, mode: props.mode, code: props.code })
+    await publishPropertyApi({ code: props.code })
+    ElMessage.success('已提交发布，进入待审核')
+    emit('saved')
+    await reloadPropertyForm()
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(err?.message || '发布失败')
+  }
 }
 
 function onTogglePhoto(p: string) {
@@ -551,7 +606,33 @@ async function onPickVideos(ev: Event) {
           <template v-if="mode === 'edit'">
           <div class="prop-admin-panel" :class="{ active: tab === 0 }">
             <div class="form-grid" style="margin-top: 0">
-              <div class="form-section-h">列表与审核（与表格列一致）</div>
+              <div class="form-section-h">列表与状态</div>
+              <div class="full">
+                <label>当前状态（列表「状态」列）</label>
+                <template v-if="canChangeListingStatus">
+                  <select v-model="form.externalStatus" class="status-select">
+                    <option>待租</option>
+                    <option>已租</option>
+                    <option>待售</option>
+                    <option>已售</option>
+                    <option>意向中</option>
+                    <option>下架封存</option>
+                  </select>
+                  <p class="hint" style="margin-top: 6px">
+                    审核已通过，可在此切换对外租售状态；保存后写入列表「状态」列。
+                  </p>
+                </template>
+                <template v-else>
+                  <input :value="String(form.externalStatus || '草稿')" type="text" class="ro-input-readonly" readonly tabindex="-1" />
+                  <p class="hint" style="margin-top: 6px">
+                    未发布为「草稿」；点底部「发布」后为「待审核」；审核通过为「待租」；驳回为「驳回」并显示原因。
+                  </p>
+                </template>
+              </div>
+              <div v-if="form.auditState === 'rejected'" class="full">
+                <label>驳回原因</label>
+                <textarea :value="String(form.auditHint || '')" class="ro-input-readonly" rows="3" readonly tabindex="-1" />
+              </div>
               <div class="full">
                 <label>列表标题（房源列）<span style="color: var(--rose)">*</span></label>
                 <input v-model="form.listTitle" type="text" maxlength="120" placeholder="例：黄埔科学城 · 单层厂房" />
@@ -572,20 +653,6 @@ async function onPickVideos(ev: Event) {
               <div>
                 <label>提交人（列表）</label>
                 <input v-model="form.submitterName" type="text" maxlength="40" placeholder="业务员姓名" />
-              </div>
-              <div>
-                <label>审核状态（列表）</label>
-                <input
-                  :value="String(form.auditTag || '—')"
-                  type="text"
-                  class="ro-input-readonly"
-                  readonly
-                  tabindex="-1"
-                  aria-readonly="true"
-                />
-                <p class="hint" style="margin-top: 6px">
-                  不可在此修改。「已通过 / 待审核」由审核中心操作；非草稿保存且未上架时进入待审核队列，已上架房源保存后仍为已上架。
-                </p>
               </div>
               <div class="full">
                 <label>风险标签</label>
@@ -1123,21 +1190,6 @@ async function onPickVideos(ev: Event) {
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">内部跟进</div>
               <div>
-                <label>对外状态（列表「状态」列）</label>
-                <select v-model="form.externalStatus" class="status-select" :disabled="!canChangeListingStatus">
-                  <option>草稿</option>
-                  <option>待租</option>
-                  <option>已租</option>
-                  <option>待售</option>
-                  <option>已售</option>
-                  <option>意向中</option>
-                  <option>下架封存</option>
-                </select>
-                <p v-if="!canChangeListingStatus" class="hint" style="margin-top: 6px">
-                  审核通过前不可修改；当前保持为「{{ form.externalStatus || '草稿' }}」。通过后可在本页调整上架状态。
-                </p>
-              </div>
-              <div>
                 <label>租售类型<span style="color: var(--rose)">*</span></label>
                 <select v-model="form.rentSaleType">
                   <option>出租</option>
@@ -1258,9 +1310,12 @@ async function onPickVideos(ev: Event) {
             </div>
           </div>
         </div>
-        <div class="modal-prop-foot">
+        <div class="modal-prop-foot" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap">
           <button type="button" class="btn" @click="close">关闭</button>
-          <button v-if="mode === 'edit'" type="button" class="btn btn-primary" @click="onSave">保存修改</button>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap">
+            <button v-if="mode === 'edit' && canPublishForAudit" type="button" class="btn" @click="onPublish">发布</button>
+            <button v-if="mode === 'edit'" type="button" class="btn btn-primary" @click="onSave">保存修改</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1341,12 +1396,16 @@ async function onPickVideos(ev: Event) {
   width: 100%;
   margin-top: 5px;
   padding: 8px 10px;
-  border: 1px solid rgba(15, 23, 42, 0.1);
+  border: 1px solid rgba(15, 23, 42, 0.16);
   border-radius: 8px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #e2e8f0;
+  color: #1e293b;
   font-size: 13px;
   cursor: default;
+}
+textarea.ro-input-readonly {
+  min-height: 72px;
+  resize: none;
 }
 .ro-pre {
   margin: 0;

@@ -772,6 +772,66 @@ select {
   background: #ffffff;
 }
 
+/* Disabled / read-only native controls — darker than enabled for clear contrast */
+.form-grid input:disabled,
+.form-grid select:disabled,
+.form-grid textarea:disabled,
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  background: #e2e8f0;
+  color: #1e293b;
+  border-color: rgba(15, 23, 42, 0.16);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.form-grid input[readonly]:not(:disabled),
+.form-grid textarea[readonly]:not(:disabled) {
+  background: #e2e8f0;
+  color: #1e293b;
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
+/* Element Plus — disabled fields (admin forms) */
+.el-input.is-disabled .el-input__wrapper,
+.el-textarea.is-disabled .el-textarea__inner {
+  background-color: #e2e8f0 !important;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.16) inset !important;
+}
+
+.el-input.is-disabled .el-input__inner,
+.el-textarea.is-disabled .el-textarea__inner {
+  color: #1e293b !important;
+  -webkit-text-fill-color: #1e293b !important;
+}
+
+.el-select .el-input.is-disabled .el-select__caret,
+.el-input.is-disabled .el-input__suffix {
+  color: #64748b;
+}
+
+.el-select__wrapper.is-disabled {
+  background-color: #e2e8f0 !important;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.16) inset !important;
+}
+
+.el-select__wrapper.is-disabled .el-select__placeholder,
+.el-select__wrapper.is-disabled .el-select__selected-item {
+  color: #1e293b !important;
+}
+
+.el-date-editor.is-disabled,
+.el-date-editor.is-disabled .el-input__wrapper {
+  background-color: #e2e8f0 !important;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.16) inset !important;
+}
+
+.el-button.is-disabled,
+.el-button.is-disabled:hover {
+  opacity: 0.85;
+}
+
 /* CRM follow-up table (wide cells) */
 table.data.data-crm td.cell-wrap {
   vertical-align: top;

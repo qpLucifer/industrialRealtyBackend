@@ -105,7 +105,18 @@ export interface RegionDefRow {
   sortOrder?: number
 }
 
-export type PropertyStatusTag = '待租' | '已租' | '待售' | '已售' | '意向中' | '下架封存' | '草稿'
+export type PropertyStatusTag =
+  | '草稿'
+  | '待审核'
+  | '驳回'
+  | '待租'
+  | '已租'
+  | '待售'
+  | '已售'
+  | '意向中'
+  | '下架封存'
+
+/** Legacy list column; workflow merged into `status` — kept optional for older responses */
 export type AuditTag = '已通过' | '待审核' | '—'
 
 export interface PropertyRow {
@@ -118,7 +129,6 @@ export interface PropertyRow {
   listingLine1: string
   listingLine2: string
   submitter: string
-  audit: AuditTag
   rowMuted?: boolean
 }
 
@@ -251,8 +261,12 @@ export interface PropertyFullForm {
   listingLine1: string
   /** Secondary line (maps to listing_line2) */
   listingLine2: string
-  /** List audit badge: 已通过 | 待审核 | — */
+  /** Deprecated — workflow merged into status_tag / externalStatus; always "—" from API */
   auditTag: AuditTag
+  /** DB audit_state: draft | pending | rejected | live */
+  auditState?: string
+  /** Rejection reason or audit narrative from DB `audit_hint` */
+  auditHint?: string
   /** Shown in audit queue; persisted as `properties.risk_tag` */
   riskTag?: string
   /** Submitter shown in list */
