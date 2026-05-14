@@ -22,6 +22,12 @@ import { mockLogs } from './data/logs'
 import { mockSecuritySwitches } from './data/settings'
 import { mockFutureEndpoints } from './data/future'
 import { createDefaultPropertyForm } from './data/propertyForm'
+import {
+  mockSysAdminUsers,
+  mockSysAdminUserCreate,
+  mockSysAdminUserUpdate,
+  mockSysAdminUserDelete,
+} from './data/sysAdminUsers'
 
 const ok = <T,>(result: T) => ({ code: 200, message: 'success', result })
 
@@ -69,6 +75,57 @@ export default [
     url: '/api/whitelist',
     method: 'get',
     response: () => ok({ list: mockWhitelistRows }),
+  },
+  {
+    url: '/api/sys-admin-users',
+    method: 'get',
+    response: () => ok({ list: mockSysAdminUsers.map((r) => ({ ...r })) }),
+  },
+  {
+    url: '/api/sys-admin-users',
+    method: 'post',
+    response: ({ body }: { body: Record<string, unknown> }) => {
+      try {
+        const { id } = mockSysAdminUserCreate(body || {})
+        return ok({ success: true, id })
+      } catch (e: unknown) {
+        if (e instanceof Error && e.message === 'dup') {
+          return { code: 400, message: '登录名已存在', result: null }
+        }
+        throw e
+      }
+    },
+  },
+  {
+    url: '/api/sys-admin-users/:id',
+    method: 'put',
+    response: (opt: { url?: string; body: Record<string, unknown> }) => {
+      const m = String(opt.url || '').match(/\/sys-admin-users\/(\d+)/)
+      const id = m ? Number(m[1]) : NaN
+      try {
+        mockSysAdminUserUpdate(id, opt.body || {})
+        return ok({ success: true })
+      } catch {
+        return { code: 404, message: '用户不存在', result: null }
+      }
+    },
+  },
+  {
+    url: '/api/sys-admin-users/:id',
+    method: 'delete',
+    response: (opt: { url?: string; body?: { currentPassword?: string } }) => {
+      const m = String(opt.url || '').match(/\/sys-admin-users\/(\d+)/)
+      const id = m ? Number(m[1]) : NaN
+      try {
+        mockSysAdminUserDelete(id)
+        return ok({ success: true })
+      } catch (e: unknown) {
+        if (e instanceof Error && e.message === 'last admin') {
+          return { code: 400, message: '至少保留一名后台管理员，无法删除', result: null }
+        }
+        return { code: 404, message: '用户不存在', result: null }
+      }
+    },
   },
   {
     url: '/api/regions/defs',

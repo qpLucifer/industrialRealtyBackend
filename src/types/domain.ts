@@ -6,6 +6,19 @@ export interface AuthUser {
   avatarUrl?: string
 }
 
+/** sys_users with user_kind=admin — admin panel operators */
+export interface SysAdminUserRow {
+  id: number
+  username: string
+  displayName: string
+  roleLine: string
+  avatarUrl: string | null
+  userKind: 'admin'
+  /** Whether a non-empty password_hash exists on server */
+  hasLoginPassword: boolean
+  createdAt: string
+}
+
 export interface KpiItem {
   label: string
   value: string

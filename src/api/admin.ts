@@ -18,6 +18,7 @@ import type {
   StaffActivityRow,
   StaffForm,
   StaffRow,
+  SysAdminUserRow,
   VideoFaqRow,
   ViewingRow,
   WhitelistRow,
@@ -307,6 +308,42 @@ export async function fetchSecuritySettings() {
 export async function putSecuritySettings(switches: SecuritySwitch[]) {
   const res = await http.put('/settings/security', { switches })
   return unwrap(res) as { switches: SecuritySwitch[] }
+}
+
+export async function fetchSysAdminUsers() {
+  const res = await http.get('/sys-admin-users')
+  return unwrap(res) as { list: SysAdminUserRow[] }
+}
+
+export async function createSysAdminUser(payload: {
+  username: string
+  password: string
+  displayName: string
+  roleLine: string
+  avatarUrl?: string | null
+}) {
+  const res = await http.post('/sys-admin-users', payload)
+  return unwrap(res) as { success: boolean; id: number }
+}
+
+export async function updateSysAdminUser(
+  id: number,
+  payload: {
+    username?: string
+    displayName?: string
+    roleLine?: string
+    avatarUrl?: string | null
+    password?: string
+    currentPassword: string
+  },
+) {
+  const res = await http.put(`/sys-admin-users/${id}`, payload)
+  return unwrap(res) as { success: boolean }
+}
+
+export async function deleteSysAdminUser(id: number, currentPassword: string) {
+  const res = await http.delete(`/sys-admin-users/${id}`, { data: { currentPassword } })
+  return unwrap(res) as { success: boolean }
 }
 
 export async function postStaffImportCsv(text: string) {

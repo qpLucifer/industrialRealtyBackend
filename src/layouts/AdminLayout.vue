@@ -39,6 +39,7 @@ const navGroups: { section: string; items: { to: string; name: string; label: st
       { to: '/app/staff', name: 'staff', label: '员工与账号' },
       { to: '/app/whitelist', name: 'whitelist', label: '手机号白名单' },
       { to: '/app/regions', name: 'regions', label: '区域权限' },
+      { to: '/app/sys-users', name: 'sys-users', label: '用户管理' },
     ],
   },
   {
@@ -57,7 +58,7 @@ const navGroups: { section: string; items: { to: string; name: string; label: st
     items: [
       { to: '/app/logs', name: 'logs', label: '日志查询' },
       { to: '/app/settings', name: 'settings', label: '系统设置' },
-      { to: '/app/future', name: 'future', label: '扩展预留' },
+      // { to: '/app/future', name: 'future', label: '扩展预留' },
     ],
   },
 ]
@@ -119,6 +120,18 @@ function isActive(name: string) {
           >
             <path
               d="M18 8h-1V6a5 5 0 00-10 0v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2z"
+            />
+          </svg>
+          <svg
+            v-else-if="item.name === 'sys-users'"
+            width="18"
+            height="18"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
             />
           </svg>
           <svg
