@@ -319,6 +319,23 @@ table.data tr:hover td {
   background: rgba(13, 148, 136, 0.04);
 }
 
+/* Keep row action cells visible when table scrolls horizontally */
+table.data thead th:last-child,
+table.data tbody td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: #ffffff;
+  box-shadow: -10px 0 14px rgba(15, 23, 42, 0.06);
+}
+table.data thead th:last-child {
+  z-index: 3;
+  background: #f8fafc;
+}
+table.data tbody tr:hover td:last-child {
+  background: rgba(13, 148, 136, 0.06);
+}
+
 .tag {
   display: inline-block;
   padding: 3px 9px;

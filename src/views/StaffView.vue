@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteStaffApi, fetchRegionDefs, fetchStaffForm, fetchStaffList, patchStaffStatusApi, postStaffImportCsv, saveStaffForm } from '@/api/admin'
 import type { RegionDefRow, StaffForm, StaffRow } from '@/types/domain'
 import { Delete, Edit, Lock } from '@element-plus/icons-vue'
+import { isValidEmail, sanitizeDigitsInt } from '@/lib/inputValidators'
 
 const list = ref<StaffRow[]>([])
 const regionDefs = ref<RegionDefRow[]>([])
@@ -65,7 +66,7 @@ watch(
 async function onSave() {
   const emp = String(form.employeeNo || '').trim()
   const nm = String(form.name || '').trim()
-  const ph = String(form.phone || '').replace(/\s/g, '')
+  const ph = sanitizeDigitsInt(String(form.phone || '')).slice(0, 11)
   const dept = String(form.department || '').trim()
   if (!emp || emp.length > 32) {
     ElMessage.error('工号必填，最长 32 字符')
@@ -77,6 +78,10 @@ async function onSave() {
   }
   if (!/^\d{11}$/.test(ph)) {
     ElMessage.error('请输入 11 位数字手机号')
+    return
+  }
+  if (String(form.email || '').trim() && !isValidEmail(String(form.email))) {
+    ElMessage.error('邮箱格式不正确')
     return
   }
   if (!dept || dept.length > 64) {
@@ -243,11 +248,19 @@ function onDownloadStaffTemplate() {
         </div>
         <div>
           <label>手机号<span style="color: var(--rose)">*</span></label>
-          <input v-model="form.phone" type="text" maxlength="11" inputmode="numeric" placeholder="11 位" />
+          <input
+            :value="form.phone"
+            type="tel"
+            maxlength="11"
+            inputmode="numeric"
+            placeholder="11 位"
+            autocomplete="tel"
+            @input="form.phone = sanitizeDigitsInt(($event.target as HTMLInputElement).value).slice(0, 11)"
+          />
         </div>
         <div>
           <label>邮箱</label>
-          <input v-model="form.email" type="email" maxlength="120" />
+          <input v-model="form.email" type="text" maxlength="120" autocomplete="email" placeholder="name@company.com" />
         </div>
         <div>
           <label>部门<span style="color: var(--rose)">*</span></label>
@@ -299,7 +312,6 @@ function onDownloadStaffTemplate() {
           >
             <el-option v-for="d in regionDefs" :key="d.id" :label="d.name" :value="d.name" />
           </el-select>
-          <p class="hint" style="margin-top: 8px">与房源「所属区域」使用同一套名称；在「区域名称」页维护列表。</p>
         </div>
         <div class="full">
           <label>数据可见范围（自动生成）</label>

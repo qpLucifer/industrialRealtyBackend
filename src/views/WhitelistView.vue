@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createWhitelistRow, deleteWhitelistRow, fetchWhitelist, updateWhitelistRow } from '@/api/admin'
 import type { WhitelistRow } from '@/types/domain'
 import { Delete, Edit } from '@element-plus/icons-vue'
+import { sanitizeDigitsInt } from '@/lib/inputValidators'
 
 const list = ref<WhitelistRow[]>([])
 const drawer = ref(false)
@@ -171,7 +172,14 @@ onMounted(load)
       <div class="form-grid">
         <div class="full">
           <label>手机号<span style="color: var(--rose)">*</span></label>
-          <input v-model="form.phone" type="text" maxlength="11" inputmode="numeric" placeholder="11 位手机号" />
+          <input
+            :value="form.phone"
+            type="tel"
+            maxlength="11"
+            inputmode="numeric"
+            placeholder="11 位手机号"
+            @input="form.phone = sanitizeDigitsInt(($event.target as HTMLInputElement).value).slice(0, 11)"
+          />
         </div>
         <div class="full">
           <label>姓名</label>

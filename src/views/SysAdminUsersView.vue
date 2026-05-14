@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createSysAdminUser, deleteSysAdminUser, fetchSysAdminUsers, updateSysAdminUser } from '@/api/admin'
+import { createSysAdminUser, deleteSysAdminUser, fetchSysAdminUsers, updateSysAdminUser, uploadOssFile } from '@/api/admin'
 import type { SysAdminUserRow } from '@/types/domain'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<SysAdminUserRow[]>([])
 const drawer = ref(false)
 const editingId = ref<number | null>(null)
+const uploadingAvatar = ref(false)
 
 const form = reactive({
   username: '',
@@ -15,7 +16,6 @@ const form = reactive({
   roleLine: '',
   avatarUrl: '',
   password: '',
-  currentPassword: '',
 })
 
 async function load() {
@@ -35,7 +35,6 @@ function openNew() {
   form.roleLine = ''
   form.avatarUrl = ''
   form.password = ''
-  form.currentPassword = ''
   drawer.value = true
 }
 
@@ -46,8 +45,25 @@ function openEdit(row: SysAdminUserRow) {
   form.roleLine = row.roleLine
   form.avatarUrl = row.avatarUrl || ''
   form.password = ''
-  form.currentPassword = ''
   drawer.value = true
+}
+
+async function onAvatarPick(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploadingAvatar.value = true
+  try {
+    const { url } = await uploadOssFile(file, 'sys-admin-avatars')
+    form.avatarUrl = url
+    ElMessage.success('头像已上传')
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(err?.message || '上传失败')
+  } finally {
+    uploadingAvatar.value = false
+    input.value = ''
+  }
 }
 
 async function onSave() {
@@ -77,23 +93,12 @@ async function onSave() {
     })
     ElMessage.success('已新增后台用户')
   } else {
-    const row = list.value.find((r) => r.id === editingId.value)
-    const hasPwd = Boolean(row?.hasLoginPassword)
-    if (hasPwd && !form.currentPassword) {
-      ElMessage.warning('该账号已设置登录密码，保存前请在「当前密码」中输入正确密码')
-      return
-    }
-    if (!hasPwd && form.currentPassword) {
-      ElMessage.warning('该账号尚未设置登录密码，「当前密码」请留空')
-      return
-    }
     await updateSysAdminUser(editingId.value, {
       username,
       displayName,
       roleLine,
       avatarUrl: avatarUrl || null,
       password: form.password.trim() || undefined,
-      currentPassword: form.currentPassword,
     })
     ElMessage.success('已保存')
   }
@@ -107,36 +112,8 @@ async function onDelete(row: SysAdminUserRow) {
   } catch {
     return
   }
-  let currentPassword = ''
-  if (row.hasLoginPassword) {
-    try {
-      const { value } = await ElMessageBox.prompt('请输入该用户的当前密码以确认删除', '验证密码', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        inputType: 'password',
-        inputPlaceholder: '当前密码',
-        inputValidator: (v) => (String(v || '').length > 0 ? true : '请输入密码'),
-      })
-      currentPassword = String(value || '')
-    } catch {
-      return
-    }
-  } else {
-    try {
-      const { value } = await ElMessageBox.prompt('该账号未设置登录密码，可直接删除；如需取消请点取消。', '确认', {
-        confirmButtonText: '确认删除',
-        cancelButtonText: '取消',
-        inputType: 'password',
-        inputPlaceholder: '留空即可',
-        inputValidator: () => true,
-      })
-      currentPassword = String(value || '')
-    } catch {
-      return
-    }
-  }
   try {
-    await deleteSysAdminUser(row.id, currentPassword)
+    await deleteSysAdminUser(row.id)
     ElMessage.success('已删除')
     await load()
   } catch (e: unknown) {
@@ -160,7 +137,6 @@ async function onDelete(row: SysAdminUserRow) {
             <th>登录名</th>
             <th>显示名</th>
             <th>角色描述</th>
-            <th>已设密码</th>
             <th>创建时间</th>
             <th>操作</th>
           </tr>
@@ -171,7 +147,6 @@ async function onDelete(row: SysAdminUserRow) {
             <td>{{ r.username }}</td>
             <td>{{ r.displayName }}</td>
             <td class="cell-wrap">{{ r.roleLine }}</td>
-            <td>{{ r.hasLoginPassword ? '是' : '否' }}</td>
             <td>{{ r.createdAt }}</td>
             <td class="table-actions">
               <el-tooltip content="编辑" placement="top">
@@ -204,17 +179,17 @@ async function onDelete(row: SysAdminUserRow) {
           <label>头像 URL（可选）</label>
           <input v-model="form.avatarUrl" type="text" maxlength="512" />
         </div>
-        <div v-if="editingId != null" class="full">
-          <label>当前密码<span style="color: var(--rose)">*</span></label>
-          <input v-model="form.currentPassword" type="password" maxlength="128" autocomplete="current-password" />
-          <p class="hint" style="margin-top: 6px">
-            已设置登录密码的账号：须填对才能保存。未设置过密码的账号：请留空。
-          </p>
+        <div class="full">
+          <label>上传头像</label>
+          <input type="file" accept="image/*" :disabled="uploadingAvatar" @change="onAvatarPick" />
+          <div v-if="form.avatarUrl" class="avatar-preview-wrap">
+            <img :src="form.avatarUrl" alt="" class="avatar-preview" referrerpolicy="no-referrer" />
+          </div>
         </div>
         <div class="full">
           <label>{{ editingId == null ? '初始密码' : '新密码（可选）' }}<span v-if="editingId == null" style="color: var(--rose)">*</span></label>
           <input v-model="form.password" type="password" maxlength="128" autocomplete="new-password" />
-          <p v-if="editingId != null" class="hint" style="margin-top: 6px">留空表示不修改密码；填写则同时更新为新密码（仍需正确填写当前密码）。</p>
+          <p v-if="editingId != null" class="hint" style="margin-top: 6px">留空表示不修改密码。</p>
         </div>
       </div>
       <div style="display: flex; gap: 10px; margin-top: 20px">
@@ -236,5 +211,16 @@ async function onDelete(row: SysAdminUserRow) {
   gap: 6px;
   align-items: center;
   white-space: nowrap;
+}
+.avatar-preview-wrap {
+  margin-top: 10px;
+}
+.avatar-preview {
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #f1f5f9;
 }
 </style>

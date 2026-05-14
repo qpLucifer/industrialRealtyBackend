@@ -12,6 +12,7 @@ import {
 } from '@/api/admin'
 import type { CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
+import { isPhone11Cn, sanitizeDigitsInt } from '@/lib/inputValidators'
 
 const list = ref<CustomerRow[]>([])
 const scopeFilter = ref<'all' | 'private' | 'public'>('all')
@@ -61,10 +62,11 @@ async function loadStaff() {
 }
 
 function validatePhoneClient(phone: string): string | null {
-  const s = String(phone || '').replace(/\s/g, '')
-  if (s.length < 7 || s.length > 20) return '手机号长度应为 7–20 位'
-  if (!/^\+?\d{7,20}$/.test(s)) return '手机号仅允许数字（可带开头 +）'
-  return null
+  return isPhone11Cn(phone) ? null : '手机号须为 11 位数字（1 开头）'
+}
+
+function onEditPhoneInput(e: Event) {
+  editForm.phone = sanitizeDigitsInt((e.target as HTMLInputElement).value).slice(0, 11)
 }
 
 function ownerNamesFromStaffIds(ids: string[]) {
@@ -271,7 +273,6 @@ function onRemind() {
           <tr>
             <th style="min-width: 110px">联系电话</th>
             <th style="min-width: 200px">公司 / 主体</th>
-            <th style="min-width: 180px">主题（列表标题行）</th>
             <th style="min-width: 160px">客户名称</th>
             <th style="min-width: 160px">地址 / 区域</th>
             <th style="min-width: 200px">需求摘要</th>
@@ -289,7 +290,6 @@ function onRemind() {
             <td>
               <span class="crm-cell-strong">{{ r.company || '—' }}</span>
             </td>
-            <td class="cell-wrap hint-sm">{{ r.titleLine || '—' }}</td>
             <td>
               <span class="crm-cell-strong">{{ r.contactName || r.name }}</span>
             </td>
@@ -393,12 +393,13 @@ function onRemind() {
           <div>
             <label>手机<span style="color: var(--rose)">*</span></label>
             <input
-              v-model="editForm.phone"
+              :value="editForm.phone"
               type="tel"
               autocomplete="tel"
               maxlength="11"
-              inputmode="tel"
-              placeholder="11位"
+              inputmode="numeric"
+              placeholder="11 位手机号"
+              @input="onEditPhoneInput"
             />
           </div>
           <div>

@@ -226,9 +226,22 @@ onUnmounted(() => {
 watch(
   () => [props.lat, props.lng] as const,
   () => {
-    if (!marker) return
+    if (!marker || !map) return
     const { lng, lat } = parseCenter()
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return
     ;(marker as { setPosition?: (p: number[]) => void }).setPosition?.([lng, lat])
+    const m = map as {
+      setZoomAndCenter?: (z: number, c: number[]) => void
+      setCenter?: (c: number[]) => void
+      setZoom?: (z: number) => void
+    }
+    if (typeof m.setZoomAndCenter === 'function') {
+      m.setZoomAndCenter(16, [lng, lat])
+    } else {
+      m.setCenter?.([lng, lat])
+      m.setZoom?.(16)
+    }
+    void nextTick(() => (map as { resize?: () => void })?.resize?.())
   },
 )
 

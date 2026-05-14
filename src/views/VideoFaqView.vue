@@ -205,6 +205,16 @@ onMounted(load)
           <label>上传到 OSS（视频）</label>
           <input type="file" accept="video/*" :disabled="uploadingVideo" @change="onVideoPick" />
         </div>
+        <div v-if="form.videoPath.trim()" class="full">
+          <label>视频预览</label>
+          <video
+            class="faq-video-preview"
+            :src="form.videoPath.trim()"
+            controls
+            preload="metadata"
+            referrerpolicy="no-referrer"
+          />
+        </div>
         <div class="full">
           <label>标签（逗号分隔）</label>
           <input v-model="form.tagsCsv" type="text" placeholder="丙二类,黄埔" />
@@ -226,3 +236,13 @@ onMounted(load)
     </el-drawer>
   </section>
 </template>
+
+<style scoped>
+.faq-video-preview {
+  width: 100%;
+  max-height: 260px;
+  border-radius: 10px;
+  background: #0f172a;
+  margin-top: 8px;
+}
+</style>

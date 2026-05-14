@@ -213,8 +213,9 @@ export interface AnnouncementRow {
   title: string
   scope: string
   popup: string
+  /** When popup is 是: stores "start|end" window (reuses legacy schedule column) */
   schedule: string
-  status: '已发送' | '计划中'
+  status: string
   statusTone: 'mint' | 'amber'
   body?: string | null
 }
@@ -268,6 +269,10 @@ export interface PropertyFullForm {
   ownerContact: string
   photoChecklist: string[]
   mediaUrls: string
+  /** Newline-separated image URLs (preferred over parsing mediaUrls) */
+  mediaImageUrls?: string
+  /** Newline-separated video URLs (any URL shape; not inferred from extension only) */
+  mediaVideoUrls?: string
   landMu: number
   actualLandMu: number
   buildingArea: number

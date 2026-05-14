@@ -334,15 +334,15 @@ export async function updateSysAdminUser(
     roleLine?: string
     avatarUrl?: string | null
     password?: string
-    currentPassword: string
+    currentPassword?: string
   },
 ) {
   const res = await http.put(`/sys-admin-users/${id}`, payload)
   return unwrap(res) as { success: boolean }
 }
 
-export async function deleteSysAdminUser(id: number, currentPassword: string) {
-  const res = await http.delete(`/sys-admin-users/${id}`, { data: { currentPassword } })
+export async function deleteSysAdminUser(id: number, currentPassword?: string) {
+  const res = await http.delete(`/sys-admin-users/${id}`, { data: { currentPassword: currentPassword ?? '' } })
   return unwrap(res) as { success: boolean }
 }
 

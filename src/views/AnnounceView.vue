@@ -18,10 +18,31 @@ const form = reactive({
   body: '',
   scope: '全员',
   popup: '否',
-  schedule: '立即',
-  status: '已发送' as AnnouncementRow['status'],
-  statusTone: 'mint' as AnnouncementRow['statusTone'],
+  popupStart: '',
+  popupEnd: '',
+  /** 青绿色 | 琥珀色 — stored server-side as mint / amber */
+  statusToneCn: '青绿色' as '青绿色' | '琥珀色',
 })
+
+function toneDbToCn(t: string): '青绿色' | '琥珀色' {
+  return t === 'amber' ? '琥珀色' : '青绿色'
+}
+
+function parsePopupWindow(schedule: string): { start: string; end: string } {
+  const s = String(schedule || '').trim()
+  const parts = s.split('|')
+  if (parts.length >= 2) {
+    return { start: parts[0].trim(), end: parts[1].trim() }
+  }
+  return { start: '', end: '' }
+}
+
+function buildPopupWindowRange(): string {
+  const a = form.popupStart.trim()
+  const b = form.popupEnd.trim()
+  if (!a || !b) return ''
+  return `${a}|${b}`
+}
 
 async function load() {
   const { list: rows } = await fetchAnnouncements()
@@ -32,15 +53,22 @@ function statusClass(t: AnnouncementRow['statusTone']) {
   return t === 'mint' ? 'mint' : 'amber'
 }
 
+function popupWindowLabel(row: AnnouncementRow): string {
+  if (row.popup !== '是') return '—'
+  const { start, end } = parsePopupWindow(row.schedule)
+  if (!start && !end) return '—'
+  return `${start || '—'} ~ ${end || '—'}`
+}
+
 function openCreate() {
   editingId.value = null
   form.title = ''
   form.body = ''
   form.scope = '全员'
   form.popup = '否'
-  form.schedule = '立即'
-  form.status = '已发送'
-  form.statusTone = 'mint'
+  form.popupStart = ''
+  form.popupEnd = ''
+  form.statusToneCn = '青绿色'
   modal.value = true
 }
 
@@ -50,9 +78,10 @@ function openEdit(row: AnnouncementRow) {
   form.body = row.body || ''
   form.scope = row.scope
   form.popup = row.popup
-  form.schedule = row.schedule
-  form.status = row.status
-  form.statusTone = row.statusTone
+  const win = parsePopupWindow(row.schedule)
+  form.popupStart = win.start
+  form.popupEnd = win.end
+  form.statusToneCn = toneDbToCn(row.statusTone)
   modal.value = true
 }
 
@@ -65,14 +94,20 @@ async function onPublish() {
     ElMessage.warning('请填写正文')
     return
   }
+  if (form.popup === '是') {
+    if (!form.popupStart.trim() || !form.popupEnd.trim()) {
+      ElMessage.warning('小程序弹窗为「是」时，请填写弹窗展示的开始与结束时间')
+      return
+    }
+  }
+  const popupWindowRange = form.popup === '是' ? buildPopupWindowRange() : ''
   const payload = {
     title: form.title.trim(),
     body: form.body.trim(),
     scope: form.scope,
     popup: form.popup,
-    schedule: form.schedule,
-    status: form.status,
-    statusTone: form.statusTone,
+    popupWindowRange,
+    statusToneCn: form.statusToneCn,
   }
   if (editingId.value == null) {
     await publishAnnouncement(payload)
@@ -111,9 +146,9 @@ onMounted(load)
           <tr>
             <th>标题</th>
             <th>推送范围</th>
-            <th>弹窗</th>
-            <th>定时</th>
-            <th>状态</th>
+            <th>小程序弹窗</th>
+            <th>弹窗展示时间</th>
+            <th>列表强调色</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -122,8 +157,10 @@ onMounted(load)
             <td>{{ r.title }}</td>
             <td>{{ r.scope }}</td>
             <td>{{ r.popup }}</td>
-            <td>{{ r.schedule }}</td>
-            <td><span class="tag" :class="statusClass(r.statusTone)">{{ r.status }}</span></td>
+            <td class="cell-wrap hint-sm">{{ popupWindowLabel(r) }}</td>
+            <td>
+              <span class="tag" :class="statusClass(r.statusTone)">{{ toneDbToCn(r.statusTone) }}</span>
+            </td>
             <td>
               <div class="row-actions">
                 <el-tooltip content="编辑" placement="top">
@@ -168,25 +205,20 @@ onMounted(load)
                 <option>是</option>
               </select>
             </div>
-            <div>
-              <label>定时发送</label>
-              <select v-model="form.schedule">
-                <option>立即</option>
-                <option>计划中</option>
-              </select>
+            <div v-if="form.popup === '是'" class="full">
+              <label>弹窗展示时间范围<span style="color: var(--rose)">*</span></label>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 6px">
+                <input v-model="form.popupStart" type="datetime-local" style="flex: 1; min-width: 180px" />
+                <span class="hint" style="white-space: nowrap">至</span>
+                <input v-model="form.popupEnd" type="datetime-local" style="flex: 1; min-width: 180px" />
+              </div>
+              <p class="hint" style="margin-top: 6px">仅在小程序弹窗选「是」时需要填写；将写入服务端时间窗字段。</p>
             </div>
-            <div>
-              <label>状态</label>
-              <select v-model="form.status">
-                <option value="已发送">已发送</option>
-                <option value="计划中">计划中</option>
-              </select>
-            </div>
-            <div>
-              <label>状态色调</label>
-              <select v-model="form.statusTone">
-                <option value="mint">mint</option>
-                <option value="amber">amber</option>
+            <div class="full">
+              <label>列表强调色（中文）</label>
+              <select v-model="form.statusToneCn">
+                <option value="青绿色">青绿色</option>
+                <option value="琥珀色">琥珀色</option>
               </select>
             </div>
           </div>
@@ -199,3 +231,14 @@ onMounted(load)
     </Teleport>
   </section>
 </template>
+
+<style scoped>
+.cell-wrap {
+  max-width: 280px;
+  word-break: break-word;
+}
+.hint-sm {
+  font-size: 12px;
+  color: #64748b;
+}
+</style>

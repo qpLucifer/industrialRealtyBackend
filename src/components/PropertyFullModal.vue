@@ -4,6 +4,12 @@ import { ElMessage } from 'element-plus'
 import { fetchPropertyDetail, fetchRegionDefs, savePropertySnapshot, uploadOssFile } from '@/api/admin'
 import MapLatLngPicker from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
+import {
+  isPhone11Cn,
+  parseOptionalNumber,
+  sanitizeDigitsDecimal,
+  sanitizeDigitsInt,
+} from '@/lib/inputValidators'
 
 /** Ensure arrays / flags exist so chips and toggles never throw. */
 function ensurePropertyFormShape(f: PropertyFullForm) {
@@ -27,6 +33,10 @@ function ensurePropertyFormShape(f: PropertyFullForm) {
   else f.lat = String(f.lat).trim()
   if (f.lng === undefined || f.lng === null) f.lng = ''
   else f.lng = String(f.lng).trim()
+  if (f.mediaImageUrls == null) f.mediaImageUrls = ''
+  else f.mediaImageUrls = String(f.mediaImageUrls)
+  if (f.mediaVideoUrls == null) f.mediaVideoUrls = ''
+  else f.mediaVideoUrls = String(f.mediaVideoUrls)
 }
 
 type RoKey = keyof PropertyFullForm | '_img' | '_vid'
@@ -176,6 +186,11 @@ const RO_SECTIONS: { title: string; fields: { key: RoKey; label: string }[] }[] 
   },
 ]
 
+const RO_SECTIONS_VIEW_OTHER = RO_SECTIONS.map((sec) => ({
+  title: sec.title,
+  fields: sec.fields.filter((f) => f.key !== '_img' && f.key !== '_vid'),
+})).filter((sec) => sec.fields.length > 0)
+
 function roVal(key: RoKey): string {
   if (key === '_img') return (mediaImageBlock.value || '').trim() || '—'
   if (key === '_vid') return (mediaVideoBlock.value || '').trim() || '—'
@@ -229,6 +244,7 @@ const emit = defineEmits<{
 
 const form = reactive<PropertyFullForm>({} as PropertyFullForm)
 const tab = ref(0)
+const detailViewTab = ref(0)
 const uploadingImage = ref(false)
 const uploadingVideo = ref(false)
 const mediaImageBlock = ref('')
@@ -248,6 +264,53 @@ const videoPreviewUrls = computed(() => splitMediaLines(mediaVideoBlock.value))
 /** OSS/CDN hotlink rules often reject admin Referer; native preview avoids ElImageViewer missing referrerpolicy. */
 const imageLightboxOpen = ref(false)
 const imageLightboxIdx = ref(0)
+
+function numStr(v: unknown): string {
+  if (v == null || v === '') return ''
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v)
+  return ''
+}
+
+function setDec(key: keyof PropertyFullForm, e: Event) {
+  const s = sanitizeDigitsDecimal((e.target as HTMLInputElement).value)
+  const n = parseOptionalNumber(s, true)
+  ;(form as Record<string, unknown>)[key as string] = n == null ? 0 : n
+}
+
+function setDecNullable(key: 'annualRent' | 'contractYearsLeft' | 'landlordPriceWan', e: Event) {
+  const s = sanitizeDigitsDecimal((e.target as HTMLInputElement).value)
+  const n = parseOptionalNumber(s, true)
+  ;(form as Record<string, unknown>)[key] = n
+}
+
+function setInt(key: keyof PropertyFullForm, e: Event) {
+  const s = sanitizeDigitsInt((e.target as HTMLInputElement).value)
+  const n = s === '' ? 0 : Number.parseInt(s, 10)
+  ;(form as Record<string, unknown>)[key as string] = Number.isFinite(n) ? n : 0
+}
+
+function sanitizeCoord(raw: string): string {
+  return String(raw || '').replace(/[^\d.\-]/g, '')
+}
+
+function onCoordInput(which: 'lat' | 'lng', e: Event) {
+  const v = sanitizeCoord((e.target as HTMLInputElement).value).slice(0, 20)
+  form[which] = v
+}
+
+function onPhone11Input(e: Event) {
+  const v = sanitizeDigitsInt((e.target as HTMLInputElement).value).slice(0, 11)
+  form.contactPhone = v
+}
+
+const structureOtherDisabled = computed(() => !form.structureTypes?.includes('其他'))
+const rightsOtherDisabled = computed(() => !form.propertyRights?.includes('其他'))
+const landUseOtherDisabled = computed(() => !form.landUse?.includes('其他'))
+const fireOtherDisabled = computed(() => !form.fireSystems?.includes('其他'))
+const subsidyDetailDisabled = computed(() => form.subsidy !== '有')
+const mortgageNoteDisabled = computed(() => form.mortgageDispute === '无')
+/** Reason applies when acceptance is not passed */
+const fireFailReasonDisabled = computed(() => form.firePass !== '否')
 
 function openImageLightbox(i: number) {
   const urls = imagePreviewUrls.value
@@ -288,12 +351,18 @@ function isVideoUrl(line: string) {
 }
 
 function syncMediaBlocksFromForm() {
-  const lines = String(form.mediaUrls || '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-  mediaImageBlock.value = lines.filter((l) => !isVideoUrl(l)).join('\n')
-  mediaVideoBlock.value = lines.filter((l) => isVideoUrl(l)).join('\n')
+  let imgLines = String(form.mediaImageUrls ?? '').trim()
+  let vidLines = String(form.mediaVideoUrls ?? '').trim()
+  if (!imgLines && !vidLines && form.mediaUrls) {
+    const lines = String(form.mediaUrls || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+    imgLines = lines.filter((l) => !isVideoUrl(l)).join('\n')
+    vidLines = lines.filter((l) => isVideoUrl(l)).join('\n')
+  }
+  mediaImageBlock.value = imgLines
+  mediaVideoBlock.value = vidLines
 }
 
 function mergeMediaBlocksToForm() {
@@ -305,6 +374,8 @@ function mergeMediaBlocksToForm() {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
+  form.mediaImageUrls = imgs.join('\n')
+  form.mediaVideoUrls = vids.join('\n')
   form.mediaUrls = [...imgs, ...vids].join('\n')
 }
 
@@ -312,6 +383,7 @@ watch(
   () => [props.visible, props.code] as const,
   async ([vis, code]) => {
     if (!vis) return
+    detailViewTab.value = 0
     const [{ list }, d] = await Promise.all([fetchRegionDefs(), fetchPropertyDetail(code)])
     regionDefs.value = list
     Object.assign(form, d)
@@ -367,6 +439,10 @@ async function onSave() {
   }
   if (miss.length) {
     ElMessage.error(`请完善必填项：${miss.join('、')}`)
+    return
+  }
+  if (!isPhone11Cn(String(form.contactPhone || ''))) {
+    ElMessage.error('联系人电话须为 11 位数字（1 开头）')
     return
   }
   await savePropertySnapshot({ ...form, mode: props.mode, code: props.code })
@@ -533,14 +609,34 @@ async function onPickVideos(ev: Event) {
               <div class="form-section-h">地图定位（小程序房源详情底部展示）</div>
               <div>
                 <label>纬度（GCJ-02）<span style="color: var(--rose)">*</span></label>
-                <input v-model="form.lat" type="text" maxlength="20" placeholder="例：23.179455" />
+                <input
+                  :value="form.lat"
+                  type="text"
+                  maxlength="20"
+                  placeholder="例：23.179455"
+                  inputmode="decimal"
+                  @input="onCoordInput('lat', $event)"
+                />
               </div>
               <div>
                 <label>经度（GCJ-02）<span style="color: var(--rose)">*</span></label>
-                <input v-model="form.lng" type="text" maxlength="20" placeholder="例：113.429512" />
+                <input
+                  :value="form.lng"
+                  type="text"
+                  maxlength="20"
+                  placeholder="例：113.429512"
+                  inputmode="decimal"
+                  @input="onCoordInput('lng', $event)"
+                />
               </div>
               <div class="full">
-                <MapLatLngPicker v-model:lat="form.lat" v-model:lng="form.lng" :disabled="false" />
+                <MapLatLngPicker
+                  v-if="tab === 1"
+                  :key="`${code}-${form.lat}-${form.lng}`"
+                  v-model:lat="form.lat"
+                  v-model:lng="form.lng"
+                  :disabled="false"
+                />
               </div>
             </div>
           </div>
@@ -618,27 +714,39 @@ async function onPickVideos(ev: Event) {
               <div class="form-section-h">2. 土地与建筑规格</div>
               <div>
                 <label>土地（亩）<span style="color: var(--rose)">*</span></label>
-                <input v-model.number="form.landMu" type="number" step="0.01" />
+                <input :value="numStr(form.landMu)" type="text" inputmode="decimal" maxlength="14" @input="setDec('landMu', $event)" />
               </div>
               <div>
                 <label>实际土地（亩）</label>
-                <input v-model.number="form.actualLandMu" type="number" step="0.01" />
+                <input
+                  :value="numStr(form.actualLandMu)"
+                  type="text"
+                  inputmode="decimal"
+                  maxlength="14"
+                  @input="setDec('actualLandMu', $event)"
+                />
               </div>
               <div>
                 <label>建筑面积（㎡）</label>
-                <input v-model.number="form.buildingArea" type="number" />
+                <input :value="numStr(form.buildingArea)" type="text" inputmode="numeric" maxlength="12" @input="setInt('buildingArea', $event)" />
               </div>
               <div>
                 <label>实际使用面积（㎡）</label>
-                <input v-model.number="form.actualUseArea" type="number" />
+                <input
+                  :value="numStr(form.actualUseArea)"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="12"
+                  @input="setInt('actualUseArea', $event)"
+                />
               </div>
               <div>
                 <label>总层数（层）</label>
-                <input v-model.number="form.floors" type="number" />
+                <input :value="numStr(form.floors)" type="text" inputmode="numeric" maxlength="6" @input="setInt('floors', $event)" />
               </div>
               <div>
                 <label>承重能力（吨/m²）</label>
-                <input v-model.number="form.loadPerSqm" type="number" step="0.1" />
+                <input :value="numStr(form.loadPerSqm)" type="text" inputmode="decimal" maxlength="12" @input="setDec('loadPerSqm', $event)" />
               </div>
               <div class="full">
                 <label>车间长宽高（米）</label>
@@ -662,25 +770,25 @@ async function onPickVideos(ev: Event) {
               </div>
               <div class="full">
                 <label>结构 · 其他说明</label>
-                <input v-model="form.structureOther" type="text" placeholder="选其他时填写" />
+                <input v-model="form.structureOther" type="text" placeholder="选其他时填写" :disabled="structureOtherDisabled" />
               </div>
 
               <div class="form-section-h">3. 电力与货运设施</div>
               <div>
                 <label>电力总容量（kVA）<span style="color: var(--rose)">*</span></label>
-                <input v-model.number="form.powerKva" type="number" />
+                <input :value="numStr(form.powerKva)" type="text" inputmode="numeric" maxlength="10" @input="setInt('powerKva', $event)" />
               </div>
               <div>
                 <label>现有变压器（台）</label>
-                <input v-model.number="form.transformers" type="number" />
+                <input :value="numStr(form.transformers)" type="text" inputmode="numeric" maxlength="6" @input="setInt('transformers', $event)" />
               </div>
               <div>
                 <label>货梯（台）</label>
-                <input v-model.number="form.freightLifts" type="number" />
+                <input :value="numStr(form.freightLifts)" type="text" inputmode="numeric" maxlength="6" @input="setInt('freightLifts', $event)" />
               </div>
               <div>
                 <label>货梯载重（吨）</label>
-                <input v-model.number="form.liftLoadT" type="number" step="0.1" />
+                <input :value="numStr(form.liftLoadT)" type="text" inputmode="decimal" maxlength="10" @input="setDec('liftLoadT', $event)" />
               </div>
               <div class="full">
                 <label>货梯长宽高（米）</label>
@@ -688,21 +796,34 @@ async function onPickVideos(ev: Event) {
               </div>
               <div>
                 <label>装卸平台高度（cm）</label>
-                <input v-model.number="form.platformHeightCm" type="number" />
+                <input
+                  :value="numStr(form.platformHeightCm)"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="8"
+                  @input="setInt('platformHeightCm', $event)"
+                />
               </div>
               <div>
                 <label>货车转弯半径（米）</label>
-                <input v-model.number="form.turnRadiusM" type="number" step="0.1" />
+                <input :value="numStr(form.turnRadiusM)" type="text" inputmode="decimal" maxlength="10" @input="setDec('turnRadiusM', $event)" />
               </div>
 
               <div class="form-section-h">4. 周边配套<span style="color: var(--rose)">*</span></div>
               <div>
                 <label>宿舍 · 园区内租金（元/房）</label>
-                <input v-model.number="form.dormRent" type="number" placeholder="可选" />
+                <input :value="numStr(form.dormRent)" type="text" inputmode="numeric" maxlength="10" placeholder="可选" @input="setInt('dormRent', $event)" />
               </div>
               <div>
                 <label>宿舍 · 周边距离（公里）</label>
-                <input v-model.number="form.dormDistanceKm" type="number" step="0.1" placeholder="可选" />
+                <input
+                  :value="numStr(form.dormDistanceKm)"
+                  type="text"
+                  inputmode="decimal"
+                  maxlength="10"
+                  placeholder="可选"
+                  @input="setDec('dormDistanceKm', $event)"
+                />
               </div>
               <div>
                 <label>餐饮 / 便利店</label>
@@ -718,25 +839,44 @@ async function onPickVideos(ev: Event) {
               </div>
               <div>
                 <label>站点距离（米）</label>
-                <input v-model.number="form.stationDistanceM" type="number" />
+                <input
+                  :value="numStr(form.stationDistanceM)"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="10"
+                  @input="setInt('stationDistanceM', $event)"
+                />
               </div>
 
               <div class="form-section-h">5. 使用情况<span style="color: var(--rose)">*</span></div>
               <div>
                 <label>自用（㎡）</label>
-                <input v-model.number="form.selfUseSqm" type="number" />
+                <input :value="numStr(form.selfUseSqm)" type="text" inputmode="numeric" maxlength="12" @input="setInt('selfUseSqm', $event)" />
               </div>
               <div>
                 <label>租金估算（元/年）</label>
-                <input v-model.number="form.rentEstimateYear" type="number" />
+                <input
+                  :value="numStr(form.rentEstimateYear)"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="14"
+                  @input="setInt('rentEstimateYear', $event)"
+                />
               </div>
               <div>
                 <label>共租（家）</label>
-                <input v-model.number="form.coTenantCount" type="number" />
+                <input :value="numStr(form.coTenantCount)" type="text" inputmode="numeric" maxlength="6" @input="setInt('coTenantCount', $event)" />
               </div>
               <div>
                 <label>年租金（元/年）</label>
-                <input v-model.number="form.annualRent" type="number" placeholder="共租时" />
+                <input
+                  :value="numStr(form.annualRent)"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="14"
+                  placeholder="共租时"
+                  @input="setDecNullable('annualRent', $event)"
+                />
               </div>
               <div class="full">
                 <label>租客公司名称</label>
@@ -744,11 +884,17 @@ async function onPickVideos(ev: Event) {
               </div>
               <div>
                 <label>合同还有（年）</label>
-                <input v-model.number="form.contractYearsLeft" type="number" step="0.1" />
+                <input
+                  :value="numStr(form.contractYearsLeft)"
+                  type="text"
+                  inputmode="decimal"
+                  maxlength="8"
+                  @input="setDecNullable('contractYearsLeft', $event)"
+                />
               </div>
               <div>
                 <label>厂房全部腾空（月）</label>
-                <input v-model.number="form.vacantMonths" type="number" />
+                <input :value="numStr(form.vacantMonths)" type="text" inputmode="numeric" maxlength="6" @input="setInt('vacantMonths', $event)" />
               </div>
               <div class="full">
                 <label>使用情况备注</label>
@@ -774,7 +920,7 @@ async function onPickVideos(ev: Event) {
               </div>
               <div class="full">
                 <label>产权 · 其他说明</label>
-                <input v-model="form.propertyRightsOther" type="text" />
+                <input v-model="form.propertyRightsOther" type="text" :disabled="rightsOtherDisabled" />
               </div>
               <div class="full">
                 <label>土地用途（多选）</label>
@@ -790,7 +936,7 @@ async function onPickVideos(ev: Event) {
               </div>
               <div class="full">
                 <label>土地用途 · 其他</label>
-                <input v-model="form.landUseOther" type="text" />
+                <input v-model="form.landUseOther" type="text" :disabled="landUseOtherDisabled" />
               </div>
               <div class="full">
                 <label>证件齐全（多选）</label>
@@ -813,13 +959,19 @@ async function onPickVideos(ev: Event) {
               </div>
               <div class="full">
                 <label>抵押 / 纠纷说明</label>
-                <textarea v-model="form.mortgageNote" rows="2" />
+                <textarea v-model="form.mortgageNote" rows="2" :disabled="mortgageNoteDisabled" />
               </div>
 
               <div class="form-section-h">8. 交易条款<span style="color: var(--rose)">*</span> · 税费</div>
               <div>
                 <label>房东心里价位（万）</label>
-                <input v-model.number="form.landlordPriceWan" type="number" step="0.01" />
+                <input
+                  :value="numStr(form.landlordPriceWan)"
+                  type="text"
+                  inputmode="decimal"
+                  maxlength="14"
+                  @input="setDecNullable('landlordPriceWan', $event)"
+                />
               </div>
               <div>
                 <label>厂房交易方式</label>
@@ -855,7 +1007,7 @@ async function onPickVideos(ev: Event) {
               </div>
               <div class="full">
                 <label>消防 · 其他</label>
-                <input v-model="form.fireOther" type="text" />
+                <input v-model="form.fireOther" type="text" :disabled="fireOtherDisabled" />
               </div>
               <div>
                 <label>通过验收</label>
@@ -873,17 +1025,17 @@ async function onPickVideos(ev: Event) {
               </div>
               <div class="full">
                 <label>消防未通过原因</label>
-                <input v-model="form.fireFailReason" type="text" />
+                <input v-model="form.fireFailReason" type="text" :disabled="fireFailReasonDisabled" />
               </div>
 
               <div class="form-section-h">11. 物流便捷度</div>
               <div>
                 <label>最近高速口（km）</label>
-                <input v-model.number="form.highwayKm" type="number" step="0.1" />
+                <input :value="numStr(form.highwayKm)" type="text" inputmode="decimal" maxlength="10" @input="setDec('highwayKm', $event)" />
               </div>
               <div>
                 <label>港口/机场（km）</label>
-                <input v-model.number="form.portAirportKm" type="number" step="0.1" />
+                <input :value="numStr(form.portAirportKm)" type="text" inputmode="decimal" maxlength="10" @input="setDec('portAirportKm', $event)" />
               </div>
               <div class="full">
                 <label>周边道路限高/限重</label>
@@ -908,7 +1060,7 @@ async function onPickVideos(ev: Event) {
               </div>
               <div class="full">
                 <label>补贴具体说明</label>
-                <input v-model="form.subsidyDetail" type="text" />
+                <input v-model="form.subsidyDetail" type="text" :disabled="subsidyDetailDisabled" />
               </div>
               <div class="full">
                 <label>税收优惠</label>
@@ -972,11 +1124,11 @@ async function onPickVideos(ev: Event) {
               </div>
               <div>
                 <label>租金挂牌（元/㎡·月）</label>
-                <input v-model.number="form.rentListSqm" type="number" />
+                <input :value="numStr(form.rentListSqm)" type="text" inputmode="decimal" maxlength="12" @input="setDec('rentListSqm', $event)" />
               </div>
               <div>
                 <label>物业费（元/㎡·月）</label>
-                <input v-model.number="form.propertyFee" type="number" step="0.1" />
+                <input :value="numStr(form.propertyFee)" type="text" inputmode="decimal" maxlength="12" @input="setDec('propertyFee', $event)" />
               </div>
               <div>
                 <label>联系人姓名<span style="color: var(--rose)">*</span></label>
@@ -984,7 +1136,15 @@ async function onPickVideos(ev: Event) {
               </div>
               <div>
                 <label>联系人电话<span style="color: var(--rose)">*</span></label>
-                <input v-model="form.contactPhone" type="text" />
+                <input
+                  :value="form.contactPhone"
+                  type="tel"
+                  inputmode="numeric"
+                  maxlength="11"
+                  placeholder="11 位手机号"
+                  autocomplete="tel"
+                  @input="onPhone11Input"
+                />
               </div>
               <div class="full">
                 <label>看房预约备注</label>
@@ -998,33 +1158,75 @@ async function onPickVideos(ev: Event) {
           </div>
           </template>
           <div v-else class="prop-readonly-summary">
-            <p class="hint" style="margin: 0 0 14px">
-              以下为与编辑表单一致的完整字段；媒体 URL 与编辑区「图片 / 视频」分行一致。
-            </p>
-            <section v-for="sec in RO_SECTIONS" :key="sec.title" class="ro-sec">
-              <h4 class="ro-h4">{{ sec.title }}</h4>
-              <div
-                v-for="(row, ri) in roFieldRows(sec.fields)"
-                :key="`${sec.title}-${ri}`"
-                class="ro-row"
-                :class="{ 'ro-row-span': row.length === 1 && isRoMultiline(row[0].key) }"
-              >
-                <template v-for="f in row" :key="f.key">
-                  <dt>{{ f.label }}</dt>
-                  <dd
-                    :class="{
-                      'ro-dd-multiline': f.key === '_img' || f.key === '_vid',
-                    }"
-                  >
-                    {{ roVal(f.key) }}
-                  </dd>
-                </template>
-                <template v-if="row.length === 1 && !isRoMultiline(row[0].key)">
-                  <span class="ro-dt-ph" aria-hidden="true" />
-                  <span class="ro-dd-ph" aria-hidden="true" />
-                </template>
+            <div v-if="mode === 'view'" class="admin-modal-tabs" style="margin-bottom: 14px">
+              <button type="button" :class="{ active: detailViewTab === 0 }" @click="detailViewTab = 0">图片</button>
+              <button type="button" :class="{ active: detailViewTab === 1 }" @click="detailViewTab = 1">视频</button>
+              <button type="button" :class="{ active: detailViewTab === 2 }" @click="detailViewTab = 2">其它信息</button>
+            </div>
+
+            <div v-show="detailViewTab === 0">
+              <p v-if="!imagePreviewUrls.length" class="hint" style="margin: 0">暂无图片。</p>
+              <div v-else class="media-preview-block">
+                <label>图片预览（点击放大）</label>
+                <div class="media-preview-grid">
+                  <img
+                    v-for="(url, i) in imagePreviewUrls"
+                    :key="`v-${url}-${i}`"
+                    :src="url"
+                    referrerpolicy="no-referrer"
+                    loading="lazy"
+                    decoding="async"
+                    alt=""
+                    class="media-thumb media-thumb-native"
+                    role="button"
+                    tabindex="0"
+                    @click="openImageLightbox(i)"
+                    @keyup.enter="openImageLightbox(i)"
+                  />
+                </div>
               </div>
-            </section>
+            </div>
+
+            <div v-show="detailViewTab === 1">
+              <p v-if="!videoPreviewUrls.length" class="hint" style="margin: 0">暂无视频。</p>
+              <div v-else class="media-preview-block">
+                <label>视频预览</label>
+                <div class="media-video-list">
+                  <div v-for="(url, i) in videoPreviewUrls" :key="`vv-${url}-${i}`" class="media-video-item">
+                    <video :src="url" controls preload="metadata" class="media-video" referrerpolicy="no-referrer" />
+                    <a class="media-video-link" :href="url" target="_blank" rel="noopener noreferrer">新窗口打开</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-show="detailViewTab === 2">
+              <p class="hint" style="margin: 0 0 14px">与编辑表单字段一致（不含上方图片/视频 Tab 已展示内容）。</p>
+              <section v-for="sec in RO_SECTIONS_VIEW_OTHER" :key="sec.title" class="ro-sec">
+                <h4 class="ro-h4">{{ sec.title }}</h4>
+                <div
+                  v-for="(row, ri) in roFieldRows(sec.fields)"
+                  :key="`${sec.title}-${ri}`"
+                  class="ro-row"
+                  :class="{ 'ro-row-span': row.length === 1 && isRoMultiline(row[0].key) }"
+                >
+                  <template v-for="f in row" :key="f.key">
+                    <dt>{{ f.label }}</dt>
+                    <dd
+                      :class="{
+                        'ro-dd-multiline': f.key === '_img' || f.key === '_vid',
+                      }"
+                    >
+                      {{ roVal(f.key) }}
+                    </dd>
+                  </template>
+                  <template v-if="row.length === 1 && !isRoMultiline(row[0].key)">
+                    <span class="ro-dt-ph" aria-hidden="true" />
+                    <span class="ro-dd-ph" aria-hidden="true" />
+                  </template>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
         <div class="modal-prop-foot">
