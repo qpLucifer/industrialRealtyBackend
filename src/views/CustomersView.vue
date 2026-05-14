@@ -238,7 +238,7 @@ async function onSaveFollow() {
 }
 
 function onRemind() {
-  ElMessage.success(`今日待跟进相关客户约 ${pendingFollowCount.value} 条（下次提醒非「—」）`)
+  ElMessage.success(`今日待跟进相关客户约 ${pendingFollowCount.value} 条`)
 }
 </script>
 

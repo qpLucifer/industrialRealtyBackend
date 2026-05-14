@@ -37,12 +37,23 @@ function statusClass(t: AnnouncementRow['statusTone']) {
   return t === 'mint' ? 'mint' : 'amber'
 }
 
+/** List column: show popup window range without ISO "T" (e.g. 2026-05-14 19:36). */
+function formatAnnouncementListDateTime(raw: string): string {
+  let s = String(raw || '').trim()
+  if (!s) return ''
+  s = s.replace('T', ' ')
+  s = s.replace(/Z$/i, '')
+  s = s.replace(/\.\d+$/, '')
+  s = s.replace(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}):00$/, '$1')
+  return s
+}
+
 function popupWindowLabel(row: AnnouncementRow): string {
   if (row.popup !== '是') return '—'
   const start = String(row.popupStart || '').trim()
   const end = String(row.popupEnd || '').trim()
   if (!start && !end) return '—'
-  return `${start || '—'} ~ ${end || '—'}`
+  return `${start ? formatAnnouncementListDateTime(start) : '—'} ~ ${end ? formatAnnouncementListDateTime(end) : '—'}`
 }
 
 function openCreate() {
