@@ -30,8 +30,6 @@ async function onEnter() {
       </div>
       <button type="button" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 8px; border-radius: 12px" @click="onEnter">
         登录
-      </button>
-      <p class="hint" style="margin-top: 16px">生产环境建议启用 MFA · IP 白名单 · 操作水印。</p>
-    </div>
+      </button>    </div>
   </div>
 </template>
