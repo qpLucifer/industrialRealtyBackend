@@ -32,7 +32,13 @@ async function loadList() {
 async function openDrawerForNew() {
   editingStaffId.value = undefined
   const f = await fetchStaffForm()
-  Object.assign(form, f, { id: undefined, employeeNo: '', name: '', phone: '' })
+  Object.assign(form, f, {
+    id: undefined,
+    employeeNo: '',
+    name: '',
+    phone: '',
+    regionIds: Array.isArray(f.regionIds) ? [...f.regionIds] : [],
+  })
   drawer.value = true
 }
 
@@ -55,19 +61,6 @@ watch(
     form.dataScopeHint = names.length ? `授权区域：${names.join('、')}` : '未选择区域'
   },
 )
-
-function toggleRegion(name: string) {
-  const set = new Set(form.regionIds)
-  if (set.has(name)) set.delete(name)
-  else {
-    if (set.size >= 2) {
-      ElMessage.warning('负责区域最多选择 2 个')
-      return
-    }
-    set.add(name)
-  }
-  form.regionIds = Array.from(set)
-}
 
 async function onSave() {
   const emp = String(form.employeeNo || '').trim()
@@ -292,17 +285,21 @@ function onDownloadStaffTemplate() {
           </select>
         </div>
         <div class="full">
-          <label>负责区域（最多 2 个，与「区域权限」名称一致）</label>
-          <div class="chip-toggle region-chip-panel" data-multi style="margin-top: 6px">
-            <span
-              v-for="d in regionDefs"
-              :key="d.id"
-              :class="{ on: form.regionIds?.includes(d.name) }"
-              @click="toggleRegion(d.name)"
-              >{{ d.name }}</span
-            >
-          </div>
-          <p class="hint" style="margin-top: 8px">与房源「区域」、区域权限页使用相同名称。</p>
+          <label>负责区域（最多 2 个，与「区域名称」页一致）</label>
+          <el-select
+            v-model="form.regionIds"
+            multiple
+            filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            :multiple-limit="2"
+            placeholder="下拉选择，最多 2 个"
+            style="width: 100%; margin-top: 6px"
+          >
+            <el-option v-for="d in regionDefs" :key="d.id" :label="d.name" :value="d.name" />
+          </el-select>
+          <p class="hint" style="margin-top: 8px">与房源「所属区域」使用同一套名称；在「区域名称」页维护列表。</p>
         </div>
         <div class="full">
           <label>数据可见范围（自动生成）</label>

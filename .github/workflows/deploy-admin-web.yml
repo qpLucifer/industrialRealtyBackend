@@ -1,4 +1,6 @@
 # Build on GitHub, upload dist tarball, extract to Nginx site root — no git on server.
+# Optional: GitHub secret SERVER_DOTENV_B64 = base64 of admin-web/.env (Vite bakes VITE_* at build time).
+# Create:  printf '%s' "$(cat .env)" | base64 -w0
 name: Deploy admin-web (artifact)
 
 on:
@@ -17,11 +19,32 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Write admin-web .env from SERVER_DOTENV_B64 (optional)
+        env:
+          SERVER_DOTENV_B64: ${{ secrets.SERVER_DOTENV_B64 }}
+        run: |
+          set -eu
+          if [ -z "${SERVER_DOTENV_B64:-}" ]; then
+            echo "SERVER_DOTENV_B64 unset; Vite build uses repo files / defaults."
+            exit 0
+          fi
+          if [ -d admin-web ]; then
+            printf '%s' "$SERVER_DOTENV_B64" | base64 -d > admin-web/.env
+            echo "Wrote admin-web/.env for CI build."
+          else
+            printf '%s' "$SERVER_DOTENV_B64" | base64 -d > .env
+            echo "Wrote .env for CI build (repo root)."
+          fi
+
       - name: Install and build
-        run: npm ci && npm run build
+        run: |
+          if [ -d admin-web ]; then cd admin-web; fi
+          npm ci && npm run build
 
       - name: Pack dist
-        run: tar -czf admin-dist.tgz -C dist .
+        run: |
+          if [ -d admin-web ]; then cd admin-web; fi
+          tar -czf "${GITHUB_WORKSPACE}/admin-dist.tgz" -C dist .
 
       - name: Upload dist bundle to server
         uses: appleboy/scp-action@v1

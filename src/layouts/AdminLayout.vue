@@ -38,7 +38,7 @@ const navGroups: { section: string; items: { to: string; name: string; label: st
     items: [
       { to: '/app/staff', name: 'staff', label: '员工与账号' },
       { to: '/app/whitelist', name: 'whitelist', label: '手机号白名单' },
-      { to: '/app/regions', name: 'regions', label: '区域权限' },
+      { to: '/app/regions', name: 'regions', label: '区域名称' },
       { to: '/app/sys-users', name: 'sys-users', label: '用户管理' },
     ],
   },
@@ -269,7 +269,7 @@ function isActive(name: string) {
         <el-dropdown trigger="click" @command="onUserMenu">
           <div class="user-pill" role="button" tabindex="0" title="账户菜单">
             <div class="avatar" aria-hidden="true" />
-            <div>
+            <div style="line-height: 16px;">
               <div style="font-weight: 700; font-size: 13px">{{ auth.user?.displayName ?? '—' }}</div>
               <div style="font-size: 11px; color: var(--muted)">{{ auth.user?.roleLine ?? '' }}</div>
             </div>

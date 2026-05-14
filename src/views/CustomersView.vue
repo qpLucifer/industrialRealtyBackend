@@ -392,7 +392,14 @@ function onRemind() {
           </div>
           <div>
             <label>手机<span style="color: var(--rose)">*</span></label>
-            <input v-model="editForm.phone" type="text" maxlength="32" />
+            <input
+              v-model="editForm.phone"
+              type="tel"
+              autocomplete="tel"
+              maxlength="11"
+              inputmode="tel"
+              placeholder="11位"
+            />
           </div>
           <div>
             <label>等级</label>

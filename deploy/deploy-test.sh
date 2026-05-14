@@ -21,6 +21,13 @@ git fetch --all --prune
 git checkout "${DEPLOY_BRANCH}"
 git reset --hard "origin/${DEPLOY_BRANCH}"
 
+# Optional: GitHub Actions secret SERVER_DOTENV_B64 = base64 of admin-web/.env (Vite reads VITE_* at build time).
+# Create:  printf '%s' "$(cat .env)" | base64 -w0   (omit -w0 on macOS)
+if [ -n "${SERVER_DOTENV_B64:-}" ]; then
+  printf '%s' "$SERVER_DOTENV_B64" | base64 -d > .env
+  echo "[admin-web] wrote .env from SERVER_DOTENV_B64"
+fi
+
 npm ci
 npm run build
 

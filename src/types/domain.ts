@@ -98,7 +98,7 @@ export interface RegionBindingRow {
   nodeIds: string
 }
 
-/** Master list of business region names — CRUD in 区域权限 */
+/** Master list of business region names — CRUD on 区域名称 page */
 export interface RegionDefRow {
   id: number
   name: string

@@ -10,7 +10,7 @@ export const navMeta: Record<
   dashboard: { title: '数据总览', crumb: '全局 KPI · 区域分布 · 活跃度' },
   staff: { title: '员工与账号', crumb: '角色 · 区域绑定 · 禁用策略' },
   whitelist: { title: '手机号白名单', crumb: '小程序准入双重校验' },
-  regions: { title: '区域权限', crumb: '行政区树 · 员工隔离' },
+  regions: { title: '区域名称', crumb: '业务区域名称（与员工负责区、房源区域一致）' },
   properties: { title: '房源管理', crumb: '全字段维护 · 审核状态' },
   audit: { title: '审核中心', crumb: '待审队列 · 风控' },
   customers: { title: '客户统筹', crumb: '跟进表 · ABC 分级 · 系统提醒' },

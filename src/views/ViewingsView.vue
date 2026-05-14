@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import {
@@ -8,17 +8,19 @@ import {
   deleteDealApi,
   deleteViewingApi,
   fetchCustomers,
+  fetchProperties,
   fetchStaffList,
   fetchViewingsSummary,
   updateDealApi,
   updateViewingApi,
 } from '@/api/admin'
-import type { CustomerRow, DealRow, StaffRow, ViewingRow } from '@/types/domain'
+import type { CustomerRow, DealRow, PropertyRow, StaffRow, ViewingRow } from '@/types/domain'
 
 const viewings = ref<ViewingRow[]>([])
 const deals = ref<DealRow[]>([])
 const customerOptions = ref<CustomerRow[]>([])
 const staffOptions = ref<StaffRow[]>([])
+const propertyOptions = ref<PropertyRow[]>([])
 
 const vModal = ref(false)
 const vEditingId = ref<number | null>(null)
@@ -29,6 +31,13 @@ const vForm = reactive({
   customerSlug: '' as string,
   companionStaffIds: [] as string[],
   score: 'B',
+})
+
+/** Current property_ref not present in loaded list (legacy / deleted) — still show as selectable. */
+const orphanPropertyRef = computed(() => {
+  const cur = String(vForm.propertyRef || '').trim()
+  if (!cur) return ''
+  return propertyOptions.value.some((p) => p.code === cur) ? '' : cur
 })
 
 const dModal = ref(false)
@@ -44,9 +53,14 @@ const dForm = reactive({
 const ARCHIVE_OPTIONS = ['待归档', '已归档', '处理中', '已驳回'] as const
 
 async function loadRefs() {
-  const [{ list: cust }, { list: staff }] = await Promise.all([fetchCustomers({}), fetchStaffList({})])
+  const [{ list: cust }, { list: staff }, { list: props }] = await Promise.all([
+    fetchCustomers({}),
+    fetchStaffList({}),
+    fetchProperties({}),
+  ])
   customerOptions.value = cust
   staffOptions.value = staff
+  propertyOptions.value = props
 }
 
 async function load() {
@@ -101,10 +115,6 @@ async function saveViewing() {
     ElMessage.warning('请选择带看开始与结束时间')
     return
   }
-  if (!String(vForm.propertyRef || '').trim()) {
-    ElMessage.warning('请填写房源编号')
-    return
-  }
   if (!vForm.customerSlug) {
     ElMessage.warning('请从客户统筹中选择客户')
     return
@@ -115,7 +125,7 @@ async function saveViewing() {
   const payload = {
     start: vForm.start,
     end: vForm.end,
-    propertyRef: vForm.propertyRef,
+    propertyRef: String(vForm.propertyRef || '').trim(),
     customerSlug: vForm.customerSlug,
     customerName,
     companions,
@@ -338,8 +348,27 @@ onMounted(async () => {
               />
             </div>
             <div class="full">
-              <label>房源编号<span style="color: var(--rose)">*</span></label>
-              <input v-model="vForm.propertyRef" type="text" maxlength="32" placeholder="P-8821" />
+              <label>关联房源（可选）</label>
+              <el-select
+                v-model="vForm.propertyRef"
+                filterable
+                clearable
+                placeholder="从房源列表搜索选择，可不选"
+                style="width: 100%; margin-top: 4px"
+              >
+                <el-option
+                  v-if="orphanPropertyRef"
+                  :key="`orphan-${orphanPropertyRef}`"
+                  :label="`${orphanPropertyRef}（当前记录）`"
+                  :value="orphanPropertyRef"
+                />
+                <el-option
+                  v-for="p in propertyOptions"
+                  :key="p.code"
+                  :label="`${p.title} · ${p.code}`"
+                  :value="p.code"
+                />
+              </el-select>
             </div>
             <div class="full">
               <label>客户<span style="color: var(--rose)">*</span></label>

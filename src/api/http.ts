@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { AxiosResponse } from 'axios'
+import { notifySessionExpired } from '@/lib/sessionExpireNotify'
 
 /** Standard API Result wrapper — align with backend `Result<T>` / `R<T>` */
 export interface ApiResult<T> {
@@ -36,6 +37,7 @@ http.interceptors.request.use((config) => {
         auth.user = null
         auth.sessionExpiresAt = null
       })
+      notifySessionExpired('会话已过期，请重新登录。')
       return Promise.reject(new axios.AxiosError('会话已过期', 'ERR_SESSION_EXPIRED', config))
     }
   }
@@ -57,6 +59,9 @@ http.interceptors.response.use(
     const url = String(err.config?.url || '')
     const code = err.code
     if ((status === 401 || code === 'ERR_SESSION_EXPIRED') && !url.includes('/auth/login')) {
+      const hadSession =
+        !!localStorage.getItem(ADMIN_TOKEN_KEY) ||
+        !!localStorage.getItem(ADMIN_SESSION_EXPIRES_AT_KEY)
       clearStoredSession()
       try {
         const { useAuthStore } = await import('@/stores/auth')
@@ -66,6 +71,15 @@ http.interceptors.response.use(
         auth.sessionExpiresAt = null
       } catch {
         /* Pinia may not be ready */
+      }
+      if (hadSession || code === 'ERR_SESSION_EXPIRED') {
+        const body = err.response?.data as { message?: string } | undefined
+        const serverMsg = typeof body?.message === 'string' ? body.message.trim() : ''
+        notifySessionExpired(
+          code === 'ERR_SESSION_EXPIRED'
+            ? '会话已过期，请重新登录。'
+            : serverMsg || undefined,
+        )
       }
     }
     return Promise.reject(err)

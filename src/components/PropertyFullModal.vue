@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { fetchPropertyDetail, fetchRegionDefs, savePropertySnapshot, uploadOssFile } from '@/api/admin'
 import MapLatLngPicker from '@/components/MapLatLngPicker.vue'
@@ -22,6 +22,11 @@ function ensurePropertyFormShape(f: PropertyFullForm) {
   if (f.auditTag === undefined || f.auditTag === null) f.auditTag = '—'
   if (f.riskTag === undefined || f.riskTag === null) f.riskTag = ''
   if (f.submitterName === undefined || f.submitterName === null) f.submitterName = ''
+  // Map picker expects string props; API may omit or send numbers.
+  if (f.lat === undefined || f.lat === null) f.lat = ''
+  else f.lat = String(f.lat).trim()
+  if (f.lng === undefined || f.lng === null) f.lng = ''
+  else f.lng = String(f.lng).trim()
 }
 
 type RoKey = keyof PropertyFullForm | '_img' | '_vid'
@@ -230,6 +235,40 @@ const mediaImageBlock = ref('')
 const mediaVideoBlock = ref('')
 const regionDefs = ref<RegionDefRow[]>([])
 
+function splitMediaLines(block: string) {
+  return String(block || '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+}
+
+const imagePreviewUrls = computed(() => splitMediaLines(mediaImageBlock.value))
+const videoPreviewUrls = computed(() => splitMediaLines(mediaVideoBlock.value))
+
+/** OSS/CDN hotlink rules often reject admin Referer; native preview avoids ElImageViewer missing referrerpolicy. */
+const imageLightboxOpen = ref(false)
+const imageLightboxIdx = ref(0)
+
+function openImageLightbox(i: number) {
+  const urls = imagePreviewUrls.value
+  if (!urls.length) return
+  imageLightboxIdx.value = Math.min(Math.max(0, i), urls.length - 1)
+  imageLightboxOpen.value = true
+}
+
+function stepImageLightbox(delta: number) {
+  const urls = imagePreviewUrls.value
+  if (!urls.length) return
+  imageLightboxIdx.value = (imageLightboxIdx.value + delta + urls.length) % urls.length
+}
+
+const imageLightboxSrc = computed(() => imagePreviewUrls.value[imageLightboxIdx.value] || '')
+
+watch(imagePreviewUrls, (urls) => {
+  if (!urls.length) imageLightboxOpen.value = false
+  else if (imageLightboxIdx.value >= urls.length) imageLightboxIdx.value = urls.length - 1
+})
+
 const typeOptions = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺'] as const
 const photoOptions = ['门口形象照', '路口进出照', '车间照片', '货梯', '厂房屋顶'] as const
 const structureOptions = ['钢构', '框架', '其他'] as const
@@ -302,7 +341,7 @@ async function onSave() {
   if (!Array.isArray(form.types) || !form.types.length) miss.push('房源类型')
   if (!String(form.companyName || '').trim()) miss.push('公司名称')
   if (!String(form.address || '').trim()) miss.push('详细地址')
-  if (!String(form.lat || '').trim() || !String(form.lng || '').trim()) miss.push('地图坐标（纬经度）')
+  if (!String(form.lat || '').trim() || !String(form.lng || '').trim()) miss.push('地图坐标（GCJ-02 纬经度）')
   if (!Array.isArray(form.photoChecklist) || !form.photoChecklist.length) miss.push('现场必拍清单')
   const hasImg = mediaImageBlock.value
     .split(/\r?\n/)
@@ -400,6 +439,7 @@ async function onPickVideos(ev: Event) {
 </script>
 
 <template>
+  <div class="property-full-modal-host">
   <Teleport to="body">
     <div class="modal-center" :class="{ show: visible }" @click.self="onBackdropClick">
       <div class="modal-box modal-prop-box">
@@ -420,9 +460,12 @@ async function onPickVideos(ev: Event) {
             <button type="button" class="modal-close-icon" aria-label="关闭" @click="close">×</button>
           </div>
           <div v-if="mode === 'edit'" class="admin-modal-tabs">
-            <button type="button" :class="{ active: tab === 0 }" @click="setTab(0)">分类 · 基础 · 媒体</button>
-            <button type="button" :class="{ active: tab === 1 }" @click="setTab(1)">土地 · 配套 · 使用</button>
-            <button type="button" :class="{ active: tab === 2 }" @click="setTab(2)">产权 · 合规 · 跟进</button>
+            <button type="button" :class="{ active: tab === 0 }" @click="setTab(0)">分类 · 基础 · 清单</button>
+            <button type="button" :class="{ active: tab === 1 }" @click="setTab(1)">地图定位</button>
+            <button type="button" :class="{ active: tab === 2 }" @click="setTab(2)">图片</button>
+            <button type="button" :class="{ active: tab === 3 }" @click="setTab(3)">视频</button>
+            <button type="button" :class="{ active: tab === 4 }" @click="setTab(4)">土地 · 配套 · 使用</button>
+            <button type="button" :class="{ active: tab === 5 }" @click="setTab(5)">产权 · 合规 · 跟进</button>
           </div>
         </div>
         <div class="modal-prop-scroll">
@@ -436,7 +479,7 @@ async function onPickVideos(ev: Event) {
                 <span class="hint" style="font-size: 11px">{{ String(form.listTitle || '').length }}/120</span>
               </div>
               <div class="full">
-                <label>所属区域（与员工负责区、权限配置一致）</label>
+                <label>所属区域（与员工负责区域一致）</label>
                 <el-select
                   v-model="form.district"
                   clearable
@@ -445,7 +488,7 @@ async function onPickVideos(ev: Event) {
                 >
                   <el-option v-for="d in regionDefs" :key="d.id" :label="d.name" :value="d.name" />
                 </el-select>
-                <p class="hint" style="margin-top: 6px">选项来自「区域权限」维护的名称，与员工绑定、列表筛选一致。</p>
+                <p class="hint" style="margin-top: 6px">选项来自「区域名称」页维护的名称，与员工负责区域、列表筛选一致。</p>
               </div>
               <div>
                 <label>提交人（列表）</label>
@@ -463,7 +506,7 @@ async function onPickVideos(ev: Event) {
                 <label>风险标签（审核中心展示，保存至数据库 risk_tag）</label>
                 <input v-model="form.riskTag" type="text" maxlength="64" placeholder="如：资料待核、无、首次发布" />
               </div>
-              <div class="form-section-h" style="margin-top: 8px">分类 · 基础 · 媒体</div>
+              <div class="form-section-h" style="margin-top: 8px">分类 · 基础 · 清单</div>
               <div class="full">
                 <label>房源类型（多选）<span style="color: var(--rose)">*</span></label>
                 <div class="chip-toggle" data-multi style="margin-top: 6px">
@@ -485,22 +528,33 @@ async function onPickVideos(ev: Event) {
                 <input v-model="form.address" type="text" maxlength="200" />
                 <span class="hint" style="font-size: 11px">{{ String(form.address || '').length }}/200</span>
               </div>
-              <div class="form-section-h" style="margin-top: 4px">地图定位（小程序房源详情底部展示）</div>
+              <div class="full">
+                <label>业主联系人</label>
+                <input v-model="form.ownerContact" type="text" maxlength="40" />
+              </div>
+            </div>
+          </div>
+
+          <div class="prop-admin-panel" :class="{ active: tab === 1 }">
+            <div class="form-grid" style="margin-top: 0">
+              <div class="form-section-h">地图定位（小程序房源详情底部展示）</div>
               <div>
-                <label>纬度 WGS84<span style="color: var(--rose)">*</span></label>
+                <label>纬度（GCJ-02）<span style="color: var(--rose)">*</span></label>
                 <input v-model="form.lat" type="text" maxlength="20" placeholder="例：23.179455" />
               </div>
               <div>
-                <label>经度 WGS84<span style="color: var(--rose)">*</span></label>
+                <label>经度（GCJ-02）<span style="color: var(--rose)">*</span></label>
                 <input v-model="form.lng" type="text" maxlength="20" placeholder="例：113.429512" />
               </div>
               <div class="full">
                 <MapLatLngPicker v-model:lat="form.lat" v-model:lng="form.lng" :disabled="false" />
               </div>
-              <div class="full">
-                <label>业主联系人</label>
-                <input v-model="form.ownerContact" type="text" maxlength="40" />
-              </div>
+            </div>
+          </div>
+
+          <div class="prop-admin-panel" :class="{ active: tab === 2 }">
+            <div class="form-grid" style="margin-top: 0">
+              <div class="form-section-h">图片 · 现场必拍</div>
               <div class="full">
                 <label>现场必拍清单（多选）<span style="color: var(--rose)">*</span></label>
                 <div class="chip-toggle" data-multi style="margin-top: 6px">
@@ -515,38 +569,66 @@ async function onPickVideos(ev: Event) {
               </div>
               <div class="full">
                 <label>图片 URL（每行一条）<span style="color: var(--rose)">*</span></label>
-                <textarea v-model="mediaImageBlock" rows="3" placeholder="https://…jpg / png / webp" />
-              </div>
-              <div class="full">
-                <label>视频 URL（每行一条）</label>
-                <textarea v-model="mediaVideoBlock" rows="2" placeholder="https://…mp4 / mov（可与图片同时存在）" />
+                <textarea v-model="mediaImageBlock" rows="5" placeholder="https://…jpg / png / webp" />
               </div>
               <div class="full">
                 <label>上传图片到 OSS</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  :disabled="uploadingImage"
-                  @change="onPickImages"
-                />
-                <p class="hint">图片写入「图片 URL」列表；需后端配置 OSS_*。</p>
+                <input type="file" accept="image/*" multiple :disabled="uploadingImage" @change="onPickImages" />
+                <p class="hint">追加到上方列表；需后端配置 OSS_*。</p>
               </div>
-              <div class="full">
-                <label>上传视频到 OSS</label>
-                <input
-                  type="file"
-                  accept="video/*"
-                  multiple
-                  :disabled="uploadingVideo"
-                  @change="onPickVideos"
-                />
-                <p class="hint">视频写入「视频 URL」列表。</p>
+              <div v-if="imagePreviewUrls.length" class="full media-preview-block">
+                <label>预览（点击放大）</label>
+                <p class="hint" style="margin: 0 0 8px">
+                  使用无 Referer 请求以降低 OSS 防盗链 403；若仍失败请在 Bucket 中放行本后台域名或关闭 Referer 白名单。
+                </p>
+                <div class="media-preview-grid">
+                  <img
+                    v-for="(url, i) in imagePreviewUrls"
+                    :key="`${url}-${i}`"
+                    :src="url"
+                    referrerpolicy="no-referrer"
+                    loading="lazy"
+                    decoding="async"
+                    alt=""
+                    class="media-thumb media-thumb-native"
+                    role="button"
+                    tabindex="0"
+                    @click="openImageLightbox(i)"
+                    @keyup.enter="openImageLightbox(i)"
+                  />
+                </div>
               </div>
+              <p v-else class="hint full" style="margin: 0">填写 URL 或上传后将在此显示缩略图。</p>
             </div>
           </div>
 
-          <div class="prop-admin-panel" :class="{ active: tab === 1 }">
+          <div class="prop-admin-panel" :class="{ active: tab === 3 }">
+            <div class="form-grid" style="margin-top: 0">
+              <div class="form-section-h">视频 URL 与上传</div>
+              <div class="full">
+                <label>视频 URL（每行一条）</label>
+                <textarea v-model="mediaVideoBlock" rows="4" placeholder="https://…mp4 / mov（可与图片同时存在）" />
+              </div>
+              <div class="full">
+                <label>上传视频到 OSS</label>
+                <input type="file" accept="video/*" multiple :disabled="uploadingVideo" @change="onPickVideos" />
+                <p class="hint">追加到上方列表。</p>
+              </div>
+              <div v-if="videoPreviewUrls.length" class="full media-preview-block">
+                <label>预览</label>
+                <p class="hint" style="margin: 0 0 8px">与图片相同：已加无 Referer 策略；若 403 请检查 OSS 读权限与防盗链。</p>
+                <div class="media-video-list">
+                  <div v-for="(url, i) in videoPreviewUrls" :key="`${url}-${i}`" class="media-video-item">
+                    <video :src="url" controls preload="metadata" class="media-video" referrerpolicy="no-referrer" />
+                    <a class="media-video-link" :href="url" target="_blank" rel="noopener noreferrer">新窗口打开</a>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="hint full" style="margin: 0">填写 URL 或上传后将在此显示播放器。</p>
+            </div>
+          </div>
+
+          <div class="prop-admin-panel" :class="{ active: tab === 4 }">
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">2. 土地与建筑规格</div>
               <div>
@@ -690,7 +772,7 @@ async function onPickVideos(ev: Event) {
             </div>
           </div>
 
-          <div class="prop-admin-panel" :class="{ active: tab === 2 }">
+          <div class="prop-admin-panel" :class="{ active: tab === 5 }">
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">7. 产权性质<span style="color: var(--rose)">*</span></div>
               <div class="full">
@@ -967,9 +1049,32 @@ async function onPickVideos(ev: Event) {
       </div>
     </div>
   </Teleport>
+
+  <el-dialog
+    v-model="imageLightboxOpen"
+    title="图片预览"
+    width="min(94vw, 960px)"
+    append-to-body
+    destroy-on-close
+    class="prop-img-lightbox"
+    align-center
+  >
+    <div v-if="imagePreviewUrls.length" class="lightbox-inner">
+      <img :src="imageLightboxSrc" referrerpolicy="no-referrer" class="lightbox-img" alt="" />
+      <div class="lightbox-toolbar">
+        <el-button :disabled="imagePreviewUrls.length < 2" @click="stepImageLightbox(-1)">上一张</el-button>
+        <span class="lightbox-pos">{{ imageLightboxIdx + 1 }} / {{ imagePreviewUrls.length }}</span>
+        <el-button :disabled="imagePreviewUrls.length < 2" @click="stepImageLightbox(1)">下一张</el-button>
+      </div>
+    </div>
+  </el-dialog>
+  </div>
 </template>
 
 <style scoped>
+.property-full-modal-host {
+  display: contents;
+}
 .prop-readonly-summary {
   padding: 8px 4px 16px;
   max-height: min(70vh, 640px);
@@ -1025,5 +1130,71 @@ async function onPickVideos(ev: Event) {
   white-space: pre-wrap;
   word-break: break-all;
   border: 1px solid rgba(15, 23, 42, 0.08);
+}
+.media-preview-block label {
+  display: block;
+  margin-bottom: 8px;
+}
+.media-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+.media-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  cursor: zoom-in;
+}
+.media-thumb-native {
+  object-fit: cover;
+  display: block;
+  background: #f1f5f9;
+}
+.lightbox-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.lightbox-img {
+  max-width: 100%;
+  max-height: min(72vh, 720px);
+  object-fit: contain;
+  border-radius: 8px;
+  background: #0f172a;
+}
+.lightbox-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.lightbox-pos {
+  font-size: 13px;
+  color: #64748b;
+}
+.media-video-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.media-video-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.media-video {
+  width: 100%;
+  max-height: 280px;
+  border-radius: 10px;
+  background: #0f172a;
+}
+.media-video-link {
+  font-size: 12px;
+  color: var(--mint, #0d9488);
 }
 </style>

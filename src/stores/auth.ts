@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { AuthUser } from '@/types/domain'
 import { loginApi, fetchMe, logoutApi } from '@/api/auth'
 import { ADMIN_TOKEN_KEY, ADMIN_SESSION_EXPIRES_AT_KEY } from '@/api/http'
+import { resetSessionExpireNotify } from '@/lib/sessionExpireNotify'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(ADMIN_TOKEN_KEY))
@@ -47,6 +48,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem(ADMIN_TOKEN_KEY, r.token)
     localStorage.setItem(ADMIN_SESSION_EXPIRES_AT_KEY, r.expiresAt)
     user.value = r.user
+    resetSessionExpireNotify()
   }
 
   async function logout() {
@@ -60,6 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     localStorage.removeItem(ADMIN_TOKEN_KEY)
     localStorage.removeItem(ADMIN_SESSION_EXPIRES_AT_KEY)
+    resetSessionExpireNotify()
   }
 
   return { token, sessionExpiresAt, user, isAuthenticated, login, logout, hydrateUser }
