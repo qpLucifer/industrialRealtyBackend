@@ -11,6 +11,7 @@ import {
   saveRegionBindings,
 } from '@/api/admin'
 import type { RegionBindingRow, RegionDefRow, StaffRow } from '@/types/domain'
+import { Check, Close, Delete, Edit } from '@element-plus/icons-vue'
 
 const defs = ref<RegionDefRow[]>([])
 const bindings = ref<RegionBindingRow[]>([])
@@ -178,12 +179,20 @@ onMounted(async () => {
               </td>
               <td>
                 <template v-if="editId === row.id">
-                  <button type="button" class="btn btn-primary btn-tiny" @click="onSaveEdit">保存</button>
-                  <button type="button" class="btn btn-tiny" @click="cancelEdit">取消</button>
+                  <el-tooltip content="保存" placement="top">
+                    <el-button type="success" :icon="Check" circle plain size="small" @click="onSaveEdit" />
+                  </el-tooltip>
+                  <el-tooltip content="取消" placement="top">
+                    <el-button :icon="Close" circle plain size="small" @click="cancelEdit" />
+                  </el-tooltip>
                 </template>
                 <template v-else>
-                  <button type="button" class="btn btn-tiny" @click="startEdit(row)">编辑</button>
-                  <button type="button" class="btn btn-tiny danger" @click="onDeleteRegion(row)">删除</button>
+                  <el-tooltip content="编辑" placement="top">
+                    <el-button type="primary" :icon="Edit" circle plain size="small" @click="startEdit(row)" />
+                  </el-tooltip>
+                  <el-tooltip content="删除" placement="top">
+                    <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDeleteRegion(row)" />
+                  </el-tooltip>
                 </template>
               </td>
             </tr>
@@ -204,7 +213,9 @@ onMounted(async () => {
               <option value="" disabled>选择员工</option>
               <option v-for="s in staffList" :key="s.id" :value="s.name">{{ s.name }} · {{ s.employeeNo }}</option>
             </select>
-            <button type="button" class="btn btn-tiny ghost bind-remove" @click="removeBinding(i)">移除</button>
+            <el-tooltip content="移除" placement="top">
+              <el-button type="danger" :icon="Delete" circle plain size="small" class="bind-remove" @click="removeBinding(i)" />
+            </el-tooltip>
           </div>
           <div class="bind-row-chips">
             <span class="bind-chips-lbl">区域</span>

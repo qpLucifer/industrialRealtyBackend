@@ -193,6 +193,8 @@ export interface ViewingRow {
   end: string
   propertyRef: string
   customerName: string
+  /** Customer row slug when chosen from CRM */
+  customerSlug?: string | null
   companions: string
   score: string
 }

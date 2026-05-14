@@ -5,11 +5,13 @@ import {
   deleteCustomerBySlug,
   fetchCustomerDetail,
   fetchCustomers,
+  fetchStaffList,
   postCustomer,
   postCustomerFollowUp,
   putCustomerApi,
 } from '@/api/admin'
-import type { CustomerDetail, CustomerGrade, CustomerRow } from '@/types/domain'
+import type { CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
+import { Delete, Edit, View } from '@element-plus/icons-vue'
 
 const list = ref<CustomerRow[]>([])
 const scopeFilter = ref<'all' | 'private' | 'public'>('all')
@@ -22,6 +24,8 @@ const drawerMode = ref<'detail' | 'edit' | 'new'>('detail')
 const activeSlug = ref('')
 const detail = ref<CustomerDetail | null>(null)
 
+const staffOptions = ref<StaffRow[]>([])
+
 const editForm = reactive({
   company: '',
   contactName: '',
@@ -31,7 +35,8 @@ const editForm = reactive({
   dealStatus: '洽谈中',
   demandSummary: '',
   addressHint: '',
-  ownerName: '',
+  /** Staff ids for multi-select — serialized as owner names on save */
+  ownerStaffIds: [] as string[],
   scope: '私有' as '私有' | '公有',
 })
 
@@ -50,7 +55,39 @@ async function load() {
   list.value = rows
 }
 
-onMounted(load)
+async function loadStaff() {
+  const { list } = await fetchStaffList({})
+  staffOptions.value = list
+}
+
+function validatePhoneClient(phone: string): string | null {
+  const s = String(phone || '').replace(/\s/g, '')
+  if (s.length < 7 || s.length > 20) return '手机号长度应为 7–20 位'
+  if (!/^\+?\d{7,20}$/.test(s)) return '手机号仅允许数字（可带开头 +）'
+  return null
+}
+
+function ownerNamesFromStaffIds(ids: string[]) {
+  return ids
+    .map((id) => staffOptions.value.find((x) => x.id === id)?.name)
+    .filter(Boolean)
+    .join('、')
+}
+
+function staffIdsFromOwnerName(ownerName: string) {
+  if (!ownerName.trim()) return []
+  const parts = ownerName.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+  const ids: string[] = []
+  for (const p of parts) {
+    const row = staffOptions.value.find((x) => x.name === p)
+    if (row) ids.push(row.id)
+  }
+  return ids
+}
+
+onMounted(() => {
+  void loadStaff().then(() => load())
+})
 
 const pendingFollowCount = computed(() => list.value.filter((r) => r.nextReminder !== '—').length)
 
@@ -90,6 +127,7 @@ function openNew() {
   activeSlug.value = ''
   drawerMode.value = 'new'
   detail.value = null
+  void loadStaff()
   editForm.company = ''
   editForm.contactName = ''
   editForm.titleLine = ''
@@ -98,7 +136,7 @@ function openNew() {
   editForm.dealStatus = '洽谈中'
   editForm.demandSummary = ''
   editForm.addressHint = ''
-  editForm.ownerName = ''
+  editForm.ownerStaffIds = []
   editForm.scope = '私有'
   drawer.value = true
 }
@@ -106,6 +144,7 @@ function openNew() {
 async function openEdit(row: CustomerRow) {
   const slug = row.slug || row.id
   if (!slug) return
+  if (!staffOptions.value.length) await loadStaff()
   const d = await fetchCustomerDetail(slug)
   activeSlug.value = slug
   drawerMode.value = 'edit'
@@ -119,7 +158,7 @@ async function openEdit(row: CustomerRow) {
   editForm.dealStatus = d.dealStatus || '洽谈中'
   editForm.demandSummary = d.demandSummary
   editForm.addressHint = d.addressHint
-  editForm.ownerName = d.ownerName
+  editForm.ownerStaffIds = staffIdsFromOwnerName(d.ownerName || '')
   editForm.scope = d.badgesHtml?.includes('公有') ? '公有' : '私有'
   drawer.value = true
 }
@@ -129,11 +168,29 @@ async function onSaveCustomer() {
     ElMessage.warning('公司、联系人、手机为必填')
     return
   }
+  const phoneErr = validatePhoneClient(editForm.phone)
+  if (phoneErr) {
+    ElMessage.warning(phoneErr)
+    return
+  }
+  const ownerName = ownerNamesFromStaffIds(editForm.ownerStaffIds)
+  const payload = {
+    company: editForm.company.trim(),
+    contactName: editForm.contactName.trim(),
+    titleLine: editForm.titleLine.trim(),
+    phone: editForm.phone.replace(/\s/g, ''),
+    grade: editForm.grade,
+    dealStatus: editForm.dealStatus,
+    demandSummary: editForm.demandSummary.trim(),
+    addressHint: editForm.addressHint.trim(),
+    ownerName,
+    scope: editForm.scope,
+  }
   if (drawerMode.value === 'new') {
-    await postCustomer({ ...editForm })
+    await postCustomer(payload)
     ElMessage.success('已新增客户')
   } else {
-    await putCustomerApi(activeSlug.value, { ...editForm })
+    await putCustomerApi(activeSlug.value, payload)
     ElMessage.success('已保存')
   }
   drawer.value = false
@@ -188,8 +245,8 @@ function onRemind() {
     <div class="toolbar">
       <select v-model="scopeFilter" @change="load">
         <option value="all">全部范围</option>
-        <option value="private">仅私有</option>
-        <option value="public">仅公有</option>
+        <option value="private">仅私海</option>
+        <option value="public">仅公海</option>
       </select>
       <select v-model="gradeFilter" @change="load">
         <option value="all">全部等级</option>
@@ -204,21 +261,9 @@ function onRemind() {
         <option value="搁置">搁置</option>
       </select>
       <input v-model="searchQ" type="search" placeholder="电话尾号 / 公司 / 需求关键词…" style="min-width: 240px" @keyup.enter="load" />
-      <button type="button" class="btn btn-primary" @click="load">查询</button>
+      <button type="button" class="btn btn-primary" @click="() => loadStaff().then(() => load())">查询</button>
       <button type="button" class="btn btn-primary" @click="openNew">＋ 新增客户</button>
       <button type="button" class="btn" @click="onRemind">今日待跟进</button>
-    </div>
-    <div
-      class="card"
-      style="
-        padding: 12px 16px;
-        margin-bottom: 12px;
-        background: linear-gradient(135deg, rgba(254, 243, 199, 0.9), #ffffff);
-        border-color: rgba(251, 191, 36, 0.35);
-      "
-    >
-      <strong style="font-size: 13px">客户统筹</strong>
-      <p class="hint" style="margin-top: 6px">列表来自 MySQL；详情内维护跟进时间轴。成交状态在列表直接展示。</p>
     </div>
     <div class="card crm-list-card" style="padding: 0; overflow-x: auto">
       <table class="data data-crm">
@@ -258,10 +303,16 @@ function onRemind() {
               <span v-else class="tag" :class="r.hasNextReminderTag === 'amber' ? 'amber' : 'mint'">{{ r.nextReminder }}</span>
             </td>
             <td>{{ r.ownerName }}</td>
-            <td style="white-space: nowrap">
-              <button type="button" class="btn btn-primary" style="padding: 6px 10px" @click="openDetail(r)">详情</button>
-              <button type="button" class="btn" style="padding: 6px 10px" @click="openEdit(r)">编辑</button>
-              <button type="button" class="btn" style="padding: 6px 10px; color: var(--rose)" @click="onDelete(r)">删除</button>
+            <td class="table-actions">
+              <el-tooltip content="详情" placement="top">
+                <el-button type="primary" :icon="View" circle plain size="small" @click="openDetail(r)" />
+              </el-tooltip>
+              <el-tooltip content="编辑" placement="top">
+                <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
+              </el-tooltip>
+              <el-tooltip content="删除" placement="top">
+                <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
+              </el-tooltip>
             </td>
           </tr>
         </tbody>
@@ -360,10 +411,10 @@ function onRemind() {
             </select>
           </div>
           <div>
-            <label>公私海</label>
-            <select v-model="editForm.scope">
-              <option value="私有">私有</option>
-              <option value="公有">公有</option>
+            <label>客户池</label>
+            <select v-model="editForm.scope" title="私海：仅负责人可见；公海：团队共享">
+              <option value="私有">私海</option>
+              <option value="公有">公海</option>
             </select>
           </div>
           <div class="full">
@@ -375,8 +426,23 @@ function onRemind() {
             <textarea v-model="editForm.demandSummary" rows="3" maxlength="2000" />
           </div>
           <div class="full">
-            <label>负责人</label>
-            <input v-model="editForm.ownerName" type="text" maxlength="64" />
+            <label>负责人（员工，可多选）</label>
+            <el-select
+              v-model="editForm.ownerStaffIds"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="从员工列表选择"
+              style="width: 100%; margin-top: 4px"
+            >
+              <el-option
+                v-for="s in staffOptions"
+                :key="s.id"
+                :label="`${s.name}（${s.employeeNo}）`"
+                :value="s.id"
+              />
+            </el-select>
           </div>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px">
@@ -391,6 +457,13 @@ function onRemind() {
 <style scoped>
 .crm-list-card {
   border-radius: 10px;
+}
+.table-actions {
+  white-space: nowrap;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 .hint-sm {
   font-size: 12px;

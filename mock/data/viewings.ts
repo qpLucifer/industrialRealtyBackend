@@ -1,10 +1,12 @@
 /** Viewings + deals — maps to viewing_ledger, deal_record */
 
 export interface ViewingRow {
+  id?: number
   start: string
   end: string
   propertyRef: string
   customerName: string
+  customerSlug?: string | null
   companions: string
   score: string
 }
@@ -19,10 +21,12 @@ export interface DealRow {
 
 export const mockViewingRows: ViewingRow[] = [
   {
+    id: 1,
     start: '05-12 14:00',
     end: '15:30',
     propertyRef: '#8821',
     customerName: '张晨',
+    customerSlug: null,
     companions: '陈思远、王敏',
     score: 'B',
   },

@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createPropertyDraft, deletePropertyApi, fetchProperties, fetchRegionDefs, postPropertiesBulkFollow } from '@/api/admin'
 import type { PropertyRow, RegionDefRow } from '@/types/domain'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
+import { Delete, Edit, View } from '@element-plus/icons-vue'
 
 const list = ref<PropertyRow[]>([])
 const regionDefs = ref<RegionDefRow[]>([])
@@ -177,10 +178,16 @@ async function onBulk() {
               <span v-if="r.audit === '—'">—</span>
               <span v-else class="tag" :class="r.audit === '已通过' ? 'mint' : 'amber'">{{ r.audit }}</span>
             </td>
-            <td style="white-space: nowrap">
-              <button type="button" class="btn btn-primary" @click="openProp('edit', r.code)">编辑</button>
-              <button type="button" class="btn" @click="openProp('view', r.code)">详情</button>
-              <button type="button" class="btn" style="color: var(--rose)" @click="onDeleteRow(r)">删除</button>
+            <td class="table-actions">
+              <el-tooltip content="编辑" placement="top">
+                <el-button type="primary" :icon="Edit" circle plain size="small" @click="openProp('edit', r.code)" />
+              </el-tooltip>
+              <el-tooltip content="详情" placement="top">
+                <el-button type="primary" :icon="View" circle plain size="small" @click="openProp('view', r.code)" />
+              </el-tooltip>
+              <el-tooltip content="删除" placement="top">
+                <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDeleteRow(r)" />
+              </el-tooltip>
             </td>
           </tr>
         </tbody>
@@ -190,3 +197,13 @@ async function onBulk() {
     <PropertyFullModal v-model:visible="modalVisible" :code="modalCode" :mode="modalMode" @saved="loadList" />
   </section>
 </template>
+
+<style scoped>
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+</style>

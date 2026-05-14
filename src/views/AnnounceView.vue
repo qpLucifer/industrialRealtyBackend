@@ -8,6 +8,7 @@ import {
   updateAnnouncementApi,
 } from '@/api/admin'
 import type { AnnouncementRow } from '@/types/domain'
+import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<AnnouncementRow[]>([])
 const modal = ref(false)
@@ -124,8 +125,14 @@ onMounted(load)
             <td>{{ r.schedule }}</td>
             <td><span class="tag" :class="statusClass(r.statusTone)">{{ r.status }}</span></td>
             <td>
-              <button type="button" class="btn btn-primary" style="padding: 6px 10px" @click="openEdit(r)">编辑</button>
-              <button type="button" class="btn" style="padding: 6px 10px; color: var(--rose)" @click="onDelete(r)">删除</button>
+              <div class="row-actions">
+                <el-tooltip content="编辑" placement="top">
+                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
+                </el-tooltip>
+                <el-tooltip content="删除" placement="top">
+                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
+                </el-tooltip>
+              </div>
             </td>
           </tr>
         </tbody>

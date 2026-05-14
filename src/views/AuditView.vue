@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { auditPassApi, auditRejectApi, fetchAuditQueue } from '@/api/admin'
 import type { AuditQueueRow } from '@/types/domain'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
+import { CircleCheck, CloseBold, View } from '@element-plus/icons-vue'
 
 const list = ref<AuditQueueRow[]>([])
 const modalVisible = ref(false)
@@ -100,10 +101,16 @@ async function onReject(row: AuditQueueRow) {
               </td>
               <td class="cell-wrap hint-sm">{{ r.auditHint || '—' }}</td>
               <td><span class="tag cyan">{{ r.riskTag || '—' }}</span></td>
-              <td class="nowrap">
-                <button type="button" class="btn" style="padding: 6px 12px" @click="openDetail(r)">详情</button>
-                <button type="button" class="btn btn-primary" style="padding: 6px 12px" @click="onPass(r)">通过</button>
-                <button type="button" class="btn" style="padding: 6px 12px" @click="onReject(r)">驳回</button>
+              <td class="table-actions">
+                <el-tooltip content="详情" placement="top">
+                  <el-button type="primary" :icon="View" circle plain size="small" @click="openDetail(r)" />
+                </el-tooltip>
+                <el-tooltip content="通过" placement="top">
+                  <el-button type="success" :icon="CircleCheck" circle plain size="small" @click="onPass(r)" />
+                </el-tooltip>
+                <el-tooltip content="驳回" placement="top">
+                  <el-button type="warning" :icon="CloseBold" circle plain size="small" @click="onReject(r)" />
+                </el-tooltip>
               </td>
             </tr>
           </tbody>
@@ -141,6 +148,13 @@ async function onReject(row: AuditQueueRow) {
   color: #64748b;
 }
 .nowrap {
+  white-space: nowrap;
+}
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
   white-space: nowrap;
 }
 </style>

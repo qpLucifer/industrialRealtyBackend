@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createWhitelistRow, deleteWhitelistRow, fetchWhitelist, updateWhitelistRow } from '@/api/admin'
 import type { WhitelistRow } from '@/types/domain'
+import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<WhitelistRow[]>([])
 const drawer = ref(false)
@@ -153,8 +154,12 @@ onMounted(load)
             <td>{{ r.updatedAt }}</td>
             <td>
               <div class="row-actions">
-                <button type="button" class="btn btn-primary" style="padding: 6px 10px" @click="openEdit(r)">编辑</button>
-                <button type="button" class="btn" style="padding: 6px 10px; color: var(--rose)" @click="onDelete(r)">删除</button>
+                <el-tooltip content="编辑" placement="top">
+                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
+                </el-tooltip>
+                <el-tooltip content="删除" placement="top">
+                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
+                </el-tooltip>
               </div>
             </td>
           </tr>

@@ -2,6 +2,7 @@
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { fetchPropertyDetail, fetchRegionDefs, savePropertySnapshot, uploadOssFile } from '@/api/admin'
+import MapLatLngPicker from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
 
 /** Ensure arrays / flags exist so chips and toggles never throw. */
@@ -180,6 +181,34 @@ function roVal(key: RoKey): string {
   if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '—'
   const s = String(v).trim()
   return s || '—'
+}
+
+function isRoMultiline(k: RoKey) {
+  return k === '_img' || k === '_vid'
+}
+
+/** Two label/value pairs per row; wide fields span full width. */
+function roFieldRows(fields: { key: RoKey; label: string }[]) {
+  const rows: { key: RoKey; label: string }[][] = []
+  let i = 0
+  while (i < fields.length) {
+    const f = fields[i]
+    if (isRoMultiline(f.key)) {
+      rows.push([f])
+      i += 1
+    } else {
+      const a = f
+      const b = fields[i + 1]
+      if (b && !isRoMultiline(b.key)) {
+        rows.push([a, b])
+        i += 2
+      } else {
+        rows.push([a])
+        i += 1
+      }
+    }
+  }
+  return rows
 }
 
 const props = defineProps<{
@@ -464,6 +493,9 @@ async function onPickVideos(ev: Event) {
               <div>
                 <label>经度 WGS84<span style="color: var(--rose)">*</span></label>
                 <input v-model="form.lng" type="text" maxlength="20" placeholder="例：113.429512" />
+              </div>
+              <div class="full">
+                <MapLatLngPicker v-model:lat="form.lat" v-model:lng="form.lng" :disabled="false" />
               </div>
               <div class="full">
                 <label>业主联系人</label>
@@ -904,8 +936,13 @@ async function onPickVideos(ev: Event) {
             </p>
             <section v-for="sec in RO_SECTIONS" :key="sec.title" class="ro-sec">
               <h4 class="ro-h4">{{ sec.title }}</h4>
-              <dl class="ro-dl">
-                <template v-for="f in sec.fields" :key="f.key">
+              <div
+                v-for="(row, ri) in roFieldRows(sec.fields)"
+                :key="`${sec.title}-${ri}`"
+                class="ro-row"
+                :class="{ 'ro-row-span': row.length === 1 && isRoMultiline(row[0].key) }"
+              >
+                <template v-for="f in row" :key="f.key">
                   <dt>{{ f.label }}</dt>
                   <dd
                     :class="{
@@ -915,7 +952,11 @@ async function onPickVideos(ev: Event) {
                     {{ roVal(f.key) }}
                   </dd>
                 </template>
-              </dl>
+                <template v-if="row.length === 1 && !isRoMultiline(row[0].key)">
+                  <span class="ro-dt-ph" aria-hidden="true" />
+                  <span class="ro-dd-ph" aria-hidden="true" />
+                </template>
+              </div>
             </section>
           </div>
         </div>
@@ -943,22 +984,31 @@ async function onPickVideos(ev: Event) {
   font-weight: 700;
   color: #0f172a;
 }
-.ro-dl {
+.ro-row {
   display: grid;
-  grid-template-columns: 100px 1fr;
-  gap: 8px 12px;
-  margin: 0;
+  grid-template-columns: minmax(88px, 0.85fr) 1.15fr minmax(88px, 0.85fr) 1.15fr;
+  gap: 6px 12px;
+  align-items: start;
+  margin: 0 0 10px;
   font-size: 13px;
 }
-.ro-dl dt {
+.ro-row-span {
+  grid-template-columns: minmax(88px, 0.22fr) 1fr;
+}
+.ro-row dt {
   margin: 0;
   color: #64748b;
   font-weight: 600;
 }
-.ro-dl dd {
+.ro-row dd {
   margin: 0;
   color: #1e293b;
   word-break: break-word;
+}
+.ro-dt-ph,
+.ro-dd-ph {
+  display: block;
+  min-height: 1px;
 }
 .ro-dd-multiline {
   white-space: pre-wrap;

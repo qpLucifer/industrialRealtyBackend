@@ -3,6 +3,7 @@ import { onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteStaffApi, fetchRegionDefs, fetchStaffForm, fetchStaffList, patchStaffStatusApi, postStaffImportCsv, saveStaffForm } from '@/api/admin'
 import type { RegionDefRow, StaffForm, StaffRow } from '@/types/domain'
+import { Delete, Edit, Lock } from '@element-plus/icons-vue'
 
 const list = ref<StaffRow[]>([])
 const regionDefs = ref<RegionDefRow[]>([])
@@ -216,9 +217,15 @@ function onDownloadStaffTemplate() {
             <td><span class="tag" :class="s.status === '正常' ? 'mint' : 'rose'">{{ s.status }}</span></td>
             <td>
               <div class="row-actions">
-                <button type="button" class="btn btn-primary" @click="openEdit(s)">编辑</button>
-                <button type="button" class="btn" @click="onDisable(s)">禁用</button>
-                <button type="button" class="btn" style="color: var(--rose)" @click="onDelete(s)">删除</button>
+                <el-tooltip content="编辑" placement="top">
+                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(s)" />
+                </el-tooltip>
+                <el-tooltip content="禁用" placement="top">
+                  <el-button type="warning" :icon="Lock" circle plain size="small" @click="onDisable(s)" />
+                </el-tooltip>
+                <el-tooltip content="删除" placement="top">
+                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(s)" />
+                </el-tooltip>
               </div>
             </td>
           </tr>

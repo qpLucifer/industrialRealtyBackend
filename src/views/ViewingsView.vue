@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, Edit } from '@element-plus/icons-vue'
 import {
   createDealApi,
   createViewingApi,
   deleteDealApi,
   deleteViewingApi,
+  fetchCustomers,
+  fetchStaffList,
   fetchViewingsSummary,
   updateDealApi,
   updateViewingApi,
 } from '@/api/admin'
-import type { DealRow, ViewingRow } from '@/types/domain'
+import type { CustomerRow, DealRow, StaffRow, ViewingRow } from '@/types/domain'
 
 const viewings = ref<ViewingRow[]>([])
 const deals = ref<DealRow[]>([])
+const customerOptions = ref<CustomerRow[]>([])
+const staffOptions = ref<StaffRow[]>([])
 
 const vModal = ref(false)
 const vEditingId = ref<number | null>(null)
@@ -21,10 +26,9 @@ const vForm = reactive({
   start: '',
   end: '',
   propertyRef: '',
-  customerName: '',
-  companions: '',
+  customerSlug: '' as string,
+  companionStaffIds: [] as string[],
   score: 'B',
-  staff: '',
 })
 
 const dModal = ref(false)
@@ -37,10 +41,36 @@ const dForm = reactive({
   archiveStatus: '待归档',
 })
 
+const ARCHIVE_OPTIONS = ['待归档', '已归档', '处理中', '已驳回'] as const
+
+async function loadRefs() {
+  const [{ list: cust }, { list: staff }] = await Promise.all([fetchCustomers({}), fetchStaffList({})])
+  customerOptions.value = cust
+  staffOptions.value = staff
+}
+
 async function load() {
   const d = await fetchViewingsSummary()
   viewings.value = d.viewings
   deals.value = d.deals
+}
+
+function companionLabel(ids: string[]) {
+  return ids
+    .map((id) => staffOptions.value.find((s) => s.id === id)?.name)
+    .filter(Boolean)
+    .join('、')
+}
+
+function parseCompanionIds(names: string) {
+  if (!names.trim()) return []
+  const parts = names.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+  const ids: string[] = []
+  for (const p of parts) {
+    const s = staffOptions.value.find((x) => x.name === p)
+    if (s) ids.push(s.id)
+  }
+  return ids
 }
 
 function openNewViewing() {
@@ -48,10 +78,9 @@ function openNewViewing() {
   vForm.start = ''
   vForm.end = ''
   vForm.propertyRef = ''
-  vForm.customerName = ''
-  vForm.companions = ''
+  vForm.customerSlug = ''
+  vForm.companionStaffIds = []
   vForm.score = 'B'
-  vForm.staff = ''
   vModal.value = true
 }
 
@@ -61,10 +90,9 @@ function openEditViewing(row: ViewingRow) {
   vForm.start = row.start
   vForm.end = row.end
   vForm.propertyRef = row.propertyRef
-  vForm.customerName = row.customerName
-  vForm.companions = row.companions
+  vForm.customerSlug = row.customerSlug || ''
+  vForm.companionStaffIds = parseCompanionIds(row.companions || '')
   vForm.score = row.score
-  vForm.staff = ''
   vModal.value = true
 }
 
@@ -77,18 +105,21 @@ async function saveViewing() {
     ElMessage.warning('请填写房源编号')
     return
   }
-  if (!String(vForm.customerName || '').trim()) {
-    ElMessage.warning('请填写客户')
+  if (!vForm.customerSlug) {
+    ElMessage.warning('请从客户统筹中选择客户')
     return
   }
+  const cust = customerOptions.value.find((c) => (c.slug || c.id) === vForm.customerSlug)
+  const customerName = cust ? cust.titleLine || [cust.contactName, cust.company].filter(Boolean).join(' · ') || cust.name : ''
+  const companions = companionLabel(vForm.companionStaffIds)
   const payload = {
     start: vForm.start,
     end: vForm.end,
     propertyRef: vForm.propertyRef,
-    customerName: vForm.customerName,
-    companions: vForm.companions,
+    customerSlug: vForm.customerSlug,
+    customerName,
+    companions,
     score: vForm.score,
-    staff: vForm.staff,
   }
   if (vEditingId.value != null) {
     await updateViewingApi(vEditingId.value, payload)
@@ -159,13 +190,16 @@ async function removeDeal(row: DealRow) {
   await load()
 }
 
-onMounted(load)
+onMounted(async () => {
+  await loadRefs()
+  await load()
+})
 </script>
 
 <template>
   <section class="panel active">
     <div class="toolbar">
-      <button type="button" class="btn" @click="load">刷新</button>
+      <button type="button" class="btn" @click="loadRefs().then(() => load())">刷新</button>
     </div>
     <div class="grid-2">
       <div class="card">
@@ -181,7 +215,7 @@ onMounted(load)
               <th>结束</th>
               <th>房源</th>
               <th>客户</th>
-              <th>陪同</th>
+              <th>陪同员工</th>
               <th>评分</th>
               <th>操作</th>
             </tr>
@@ -195,13 +229,29 @@ onMounted(load)
               <td>{{ r.customerName }}</td>
               <td>{{ r.companions }}</td>
               <td>{{ r.score }}</td>
-              <td>
-                <button type="button" class="btn btn-primary" style="padding: 4px 8px" :disabled="r.id == null" @click="openEditViewing(r)">
-                  编辑
-                </button>
-                <button type="button" class="btn" style="padding: 4px 8px; color: var(--rose)" :disabled="r.id == null" @click="removeViewing(r)">
-                  删
-                </button>
+              <td class="table-actions">
+                <el-tooltip content="编辑" placement="top">
+                  <el-button
+                    type="primary"
+                    :icon="Edit"
+                    circle
+                    plain
+                    size="small"
+                    :disabled="r.id == null"
+                    @click="openEditViewing(r)"
+                  />
+                </el-tooltip>
+                <el-tooltip content="删除" placement="top">
+                  <el-button
+                    type="danger"
+                    :icon="Delete"
+                    circle
+                    plain
+                    size="small"
+                    :disabled="r.id == null"
+                    @click="removeViewing(r)"
+                  />
+                </el-tooltip>
               </td>
             </tr>
           </tbody>
@@ -232,9 +282,29 @@ onMounted(load)
               <td>{{ r.commission }}</td>
               <td>{{ r.invoiceType }}</td>
               <td><span class="tag mint">{{ r.archiveStatus }}</span></td>
-              <td>
-                <button type="button" class="btn btn-primary" style="padding: 4px 8px" :disabled="r.id == null" @click="openEditDeal(r)">编辑</button>
-                <button type="button" class="btn" style="padding: 4px 8px; color: var(--rose)" :disabled="r.id == null" @click="removeDeal(r)">删</button>
+              <td class="table-actions">
+                <el-tooltip content="编辑" placement="top">
+                  <el-button
+                    type="primary"
+                    :icon="Edit"
+                    circle
+                    plain
+                    size="small"
+                    :disabled="r.id == null"
+                    @click="openEditDeal(r)"
+                  />
+                </el-tooltip>
+                <el-tooltip content="删除" placement="top">
+                  <el-button
+                    type="danger"
+                    :icon="Delete"
+                    circle
+                    plain
+                    size="small"
+                    :disabled="r.id == null"
+                    @click="removeDeal(r)"
+                  />
+                </el-tooltip>
               </td>
             </tr>
           </tbody>
@@ -267,11 +337,49 @@ onMounted(load)
                 style="width: 100%; margin-top: 4px"
               />
             </div>
-            <div class="full"><label>房源编号<span style="color: var(--rose)">*</span></label><input v-model="vForm.propertyRef" type="text" maxlength="32" placeholder="P-8821" /></div>
-            <div class="full"><label>客户<span style="color: var(--rose)">*</span></label><input v-model="vForm.customerName" type="text" maxlength="80" /></div>
-            <div class="full"><label>陪同</label><input v-model="vForm.companions" type="text" maxlength="120" /></div>
-            <div><label>评分</label><input v-model="vForm.score" type="text" maxlength="8" /></div>
-            <div><label>员工（可选）</label><input v-model="vForm.staff" type="text" maxlength="40" /></div>
+            <div class="full">
+              <label>房源编号<span style="color: var(--rose)">*</span></label>
+              <input v-model="vForm.propertyRef" type="text" maxlength="32" placeholder="P-8821" />
+            </div>
+            <div class="full">
+              <label>客户<span style="color: var(--rose)">*</span></label>
+              <el-select
+                v-model="vForm.customerSlug"
+                filterable
+                placeholder="从客户统筹选择（单选）"
+                style="width: 100%; margin-top: 4px"
+              >
+                <el-option
+                  v-for="c in customerOptions"
+                  :key="c.slug || c.id"
+                  :label="c.titleLine || [c.contactName, c.company].filter(Boolean).join(' · ') || c.name"
+                  :value="c.slug || c.id"
+                />
+              </el-select>
+            </div>
+            <div class="full">
+              <label>陪同员工（多选）</label>
+              <el-select
+                v-model="vForm.companionStaffIds"
+                multiple
+                filterable
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="从员工列表选择"
+                style="width: 100%; margin-top: 4px"
+              >
+                <el-option
+                  v-for="s in staffOptions"
+                  :key="s.id"
+                  :label="`${s.name}（${s.employeeNo}）`"
+                  :value="s.id"
+                />
+              </el-select>
+            </div>
+            <div>
+              <label>评分</label>
+              <input v-model="vForm.score" type="text" maxlength="8" />
+            </div>
           </div>
           <div style="display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end">
             <button type="button" class="btn" @click="vModal = false">取消</button>
@@ -290,7 +398,12 @@ onMounted(load)
             <div><label>成交额</label><input v-model="dForm.amount" type="text" maxlength="40" /></div>
             <div><label>佣金</label><input v-model="dForm.commission" type="text" maxlength="40" /></div>
             <div><label>开票类型</label><input v-model="dForm.invoiceType" type="text" maxlength="20" /></div>
-            <div class="full"><label>归档状态</label><input v-model="dForm.archiveStatus" type="text" maxlength="20" /></div>
+            <div class="full">
+              <label>归档状态</label>
+              <select v-model="dForm.archiveStatus" style="width: 100%; margin-top: 4px">
+                <option v-for="a in ARCHIVE_OPTIONS" :key="a" :value="a">{{ a }}</option>
+              </select>
+            </div>
           </div>
           <div style="display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end">
             <button type="button" class="btn" @click="dModal = false">取消</button>
@@ -301,3 +414,13 @@ onMounted(load)
     </Teleport>
   </section>
 </template>
+
+<style scoped>
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+</style>
