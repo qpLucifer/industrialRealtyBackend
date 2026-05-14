@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteStaffApi, fetchRegionDefs, fetchStaffForm, fetchStaffList, patchStaffStatusApi, postStaffImportCsv, saveStaffForm } from '@/api/admin'
 import type { RegionDefRow, StaffForm, StaffRow } from '@/types/domain'
+import { csvEscape } from '@/lib/csv'
 import { Delete, Edit, Lock } from '@element-plus/icons-vue'
 import {
   emailFormatErrorMessage,
@@ -141,16 +142,10 @@ async function onDelete(row: StaffRow) {
   await loadList()
 }
 
-function csvEscape(cell: string) {
-  const s = String(cell ?? '')
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
-  return s
-}
-
 function onExportStaffCsv() {
   const header = ['id', 'employeeNo', 'name', 'phoneMasked', 'role', 'regions', 'status']
   const rows = list.value.map((r) =>
-    [r.id, r.employeeNo, r.name, r.phoneMasked, r.role, r.regions, r.status].map(csvEscape).join(','),
+    [r.id, r.employeeNo, r.name, r.phoneMasked, r.role, r.regions, r.status].map((c) => csvEscape(c)).join(','),
   )
   const csv = [header.join(','), ...rows].join('\n')
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
@@ -181,7 +176,7 @@ function onImportCsv() {
 function onDownloadStaffTemplate() {
   const header = ['employee_no', 'name', 'phone', 'department', 'role', 'region_ids', 'email', 'title', 'hire_date', 'remark']
   const example = ['E001', '张三', '13800138000', '招商部', '业务员', '黄埔区,增城区', '', '', '2024-01-01', '']
-  const csv = [header.join(','), example.join(',')].join('\n')
+  const csv = [header.join(','), example.map((c) => csvEscape(c)).join(',')].join('\n')
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)

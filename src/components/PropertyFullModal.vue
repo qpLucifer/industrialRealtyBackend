@@ -57,7 +57,7 @@ const RO_SECTIONS: { title: string; fields: { key: RoKey; label: string }[] }[] 
       { key: 'district', label: '所属区域' },
       // { key: 'listingLine1', label: '列表副行 1' },
       // { key: 'listingLine2', label: '列表副行 2（含跟进状态文案）' },
-      { key: 'auditTag', label: '审核状态' },
+      { key: 'auditTag', label: '审核状态（只读）' },
       { key: 'riskTag', label: '风险标签' },
       { key: 'submitterName', label: '提交人' },
       // { key: 'rowMuted', label: '列表弱化行' },
@@ -257,6 +257,9 @@ const uploadingVideo = ref(false)
 const mediaImageBlock = ref('')
 const mediaVideoBlock = ref('')
 const regionDefs = ref<RegionDefRow[]>([])
+
+/** Only after audit pass (live) may listing status_tag / 对外状态 be changed. */
+const canChangeListingStatus = computed(() => form.auditTag === '已通过')
 
 function splitMediaLines(block: string) {
   return String(block || '')
@@ -540,7 +543,8 @@ async function onPickVideos(ev: Event) {
             <button type="button" :class="{ active: tab === 2 }" @click="setTab(2)">图片</button>
             <button type="button" :class="{ active: tab === 3 }" @click="setTab(3)">视频</button>
             <button type="button" :class="{ active: tab === 4 }" @click="setTab(4)">土地 · 配套 · 使用</button>
-            <button type="button" :class="{ active: tab === 5 }" @click="setTab(5)">产权 · 合规 · 跟进</button>
+            <button type="button" :class="{ active: tab === 5 }" @click="setTab(5)">产权 · 合规</button>
+            <button type="button" :class="{ active: tab === 6 }" @click="setTab(6)">内部跟进</button>
           </div>
         </div>
         <div class="modal-prop-scroll">
@@ -571,14 +575,20 @@ async function onPickVideos(ev: Event) {
               </div>
               <div>
                 <label>审核状态（列表）</label>
-                <select v-model="form.auditTag" style="margin-top: 5px">
-                  <option value="已通过">已通过</option>
-                  <option value="待审核">待审核</option>
-                  <option value="—">—</option>
-                </select>
+                <input
+                  :value="String(form.auditTag || '—')"
+                  type="text"
+                  class="ro-input-readonly"
+                  readonly
+                  tabindex="-1"
+                  aria-readonly="true"
+                />
+                <p class="hint" style="margin-top: 6px">
+                  不可在此修改。「已通过 / 待审核」由审核中心操作；非草稿保存且未上架时进入待审核队列，已上架房源保存后仍为已上架。
+                </p>
               </div>
               <div class="full">
-                <label>风险标签（审核中心展示，保存至数据库 risk_tag）</label>
+                <label>风险标签</label>
                 <input v-model="form.riskTag" type="text" maxlength="64" placeholder="如：资料待核、无、首次发布" />
               </div>
               <div class="form-section-h" style="margin-top: 8px">分类 · 基础 · 清单</div>
@@ -1106,11 +1116,15 @@ async function onPickVideos(ev: Event) {
                 <label>厂房评估建议</label>
                 <textarea v-model="form.assessment" rows="2" />
               </div>
+            </div>
+          </div>
 
-              <div class="form-section-h">内部跟进（小程序同源）</div>
+          <div class="prop-admin-panel" :class="{ active: tab === 6 }">
+            <div class="form-grid" style="margin-top: 0">
+              <div class="form-section-h">内部跟进</div>
               <div>
                 <label>对外状态（列表「状态」列）</label>
-                <select v-model="form.externalStatus">
+                <select v-model="form.externalStatus" class="status-select" :disabled="!canChangeListingStatus">
                   <option>草稿</option>
                   <option>待租</option>
                   <option>已租</option>
@@ -1119,6 +1133,9 @@ async function onPickVideos(ev: Event) {
                   <option>意向中</option>
                   <option>下架封存</option>
                 </select>
+                <p v-if="!canChangeListingStatus" class="hint" style="margin-top: 6px">
+                  审核通过前不可修改；当前保持为「{{ form.externalStatus || '草稿' }}」。通过后可在本页调整上架状态。
+                </p>
               </div>
               <div>
                 <label>租售类型<span style="color: var(--rose)">*</span></label>
@@ -1164,7 +1181,7 @@ async function onPickVideos(ev: Event) {
               </div>
               <div class="full">
                 <label>内部备注（不对客户）</label>
-                <textarea v-model="form.internalNote" rows="2" />
+                <textarea v-model="form.internalNote" rows="4" placeholder="团队内部记录、谈判进展等" />
               </div>
             </div>
           </div>
@@ -1319,6 +1336,17 @@ async function onPickVideos(ev: Event) {
   font-family: ui-monospace, monospace;
   font-size: 12px;
   line-height: 1.45;
+}
+.ro-input-readonly {
+  width: 100%;
+  margin-top: 5px;
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 13px;
+  cursor: default;
 }
 .ro-pre {
   margin: 0;

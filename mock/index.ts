@@ -320,11 +320,6 @@ export default [
     response: () => ok({ url: 'https://example.com/mock-oss/object.jpg', key: 'mock/object.jpg' }),
   },
   {
-    url: '/api/properties/bulk-follow',
-    method: 'post',
-    response: () => ok({ success: true, count: 1 }),
-  },
-  {
     url: '/api/staff/import-csv',
     method: 'post',
     response: () => ok({ created: 0, updated: 0, errors: [] }),

@@ -156,11 +156,6 @@ export async function deletePropertyApi(code: string) {
   return unwrap(res) as { success: boolean }
 }
 
-export async function postPropertiesBulkFollow(codes: string[], actor?: string) {
-  const res = await http.post('/properties/bulk-follow', { codes, actor })
-  return unwrap(res) as { success: boolean; count: number }
-}
-
 export async function uploadOssFile(file: File, folder?: string) {
   pushUploadLoading()
   try {

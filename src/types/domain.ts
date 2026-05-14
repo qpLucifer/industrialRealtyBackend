@@ -120,8 +120,6 @@ export interface PropertyRow {
   submitter: string
   audit: AuditTag
   rowMuted?: boolean
-  /** Derived: listing_line2 contains 已跟进 → 已跟进 */
-  followUpDone?: boolean
 }
 
 export interface AuditQueueRow {

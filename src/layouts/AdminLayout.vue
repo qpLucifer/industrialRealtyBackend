@@ -72,9 +72,9 @@ function isActive(name: string) {
   <div class="layout-app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">INDUSTRIAL OS</div>
+        <div class="brand-mark">INDUSTRIAL</div>
         <div class="brand-sub">
-          工业地产 · 内部治理与业务中台<br />小程序数据同源
+          鹏基商务小程序后台管理系统
         </div>
       </div>
 
@@ -268,7 +268,14 @@ function isActive(name: string) {
         </div>
         <el-dropdown trigger="click" @command="onUserMenu">
           <div class="user-pill" role="button" tabindex="0" title="账户菜单">
-            <div class="avatar" aria-hidden="true" />
+            <img
+              v-if="auth.user?.avatarUrl"
+              class="avatar avatar-img"
+              :src="auth.user.avatarUrl"
+              alt=""
+              referrerpolicy="no-referrer"
+            />
+            <div v-else class="avatar" aria-hidden="true" />
             <div style="line-height: 16px;">
               <div style="font-weight: 700; font-size: 13px">{{ auth.user?.displayName ?? '—' }}</div>
               <div style="font-size: 11px; color: var(--muted)">{{ auth.user?.roleLine ?? '' }}</div>

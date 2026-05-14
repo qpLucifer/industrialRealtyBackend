@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createWhitelistRow, deleteWhitelistRow, fetchWhitelist, updateWhitelistRow } from '@/api/admin'
 import type { WhitelistRow } from '@/types/domain'
+import { csvEscape, headerIndex, parseCsvWithHeader } from '@/lib/csv'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import { normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 
@@ -75,8 +76,10 @@ async function onDelete(row: WhitelistRow) {
 }
 
 function onDownloadTemplate() {
-  const csv = 'phone,name,remark\n13800138000,示例用户,备注可选\n'
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const headers = ['phone', 'name', 'remark']
+  const row = ['13800138000', '示例用户', '备注可选，可含逗号需用引号']
+  const csv = [headers.join(','), row.map((c) => csvEscape(c)).join(',')].join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = 'whitelist-template.csv'
@@ -95,27 +98,39 @@ function onImportClick() {
     const reader = new FileReader()
     reader.onload = async () => {
       const text = String(reader.result || '')
-      const lines = text.split(/\r?\n/).filter(Boolean)
-      if (lines.length < 2) {
+      const { headers, rows } = parseCsvWithHeader(text)
+      if (!headers.length || !rows.length) {
         ElMessage.warning('CSV 至少需要表头 + 一行数据')
         return
       }
+      const iPhone = headerIndex(headers, ['phone', '手机号'])
+      const iName = headerIndex(headers, ['name', '姓名'])
+      const iRemark = headerIndex(headers, ['remark', '备注'])
+      const colPhone = iPhone >= 0 ? iPhone : 0
+      const colName = iName >= 0 ? iName : 1
+      const colRemark = iRemark >= 0 ? iRemark : 2
       const today = new Date().toISOString().slice(0, 10)
       let n = 0
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
-        const phone = normalizeCnMobileInput(cols[0] || '')
-        if (!phone) continue
+      let skipped = 0
+      for (const cols of rows) {
+        const phone = normalizeCnMobileInput(cols[colPhone] || '')
+        if (!/^\d{11}$/.test(phone)) {
+          skipped++
+          continue
+        }
+        const name = String(cols[colName] ?? '').trim().slice(0, 50)
+        const remark = String(cols[colRemark] ?? '').trim().slice(0, 200)
         await createWhitelistRow({
           phone,
-          name: cols[1] || '',
-          remark: cols[2] || '',
+          name,
+          remark,
           updatedBy: 'CSV导入',
           updatedAt: today,
         })
         n++
       }
-      ElMessage.success(`已导入 ${n} 条`)
+      const skipHint = skipped ? `，跳过 ${skipped} 行（手机号非 11 位）` : ''
+      ElMessage.success(`已导入 ${n} 条${skipHint}`)
       await load()
     }
     reader.readAsText(file, 'UTF-8')
