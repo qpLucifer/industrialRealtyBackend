@@ -14,7 +14,7 @@ export function loadAmapScript(): Promise<void> {
   }
 
   // Keys created after 2021-12-02 require securityJsCode before loading the script; trim CR/BOM from .env lines.
-  const securityJsCode = String('https://jiayizhou.top').trim()
+  const securityJsCode = String(import.meta.env.VITE_AMAP_SECURITY_JS_CODE || '').trim()
   if (securityJsCode) {
     w._AMapSecurityConfig = { securityJsCode }
   }
