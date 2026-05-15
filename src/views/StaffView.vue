@@ -245,9 +245,8 @@ function onDownloadStaffTemplate() {
 
     <el-drawer v-model="drawer" direction="rtl" size="min(520px, 100%)" :show-close="true" title="">
       <template #header>
-        <h3 style="margin: 0; font-size: 17px">员工档案 / 权限矩阵</h3>
+        <h3 style="margin: 0; font-size: 17px">员工档案</h3>
       </template>
-      <p class="hint">与小程序账号一对一映射 · 区域节点最多 2 个叶子 · 角色决定审核 / 导出能力。</p>
       <div class="form-grid">
         <div>
           <label>工号<span style="color: var(--rose)">*</span></label>

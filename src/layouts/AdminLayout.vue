@@ -74,7 +74,7 @@ function isActive(name: string) {
       <div class="brand">
         <div class="brand-mark">INDUSTRIAL</div>
         <div class="brand-sub">
-          鹏基商务小程序后台管理系统
+          企鹏工业地产后台管理系统
         </div>
       </div>
 
