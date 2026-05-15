@@ -150,6 +150,9 @@ onMounted(load)
     </div>
     <div class="card">
       <h3>准入号码池（与小程序联动）</h3>
+      <p class="hint" style="margin-top: 8px">
+        小程序登录需同时满足：① 手机号在本白名单；②「员工与账号」中维护<strong>相同 11 位手机号</strong>，且员工为<strong>正常 / 账号状态正常</strong>；③ 员工设置<strong>负责区域</strong>后，小程序房源列表按区域过滤。
+      </p>
       <table class="data" style="margin-top: 12px">
         <thead>
           <tr>

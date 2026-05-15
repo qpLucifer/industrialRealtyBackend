@@ -77,6 +77,18 @@ async function loadRegionDefs() {
   regionDefs.value = rows
 }
 
+function selectAllRegions() {
+  if (!regionDefs.value.length) {
+    ElMessage.warning('请先在「区域名称」中维护区域')
+    return
+  }
+  form.regionIds = regionDefs.value.map((d) => d.name)
+}
+
+function clearRegions() {
+  form.regionIds = []
+}
+
 async function loadList() {
   const { list: rows } = await fetchStaffList({ q: staffQ.value })
   list.value = rows
@@ -140,10 +152,6 @@ async function onSave() {
   }
   if (!dept || dept.length > 64) {
     ElMessage.error('部门必填，最长 64 字符')
-    return
-  }
-  if ((form.regionIds?.length || 0) > 2) {
-    ElMessage.error('负责区域最多选择 2 个')
     return
   }
   const payload = { ...form, employeeNo: emp, name: nm, phone: ph, department: dept, id: form.id || editingStaffId.value }
@@ -245,7 +253,7 @@ function onDownloadStaffTemplate() {
             <th>手机</th>
             <th>部门</th>
             <th>职位</th>
-            <th>负责区域（≤2）</th>
+            <th>负责区域</th>
             <th>状态</th>
             <th>操作</th>
           </tr>
@@ -276,7 +284,9 @@ function onDownloadStaffTemplate() {
         </tbody>
       </table>
     </div>
-    <p class="hint" style="margin-top: 12px">一人一号 · 离职「禁用」即时回收小程序会话 · OpenID 绑定解耦。</p>
+    <p class="hint" style="margin-top: 12px">
+      一人一号 · 小程序登录须<strong>白名单 + 本表手机号一致</strong>且状态正常；<strong>负责区域</strong>决定小程序房源可见范围；离职「禁用」后无法登录小程序。
+    </p>
 
     <el-drawer v-model="drawer" direction="rtl" size="min(520px, 100%)" :show-close="true" title="">
       <template #header>
@@ -353,7 +363,11 @@ function onDownloadStaffTemplate() {
           </select>
         </div>
         <div class="full">
-          <label>负责区域（最多 2 个，与「区域名称」页一致）</label>
+          <label>负责区域（与「区域名称」页一致，可多选）</label>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px">
+            <button type="button" class="btn" @click="selectAllRegions">全选</button>
+            <button type="button" class="btn" @click="clearRegions">清空</button>
+          </div>
           <el-select
             v-model="form.regionIds"
             multiple
@@ -361,9 +375,8 @@ function onDownloadStaffTemplate() {
             clearable
             collapse-tags
             collapse-tags-tooltip
-            :multiple-limit="2"
-            placeholder="下拉选择，最多 2 个"
-            style="width: 100%; margin-top: 6px"
+            placeholder="下拉选择区域，或使用上方全选"
+            style="width: 100%; margin-top: 8px"
           >
             <el-option v-for="d in regionDefs" :key="d.id" :label="d.name" :value="d.name" />
           </el-select>
