@@ -354,6 +354,28 @@ export async function fetchLogs(params?: { kind?: string; action?: string; q?: s
   return unwrap(res) as { list: LogRow[] }
 }
 
+export async function fetchLogsCount(params?: {
+  kind?: string
+  action?: string
+  dateFrom?: string
+  dateTo?: string
+  olderThanDays?: number
+}) {
+  const res = await http.get('/logs/count', { params })
+  return unwrap(res) as { count: number }
+}
+
+export async function purgeLogs(body: {
+  olderThanDays?: number
+  kind?: string
+  action?: string
+  dateFrom?: string
+  dateTo?: string
+}) {
+  const res = await http.post('/logs/purge', body)
+  return unwrap(res) as { deleted: number; matchedBefore: number }
+}
+
 export async function fetchSecuritySettings() {
   const res = await http.get('/settings/security')
   return unwrap(res) as { switches: SecuritySwitch[] }

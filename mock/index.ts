@@ -365,6 +365,52 @@ export default [
     response: () => ok({ list: mockLogs }),
   },
   {
+    url: '/api/logs/count',
+    method: 'get',
+    response: ({ query }: { query: Record<string, string> }) => {
+      let rows = mockLogs.filter(() => true)
+      const k = query?.kind
+      const a = query?.action
+      if (k && k !== 'all') rows = rows.filter((r) => r.kind === k)
+      if (a && a !== 'all') rows = rows.filter((r) => r.action === a)
+      if (query?.olderThanDays) {
+        return ok({ count: rows.length })
+      }
+      return ok({ count: rows.length })
+    },
+  },
+  {
+    url: '/api/logs/purge',
+    method: 'post',
+    response: ({ body }: { body?: Record<string, unknown> }) => {
+      if (body?.olderThanDays != null) {
+        const n = mockLogs.length
+        mockLogs.splice(0, n)
+        return ok({ deleted: n, matchedBefore: n })
+      }
+      const kind = body?.kind as string | undefined
+      const action = body?.action as string | undefined
+      const df = body?.dateFrom != null ? String(body.dateFrom).trim() : ''
+      const dt = body?.dateTo != null ? String(body.dateTo).trim() : ''
+      const hasNarrow =
+        (kind && kind !== 'all') || (action && action !== 'all') || Boolean(df) || Boolean(dt)
+      if (!hasNarrow) {
+        return { code: 400, message: '请至少收窄筛选条件或使用保留天数清理', result: null }
+      }
+      let removed = 0
+      let matched = 0
+      for (let i = mockLogs.length - 1; i >= 0; i--) {
+        const r = mockLogs[i]
+        if (kind && kind !== 'all' && r.kind !== kind) continue
+        if (action && action !== 'all' && r.action !== action) continue
+        matched++
+        mockLogs.splice(i, 1)
+        removed++
+      }
+      return ok({ deleted: removed, matchedBefore: matched })
+    },
+  },
+  {
     url: '/api/settings/security',
     method: 'get',
     response: () => ok({ switches: mockSecuritySwitches }),
