@@ -17,6 +17,13 @@ import {
 import { mockVideoFaqRows } from './data/videoFaq'
 import { mockViewingRows, mockDealRows } from './data/viewings'
 import { mockAnnouncements } from './data/announcements'
+import {
+  MOCK_CODE_MASTER_TYPE_META,
+  mockCreateCodeMaster,
+  mockDeleteCodeMaster,
+  mockListCodeMaster,
+  mockUpdateCodeMaster,
+} from './data/codeMaster'
 import { mockLogs } from './data/logs'
 import { mockSecuritySwitches } from './data/settings'
 import { mockFutureEndpoints } from './data/future'
@@ -149,6 +156,72 @@ export default [
           return { code: 400, message: '至少保留一名后台管理员，无法删除', result: null }
         }
         return { code: 404, message: '用户不存在', result: null }
+      }
+    },
+  },
+  {
+    url: '/api/code-master/types',
+    method: 'get',
+    response: () =>
+      ok({
+        list: Object.entries(MOCK_CODE_MASTER_TYPE_META).map(([typeCode, typeName]) => ({ typeCode, typeName })),
+      }),
+  },
+  {
+    url: '/api/code-master',
+    method: 'get',
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) => {
+      const raw = query?.type
+      const type = (Array.isArray(raw) ? raw[0] : raw) || ''
+      const inc = query?.includeInactive
+      const includeInactive = String(Array.isArray(inc) ? inc[0] : inc || '') === '1'
+      try {
+        const list = mockListCodeMaster(String(type), Boolean(includeInactive))
+        return ok({ list })
+      } catch (e: unknown) {
+        return { code: 400, message: e instanceof Error ? e.message : 'bad request', result: null }
+      }
+    },
+  },
+  {
+    url: '/api/code-master',
+    method: 'post',
+    response: ({ body }: { body: Record<string, unknown> }) => {
+      try {
+        mockCreateCodeMaster(body || {})
+        return ok({ success: true })
+      } catch (e: unknown) {
+        return { code: 400, message: e instanceof Error ? e.message : 'bad request', result: null }
+      }
+    },
+  },
+  {
+    url: '/api/code-master/:id',
+    method: 'put',
+    response: (opt: { url?: string; body: Record<string, unknown> }) => {
+      const m = String(opt.url || '').match(/\/code-master\/(\d+)/)
+      const id = m ? Number(m[1]) : NaN
+      try {
+        mockUpdateCodeMaster(id, opt.body || {})
+        return ok({ success: true })
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'bad'
+        if (msg === 'not found') return { code: 404, message: 'not found', result: null }
+        return { code: 400, message: msg, result: null }
+      }
+    },
+  },
+  {
+    url: '/api/code-master/:id',
+    method: 'delete',
+    response: (opt: { url?: string }) => {
+      const m = String(opt.url || '').match(/\/code-master\/(\d+)/)
+      const id = m ? Number(m[1]) : NaN
+      try {
+        mockDeleteCodeMaster(id)
+        return ok({ success: true })
+      } catch (e: unknown) {
+        return { code: 404, message: e instanceof Error ? e.message : 'not found', result: null }
       }
     },
   },

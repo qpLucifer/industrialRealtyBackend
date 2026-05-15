@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { fetchPropertyDetail, fetchRegionDefs, publishPropertyApi, savePropertySnapshot, uploadOssFile } from '@/api/admin'
+import { fetchCodeMasterItems, fetchPropertyDetail, fetchRegionDefs, publishPropertyApi, savePropertySnapshot, uploadOssFile } from '@/api/admin'
 import MapLatLngPicker from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
 import {
@@ -17,8 +17,8 @@ import {
 } from '@/lib/inputValidators'
 
 /** Ensure arrays / flags exist so chips and toggles never throw. */
-function ensurePropertyFormShape(f: PropertyFullForm) {
-  if (!Array.isArray(f.types) || f.types.length === 0) f.types = ['标准厂房']
+function ensurePropertyFormShape(f: PropertyFullForm, defaultTypeLabel = '标准厂房') {
+  if (!Array.isArray(f.types) || f.types.length === 0) f.types = [defaultTypeLabel]
   if (!Array.isArray(f.photoChecklist)) f.photoChecklist = []
   if (!Array.isArray(f.structureTypes)) f.structureTypes = []
   if (!Array.isArray(f.propertyRights)) f.propertyRights = []
@@ -343,7 +343,11 @@ watch(imagePreviewUrls, (urls) => {
   else if (imageLightboxIdx.value >= urls.length) imageLightboxIdx.value = urls.length - 1
 })
 
-const typeOptions = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺'] as const
+const FALLBACK_PROPERTY_TYPES = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺']
+const FALLBACK_LISTING_STATUSES = ['待租', '已租', '待售', '已售', '意向中', '下架封存']
+
+const propertyTypeLabels = ref<string[]>([...FALLBACK_PROPERTY_TYPES])
+const listingStatusLabels = ref<string[]>([...FALLBACK_LISTING_STATUSES])
 const photoOptions = ['门口形象照', '路口进出照', '车间照片', '货梯', '厂房屋顶'] as const
 const structureOptions = ['钢构', '框架', '其他'] as const
 const rightsOptions = ['国有土地', '出让', '划拨', '集体土地', '其他'] as const
@@ -395,10 +399,21 @@ watch(
   async ([vis, code]) => {
     if (!vis) return
     detailViewTab.value = 2
-    const [{ list }, d] = await Promise.all([fetchRegionDefs(), fetchPropertyDetail(code)])
+    const [regions, detail, typeCm, listingCm] = await Promise.all([
+      fetchRegionDefs(),
+      fetchPropertyDetail(code),
+      fetchCodeMasterItems('property_type').catch(() => ({ list: [] as { label: string }[] })),
+      fetchCodeMasterItems('property_listing_status').catch(() => ({ list: [] as { label: string }[] })),
+    ])
+    const { list } = regions
+    const d = detail
+    if (typeCm.list?.length) propertyTypeLabels.value = typeCm.list.map((r) => r.label)
+    else propertyTypeLabels.value = [...FALLBACK_PROPERTY_TYPES]
+    if (listingCm.list?.length) listingStatusLabels.value = listingCm.list.map((r) => r.label)
+    else listingStatusLabels.value = [...FALLBACK_LISTING_STATUSES]
     regionDefs.value = list
     Object.assign(form, d)
-    ensurePropertyFormShape(form)
+    ensurePropertyFormShape(form, propertyTypeLabels.value[0] || '标准厂房')
     syncMediaBlocksFromForm()
   },
 )
@@ -470,7 +485,7 @@ function collectPropertyRequiredMiss(): string[] {
 async function reloadPropertyForm() {
   const d = await fetchPropertyDetail(props.code)
   Object.assign(form, d)
-  ensurePropertyFormShape(form)
+  ensurePropertyFormShape(form, propertyTypeLabels.value[0] || '标准厂房')
   syncMediaBlocksFromForm()
 }
 
@@ -611,12 +626,7 @@ async function onPickVideos(ev: Event) {
                 <label>当前状态（列表「状态」列）</label>
                 <template v-if="canChangeListingStatus">
                   <select v-model="form.externalStatus" class="status-select">
-                    <option>待租</option>
-                    <option>已租</option>
-                    <option>待售</option>
-                    <option>已售</option>
-                    <option>意向中</option>
-                    <option>下架封存</option>
+                    <option v-for="s in listingStatusLabels" :key="s">{{ s }}</option>
                   </select>
                   <p class="hint" style="margin-top: 6px">
                     审核已通过，可在此切换对外租售状态；保存后写入列表「状态」列。
@@ -663,7 +673,7 @@ async function onPickVideos(ev: Event) {
                 <label>房源类型（多选）<span style="color: var(--rose)">*</span></label>
                 <div class="chip-toggle" data-multi style="margin-top: 6px">
                   <span
-                    v-for="t in typeOptions"
+                    v-for="t in propertyTypeLabels"
                     :key="t"
                     :class="{ on: form.types?.includes(t) }"
                     @click="onToggleType(t)"

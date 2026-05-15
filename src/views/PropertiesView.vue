@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createPropertyDraft, deletePropertyApi, fetchProperties, fetchRegionDefs } from '@/api/admin'
+import { createPropertyDraft, deletePropertyApi, fetchCodeMasterItems, fetchProperties, fetchRegionDefs } from '@/api/admin'
 import type { PropertyRow, RegionDefRow } from '@/types/domain'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
@@ -33,8 +33,31 @@ async function loadList() {
   list.value = rows
 }
 
+const FALLBACK_PROPERTY_TYPES = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺']
+const FALLBACK_PROPERTY_STATUSES = ['草稿', '待审核', '驳回', '待租', '已租', '待售', '已售', '意向中', '下架封存']
+
+const propertyTypeFilterLabels = ref<string[]>([...FALLBACK_PROPERTY_TYPES])
+const propertyStatusFilterLabels = ref<string[]>([...FALLBACK_PROPERTY_STATUSES])
+
+async function loadCodeFilters() {
+  try {
+    const [t, s] = await Promise.all([
+      fetchCodeMasterItems('property_type'),
+      fetchCodeMasterItems('property_status_tag'),
+    ])
+    if (t.list.length) propertyTypeFilterLabels.value = t.list.map((r) => r.label)
+    else propertyTypeFilterLabels.value = [...FALLBACK_PROPERTY_TYPES]
+    if (s.list.length) propertyStatusFilterLabels.value = s.list.map((r) => r.label)
+    else propertyStatusFilterLabels.value = [...FALLBACK_PROPERTY_STATUSES]
+  } catch {
+    propertyTypeFilterLabels.value = [...FALLBACK_PROPERTY_TYPES]
+    propertyStatusFilterLabels.value = [...FALLBACK_PROPERTY_STATUSES]
+  }
+}
+
 onMounted(async () => {
   await loadRegionDefs()
+  await loadCodeFilters()
   await loadList()
 })
 
@@ -79,12 +102,7 @@ async function onDeleteRow(row: PropertyRow) {
     <div class="toolbar" style="flex-wrap: wrap; gap: 10px">
       <select v-model="filterType">
         <option value="all">全部类型</option>
-        <option>标准厂房</option>
-        <option>独门独院厂房</option>
-        <option>仓库</option>
-        <option>工业用地</option>
-        <option>写字楼</option>
-        <option>产业园商铺</option>
+        <option v-for="x in propertyTypeFilterLabels" :key="x" :value="x">{{ x }}</option>
       </select>
       <select v-model="filterDistrict">
         <option value="all">全部区域</option>
@@ -92,15 +110,7 @@ async function onDeleteRow(row: PropertyRow) {
       </select>
       <select v-model="filterStatus">
         <option value="all">全部状态</option>
-        <option>草稿</option>
-        <option>待审核</option>
-        <option>驳回</option>
-        <option>待租</option>
-        <option>已租</option>
-        <option>待售</option>
-        <option>已售</option>
-        <option>意向中</option>
-        <option>下架封存</option>
+        <option v-for="x in propertyStatusFilterLabels" :key="x" :value="x">{{ x }}</option>
       </select>
       <input v-model="searchQ" type="search" placeholder="地址 / 编号 / 提交人…" style="min-width: 200px" @keyup.enter="loadList" />
       <button type="button" class="btn btn-primary" @click="onNewDraft">＋ 新建草稿</button>

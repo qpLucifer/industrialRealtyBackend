@@ -8,9 +8,10 @@ export const navMeta: Record<
   }
 > = {
   dashboard: { title: '数据总览', crumb: '全局 KPI · 区域分布 · 活跃度' },
-  staff: { title: '员工与账号', crumb: '角色 · 区域绑定 · 禁用策略' },
+  staff: { title: '员工与账号', crumb: '部门 · 职位 · 区域绑定 · 账号状态' },
   whitelist: { title: '手机号白名单', crumb: '小程序准入双重校验' },
   regions: { title: '区域名称', crumb: '业务区域名称（与员工负责区、房源区域一致）' },
+  'code-master': { title: '代码字典', crumb: '职位 · 部门 · 角色 · 房源类型与状态等下拉维护' },
   properties: { title: '房源管理', crumb: '全字段维护 · 审核状态' },
   audit: { title: '审核中心', crumb: '待审队列 · 风控' },
   customers: { title: '客户统筹', crumb: '跟进表 · ABC 分级 · 系统提醒' },
@@ -41,6 +42,7 @@ export const appRoutes: RouteRecordRaw[] = [
       { path: 'staff', name: 'staff', component: () => import('@/views/StaffView.vue') },
       { path: 'whitelist', name: 'whitelist', component: () => import('@/views/WhitelistView.vue') },
       { path: 'regions', name: 'regions', component: () => import('@/views/RegionsView.vue') },
+      { path: 'code-master', name: 'code-master', component: () => import('@/views/CodeMasterView.vue') },
       { path: 'properties', name: 'properties', component: () => import('@/views/PropertiesView.vue') },
       { path: 'audit', name: 'audit', component: () => import('@/views/AuditView.vue') },
       { path: 'customers', name: 'customers', component: () => import('@/views/CustomersView.vue') },

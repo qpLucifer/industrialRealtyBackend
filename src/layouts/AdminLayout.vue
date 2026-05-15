@@ -39,6 +39,7 @@ const navGroups: { section: string; items: { to: string; name: string; label: st
       { to: '/app/staff', name: 'staff', label: '员工与账号' },
       { to: '/app/whitelist', name: 'whitelist', label: '手机号白名单' },
       { to: '/app/regions', name: 'regions', label: '区域名称' },
+      { to: '/app/code-master', name: 'code-master', label: '代码字典' },
       { to: '/app/sys-users', name: 'sys-users', label: '用户管理' },
     ],
   },

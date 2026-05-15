@@ -43,16 +43,18 @@ export interface StaffActivityRow {
   deals: number
 }
 
-export type StaffRole = '业务员' | '部门经理' | '超级管理员'
-export type StaffStatus = '正常' | '禁用' | '冻结'
-export type StaffAccountStatus = '正常' | '禁用（离职）' | '冻结（风控）'
+export type StaffStatus = string
+export type StaffAccountStatus = string
 
 export interface StaffRow {
   id: string
   employeeNo: string
   name: string
   phoneMasked: string
-  role: StaffRole
+  /** Department label (list + CSV) */
+  department: string
+  /** Job title / 职位 (list + CSV) */
+  title: string
   regions: string
   status: StaffStatus
 }
@@ -67,7 +69,6 @@ export interface StaffForm {
   title: string
   hireDate: string
   accountStatus: StaffAccountStatus
-  role: StaffRole
   regionIds: string[]
   dataScopeHint: string
   /** WeChat display name (stored in staff.wecom_user_id) */
@@ -214,6 +215,23 @@ export interface DealRow {
   commission: string
   invoiceType: string
   archiveStatus: string
+}
+
+/** Admin code dictionary — `type_code` whitelist on server */
+export interface CodeMasterTypeInfo {
+  typeCode: string
+  typeName: string
+}
+
+export interface CodeMasterRow {
+  id: number
+  typeCode: string
+  itemCode: string
+  label: string
+  sortOrder: number
+  /** MySQL TINYINT may deserialize as 0/1 */
+  isActive: boolean | number
+  remark: string | null
 }
 
 export interface AnnouncementRow {

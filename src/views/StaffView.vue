@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { deleteStaffApi, fetchRegionDefs, fetchStaffForm, fetchStaffList, patchStaffStatusApi, postStaffImportCsv, saveStaffForm } from '@/api/admin'
-import type { RegionDefRow, StaffForm, StaffRow } from '@/types/domain'
+import { deleteStaffApi, fetchCodeMasterItems, fetchRegionDefs, fetchStaffForm, fetchStaffList, patchStaffStatusApi, postStaffImportCsv, saveStaffForm } from '@/api/admin'
+import type { CodeMasterRow, RegionDefRow, StaffForm, StaffRow } from '@/types/domain'
 import { csvEscape } from '@/lib/csv'
 import { Delete, Edit, Lock } from '@element-plus/icons-vue'
 import {
@@ -16,17 +16,54 @@ import {
 
 const list = ref<StaffRow[]>([])
 const regionDefs = ref<RegionDefRow[]>([])
+const accountStatusMaster = ref<CodeMasterRow[]>([])
+const departmentMaster = ref<CodeMasterRow[]>([])
+const jobTitleMaster = ref<CodeMasterRow[]>([])
+
+const FALLBACK_ACCOUNT_STATUS = ['正常', '禁用（离职）', '冻结（风控）']
+const FALLBACK_DEPARTMENTS = ['总经办', '黄埔业务一部', '南沙业务二部', '运营中心', '人事行政']
+const FALLBACK_JOB_TITLES = ['部门总监', '业务经理', '高级业务员', '业务员', '人事专员']
+
+function masterLabels(rows: CodeMasterRow[], fallback: string[]) {
+  return rows.length ? rows.map((r) => r.label) : [...fallback]
+}
+
+function labelsWithOrphan(rows: CodeMasterRow[], fallback: string[], current: string) {
+  const base = masterLabels(rows, fallback)
+  const c = String(current || '').trim()
+  if (c && !base.includes(c)) return [c, ...base]
+  return base
+}
+
+async function loadCodeMaster() {
+  try {
+    const [b, c, d] = await Promise.all([
+      fetchCodeMasterItems('staff_account_status'),
+      fetchCodeMasterItems('staff_department'),
+      fetchCodeMasterItems('staff_job_title'),
+    ])
+    accountStatusMaster.value = b.list
+    departmentMaster.value = c.list
+    jobTitleMaster.value = d.list
+  } catch {
+    accountStatusMaster.value = []
+    departmentMaster.value = []
+    jobTitleMaster.value = []
+  }
+}
+
 const drawer = ref(false)
 const form = reactive<StaffForm>({} as StaffForm)
 const editingStaffId = ref<string | undefined>(undefined)
 const staffQ = ref('')
-const staffRole = ref<string>('all')
 
-function tagClass(role: string) {
-  if (role === '业务员') return 'cyan'
-  if (role === '部门经理') return 'amber'
-  return 'mint'
-}
+const accountStatusFormLabels = computed(() =>
+  labelsWithOrphan(accountStatusMaster.value, FALLBACK_ACCOUNT_STATUS, form.accountStatus),
+)
+const departmentFormLabels = computed(() =>
+  labelsWithOrphan(departmentMaster.value, FALLBACK_DEPARTMENTS, form.department),
+)
+const jobTitleFormLabels = computed(() => labelsWithOrphan(jobTitleMaster.value, FALLBACK_JOB_TITLES, form.title))
 
 const staffEmailError = computed(() => emailFormatErrorMessage(String(form.email || '')))
 
@@ -41,7 +78,7 @@ async function loadRegionDefs() {
 }
 
 async function loadList() {
-  const { list: rows } = await fetchStaffList({ q: staffQ.value, role: staffRole.value })
+  const { list: rows } = await fetchStaffList({ q: staffQ.value })
   list.value = rows
 }
 
@@ -67,7 +104,7 @@ async function openEdit(row: StaffRow) {
 }
 
 onMounted(async () => {
-  await loadRegionDefs()
+  await Promise.all([loadRegionDefs(), loadCodeMaster()])
   await loadList()
 })
 
@@ -105,10 +142,6 @@ async function onSave() {
     ElMessage.error('部门必填，最长 64 字符')
     return
   }
-  if (!form.role) {
-    ElMessage.error('请选择角色')
-    return
-  }
   if ((form.regionIds?.length || 0) > 2) {
     ElMessage.error('负责区域最多选择 2 个')
     return
@@ -143,9 +176,9 @@ async function onDelete(row: StaffRow) {
 }
 
 function onExportStaffCsv() {
-  const header = ['id', 'employeeNo', 'name', 'phoneMasked', 'role', 'regions', 'status']
+  const header = ['id', 'employeeNo', 'name', 'phoneMasked', 'department', 'title', 'regions', 'status']
   const rows = list.value.map((r) =>
-    [r.id, r.employeeNo, r.name, r.phoneMasked, r.role, r.regions, r.status].map((c) => csvEscape(c)).join(','),
+    [r.id, r.employeeNo, r.name, r.phoneMasked, r.department, r.title, r.regions, r.status].map((c) => csvEscape(c)).join(','),
   )
   const csv = [header.join(','), ...rows].join('\n')
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
@@ -174,8 +207,8 @@ function onImportCsv() {
 }
 
 function onDownloadStaffTemplate() {
-  const header = ['employee_no', 'name', 'phone', 'department', 'role', 'region_ids', 'email', 'title', 'hire_date', 'remark']
-  const example = ['E001', '张三', '13800138000', '招商部', '业务员', '黄埔区,增城区', '', '', '2024-01-01', '']
+  const header = ['employee_no', 'name', 'phone', 'department', 'title', 'region_ids', 'email', 'hire_date', 'account_status', 'remark']
+  const example = ['E001', '张三', '13800138000', '黄埔业务一部', '业务员', '黄埔区,增城区', 'zhang@company.com', '2024-01-01', '正常', '']
   const csv = [header.join(','), example.map((c) => csvEscape(c)).join(',')].join('\n')
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
   const a = document.createElement('a')
@@ -194,13 +227,13 @@ function onDownloadStaffTemplate() {
       <button type="button" class="btn" @click="onImportCsv">导入 CSV</button>
       <button type="button" class="btn" @click="onExportStaffCsv">导出 CSV</button>
       <button type="button" class="btn" @click="onDownloadStaffTemplate">下载导入模板</button>
-      <input v-model="staffQ" type="search" placeholder="搜索：姓名 / 手机 / 工号" style="min-width: 220px" @keyup.enter="loadList" />
-      <select v-model="staffRole" @change="loadList">
-        <option value="all">全部角色</option>
-        <option>超级管理员</option>
-        <option>部门经理</option>
-        <option>业务员</option>
-      </select>
+      <input
+        v-model="staffQ"
+        type="search"
+        placeholder="搜索：姓名 / 手机 / 工号 / 部门 / 职位"
+        style="min-width: 240px"
+        @keyup.enter="loadList"
+      />
       <button type="button" class="btn btn-primary" @click="loadList">查询</button>
     </div>
     <div class="card" style="padding: 0; overflow: hidden">
@@ -210,7 +243,8 @@ function onDownloadStaffTemplate() {
             <th>工号</th>
             <th>姓名</th>
             <th>手机</th>
-            <th>角色</th>
+            <th>部门</th>
+            <th>职位</th>
             <th>负责区域（≤2）</th>
             <th>状态</th>
             <th>操作</th>
@@ -221,7 +255,8 @@ function onDownloadStaffTemplate() {
             <td>{{ s.employeeNo }}</td>
             <td>{{ s.name }}</td>
             <td>{{ s.phoneMasked }}</td>
-            <td><span class="tag" :class="tagClass(s.role)">{{ s.role }}</span></td>
+            <td class="cell-wrap">{{ s.department || '—' }}</td>
+            <td class="cell-wrap">{{ s.title || '—' }}</td>
             <td>{{ s.regions }}</td>
             <td><span class="tag" :class="s.status === '正常' ? 'mint' : 'rose'">{{ s.status }}</span></td>
             <td>
@@ -289,11 +324,16 @@ function onDownloadStaffTemplate() {
         </div>
         <div>
           <label>部门<span style="color: var(--rose)">*</span></label>
-          <input v-model="form.department" type="text" maxlength="64" />
+          <select v-model="form.department">
+            <option v-for="lab in departmentFormLabels" :key="'dept-' + lab" :value="lab">{{ lab }}</option>
+          </select>
         </div>
         <div>
           <label>职位</label>
-          <input v-model="form.title" type="text" maxlength="64" />
+          <select v-model="form.title">
+            <option value="">（未填）</option>
+            <option v-for="lab in jobTitleFormLabels" :key="'title-' + lab" :value="lab">{{ lab }}</option>
+          </select>
         </div>
         <div>
           <label>入职日期</label>
@@ -309,17 +349,7 @@ function onDownloadStaffTemplate() {
         <div>
           <label>账号状态</label>
           <select v-model="form.accountStatus">
-            <option>正常</option>
-            <option>禁用（离职）</option>
-            <option>冻结（风控）</option>
-          </select>
-        </div>
-        <div class="full">
-          <label>角色<span style="color: var(--rose)">*</span></label>
-          <select v-model="form.role">
-            <option>业务员</option>
-            <option>部门经理</option>
-            <option>超级管理员</option>
+            <option v-for="lab in accountStatusFormLabels" :key="'acct-' + lab" :value="lab">{{ lab }}</option>
           </select>
         </div>
         <div class="full">
@@ -367,5 +397,9 @@ function onDownloadStaffTemplate() {
 .staff-field--invalid {
   border-color: #f43f5e !important;
   box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.25);
+}
+.cell-wrap {
+  max-width: 140px;
+  word-break: break-word;
 }
 </style>

@@ -1,6 +1,5 @@
-/** Staff accounts — maps to staff_user, role, region_ids JSON */
+/** Staff accounts — maps to staff table + region_ids JSON (mock) */
 
-export type StaffRole = '业务员' | '部门经理' | '超级管理员'
 export type StaffStatus = '正常' | '禁用' | '冻结'
 
 export type StaffAccountStatus = '正常' | '禁用（离职）' | '冻结（风控）'
@@ -10,7 +9,8 @@ export interface StaffRow {
   employeeNo: string
   name: string
   phoneMasked: string
-  role: StaffRole
+  department: string
+  title: string
   regions: string
   status: StaffStatus
 }
@@ -24,7 +24,6 @@ export interface StaffForm {
   title: string
   hireDate: string
   accountStatus: StaffAccountStatus
-  role: StaffRole
   regionIds: string[]
   dataScopeHint: string
   wechatNickname: string
@@ -38,7 +37,8 @@ export const mockStaffRows: StaffRow[] = [
     employeeNo: 'E-900218',
     name: '陈思远',
     phoneMasked: '138****6281',
-    role: '业务员',
+    department: '黄埔业务一部',
+    title: '高级业务员',
     regions: '黄埔区、增城区',
     status: '正常',
   },
@@ -47,7 +47,8 @@ export const mockStaffRows: StaffRow[] = [
     employeeNo: 'M-800011',
     name: '王敏',
     phoneMasked: '139****2048',
-    role: '部门经理',
+    department: '运营中心',
+    title: '业务经理',
     regions: '花都区',
     status: '正常',
   },
@@ -62,7 +63,6 @@ export const mockStaffFormDefault: StaffForm = {
   title: '资深置业顾问',
   hireDate: '2024-03-01',
   accountStatus: '正常',
-  role: '业务员',
   regionIds: ['黄埔区', '增城区'],
   dataScopeHint: '授权区域：黄埔区、增城区',
   wechatNickname: '陈思远',

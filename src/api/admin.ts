@@ -4,6 +4,8 @@ import type {
   AnnouncementRow,
   AuditQueueRow,
   AuthUser,
+  CodeMasterRow,
+  CodeMasterTypeInfo,
   CustomerDetail,
   CustomerRow,
   DealRow,
@@ -34,11 +36,10 @@ export async function fetchDashboard() {
   }
 }
 
-export async function fetchStaffList(params?: { q?: string; role?: string }) {
+export async function fetchStaffList(params?: { q?: string }) {
   const res = await http.get('/staff/list', {
     params: {
       ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
-      ...(params?.role && params.role !== 'all' ? { role: params.role } : {}),
     },
   })
   return unwrap(res) as { list: StaffRow[] }
@@ -298,6 +299,53 @@ export async function updateAnnouncementApi(id: number, payload: Record<string, 
 
 export async function deleteAnnouncementApi(id: number) {
   const res = await http.delete(`/announcements/${id}`)
+  return unwrap(res) as { success: boolean }
+}
+
+export async function fetchCodeMasterTypes() {
+  const res = await http.get('/code-master/types')
+  return unwrap(res) as { list: CodeMasterTypeInfo[] }
+}
+
+export async function fetchCodeMasterItems(type: string, opts?: { includeInactive?: boolean }) {
+  const res = await http.get('/code-master', {
+    params: {
+      type,
+      ...(opts?.includeInactive ? { includeInactive: '1' } : {}),
+    },
+  })
+  return unwrap(res) as { list: CodeMasterRow[] }
+}
+
+export async function createCodeMasterItem(payload: {
+  typeCode: string
+  itemCode: string
+  label: string
+  sortOrder?: number
+  isActive?: boolean
+  remark?: string | null
+}) {
+  const res = await http.post('/code-master', payload)
+  return unwrap(res) as { success: boolean }
+}
+
+export async function updateCodeMasterItem(
+  id: number,
+  payload: {
+    typeCode: string
+    itemCode: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    remark?: string | null
+  },
+) {
+  const res = await http.put(`/code-master/${id}`, payload)
+  return unwrap(res) as { success: boolean }
+}
+
+export async function deleteCodeMasterItem(id: number) {
+  const res = await http.delete(`/code-master/${id}`)
   return unwrap(res) as { success: boolean }
 }
 
