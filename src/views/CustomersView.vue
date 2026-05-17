@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   deleteCustomerBySlug,
+  fetchCodeMasterItems,
   fetchCustomerDetail,
   fetchCustomers,
   fetchStaffList,
@@ -10,9 +11,16 @@ import {
   postCustomerFollowUp,
   putCustomerApi,
 } from '@/api/admin'
-import type { CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
+import type { CodeMasterRow, CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
+import { resolveApiErrorMessage } from '@/lib/apiError'
 import { isPhone11Cn, normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
+
+const CUSTOMER_POOL_TYPE = 'customer_pool'
+const DEFAULT_POOL_OPTIONS: { itemCode: string; label: string }[] = [
+  { itemCode: 'private', label: '私有' },
+  { itemCode: 'public', label: '公有' },
+]
 
 const list = ref<CustomerRow[]>([])
 const scopeFilter = ref<'all' | 'private' | 'public'>('all')
@@ -26,6 +34,7 @@ const activeSlug = ref('')
 const detail = ref<CustomerDetail | null>(null)
 
 const staffOptions = ref<StaffRow[]>([])
+const poolOptions = ref<{ itemCode: string; label: string }[]>([...DEFAULT_POOL_OPTIONS])
 
 const editForm = reactive({
   company: '',
@@ -61,6 +70,25 @@ async function loadStaff() {
   staffOptions.value = list
 }
 
+function poolRowActive(r: CodeMasterRow) {
+  return !(r.isActive === false || r.isActive === 0)
+}
+
+async function loadPoolOptions() {
+  try {
+    const { list } = await fetchCodeMasterItems(CUSTOMER_POOL_TYPE)
+    const active = list.filter(poolRowActive).map((r) => ({ itemCode: r.itemCode, label: r.label }))
+    if (active.length) poolOptions.value = active
+    else poolOptions.value = [...DEFAULT_POOL_OPTIONS]
+  } catch {
+    poolOptions.value = [...DEFAULT_POOL_OPTIONS]
+  }
+}
+
+function privatePoolLabel() {
+  return poolOptions.value.find((o) => o.itemCode === 'private')?.label ?? '私有'
+}
+
 function validatePhoneClient(phone: string): string | null {
   return isPhone11Cn(phone) ? null : '手机号须为 11 位数字（1 开头）'
 }
@@ -88,10 +116,15 @@ function staffIdsFromOwnerName(ownerName: string) {
 }
 
 onMounted(() => {
-  void loadStaff().then(() => load())
+  void Promise.all([loadStaff(), loadPoolOptions()]).then(() => load())
 })
 
 const pendingFollowCount = computed(() => list.value.filter((r) => r.nextReminder !== '—').length)
+
+const privateScopeLabel = computed(() => privatePoolLabel())
+
+/** 客户池为「私有」时须指定负责人 */
+const isPrivateScope = computed(() => editForm.scope === privateScopeLabel.value)
 
 function gradeClass(g: string) {
   if (g.startsWith('A')) return 'mint'
@@ -139,7 +172,7 @@ function openNew() {
   editForm.demandSummary = ''
   editForm.addressHint = ''
   editForm.ownerStaffIds = []
-  editForm.scope = '私有'
+  editForm.scope = privatePoolLabel()
   drawer.value = true
 }
 
@@ -175,6 +208,10 @@ async function onSaveCustomer() {
     ElMessage.warning(phoneErr)
     return
   }
+  if (isPrivateScope.value && !editForm.ownerStaffIds.length) {
+    ElMessage.warning('私有客户必须选择负责人')
+    return
+  }
   const ownerName = ownerNamesFromStaffIds(editForm.ownerStaffIds)
   const payload = {
     company: editForm.company.trim(),
@@ -188,15 +225,19 @@ async function onSaveCustomer() {
     ownerName,
     scope: editForm.scope,
   }
-  if (drawerMode.value === 'new') {
-    await postCustomer(payload)
-    ElMessage.success('已新增客户')
-  } else {
-    await putCustomerApi(activeSlug.value, payload)
-    ElMessage.success('已保存')
+  try {
+    if (drawerMode.value === 'new') {
+      await postCustomer(payload)
+      ElMessage.success('已新增客户')
+    } else {
+      await putCustomerApi(activeSlug.value, payload)
+      ElMessage.success('已保存')
+    }
+    drawer.value = false
+    await load()
+  } catch (e) {
+    ElMessage.error(resolveApiErrorMessage(e, '保存失败'))
   }
-  drawer.value = false
-  await load()
 }
 
 async function onDelete(row: CustomerRow) {
@@ -247,8 +288,8 @@ function onRemind() {
     <div class="toolbar">
       <select v-model="scopeFilter" @change="load">
         <option value="all">全部范围</option>
-        <option value="private">仅私海</option>
-        <option value="public">仅公海</option>
+        <option value="private">仅私有</option>
+        <option value="public">仅公有</option>
       </select>
       <select v-model="gradeFilter" @change="load">
         <option value="all">全部等级</option>
@@ -426,28 +467,21 @@ function onRemind() {
           </div>
           <div>
             <label>客户池</label>
-            <select v-model="editForm.scope" title="私海：仅负责人可见；公海：团队共享">
-              <option value="私有">私海</option>
-              <option value="公有">公海</option>
+            <select v-model="editForm.scope" title="私有：须指定负责人；公有：团队共享">
+              <option v-for="opt in poolOptions" :key="opt.itemCode" :value="opt.label">{{ opt.label }}</option>
             </select>
           </div>
           <div class="full">
-            <label>地址 / 区域提示</label>
-            <input v-model="editForm.addressHint" type="text" maxlength="255" />
-          </div>
-          <div class="full">
-            <label>需求摘要</label>
-            <textarea v-model="editForm.demandSummary" rows="3" maxlength="2000" />
-          </div>
-          <div class="full">
-            <label>负责人（员工，可多选）</label>
+            <label>
+              负责人（员工，可多选）<span v-if="isPrivateScope" style="color: var(--rose)">*</span>
+            </label>
             <el-select
               v-model="editForm.ownerStaffIds"
               multiple
               filterable
               collapse-tags
               collapse-tags-tooltip
-              placeholder="从员工列表选择"
+              :placeholder="isPrivateScope ? '私有客户必选至少一名负责人' : '公有客户可选'"
               style="width: 100%; margin-top: 4px"
             >
               <el-option
@@ -457,6 +491,17 @@ function onRemind() {
                 :value="s.id"
               />
             </el-select>
+            <p v-if="isPrivateScope && !editForm.ownerStaffIds.length" class="hint" style="margin-top: 6px; color: var(--rose)">
+              客户池为私有时须指定负责人
+            </p>
+          </div>
+          <div class="full">
+            <label>地址 / 区域提示</label>
+            <input v-model="editForm.addressHint" type="text" maxlength="255" />
+          </div>
+          <div class="full">
+            <label>需求摘要</label>
+            <textarea v-model="editForm.demandSummary" rows="3" maxlength="2000" />
           </div>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px">

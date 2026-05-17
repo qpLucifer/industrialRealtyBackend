@@ -9,6 +9,7 @@ export const MOCK_CODE_MASTER_TYPE_META: Record<string, string> = {
   property_type: '房源类型',
   property_status_tag: '房源状态（列表/筛选）',
   property_listing_status: '对外租售状态',
+  customer_pool: '客户池（公有/私有）',
 }
 
 const SEED: Omit<CodeMasterRow, 'id'>[] = [
@@ -35,6 +36,8 @@ const SEED: Omit<CodeMasterRow, 'id'>[] = [
   { typeCode: 'staff_job_title', itemCode: 'senior_sales', label: '高级业务员', sortOrder: 30, isActive: 1, remark: null },
   { typeCode: 'staff_job_title', itemCode: 'sales', label: '业务员', sortOrder: 40, isActive: 1, remark: null },
   { typeCode: 'staff_job_title', itemCode: 'hr_staff', label: '人事专员', sortOrder: 50, isActive: 1, remark: null },
+  { typeCode: 'customer_pool', itemCode: 'private', label: '私有', sortOrder: 10, isActive: 1, remark: null },
+  { typeCode: 'customer_pool', itemCode: 'public', label: '公有', sortOrder: 20, isActive: 1, remark: null },
   { typeCode: 'property_type', itemCode: 'standard', label: '标准厂房', sortOrder: 10, isActive: 1, remark: null },
   { typeCode: 'property_type', itemCode: 'standalone', label: '独门独院厂房', sortOrder: 20, isActive: 1, remark: null },
   { typeCode: 'property_type', itemCode: 'warehouse', label: '仓库', sortOrder: 30, isActive: 1, remark: null },

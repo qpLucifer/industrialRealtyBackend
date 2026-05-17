@@ -93,7 +93,15 @@ export function getMockCustomerDetail(slug: string): CustomerDetail | null {
   }
 }
 
+function assertPrivatePoolOwner(body: Record<string, unknown>) {
+  const scope = body.scope === '公有' ? '公有' : '私有'
+  if (scope === '公有') return
+  const owner = String(body.ownerName || '').trim()
+  if (!owner) throw new Error('私有客户必须指定负责人')
+}
+
 export function mockCustomerCreate(body: Record<string, unknown>) {
+  assertPrivatePoolOwner(body)
   const slug = String(body.slug || `cust-${Date.now()}`)
   if (mockCustomerRows.some((r) => r.slug === slug)) throw new Error('slug exists')
   const grade = (body.grade as CustomerGrade) || 'B 类'
@@ -132,6 +140,11 @@ export function mockCustomerUpdate(slug: string, body: Record<string, unknown>) 
   const i = mockCustomerRows.findIndex((r) => r.slug === slug)
   if (i < 0) throw new Error('not found')
   const cur = { ...mockCustomerRows[i] }
+  const nextScope = body.scope === '公有' ? '公有' : body.scope === '私有' ? '私有' : '私有'
+  const nextOwner = body.ownerName != null ? String(body.ownerName).trim() : cur.ownerName || ''
+  if (nextScope !== '公有' && !nextOwner.trim()) {
+    throw new Error('私有客户必须指定负责人')
+  }
   if (body.company != null) cur.company = String(body.company)
   if (body.contactName != null) {
     cur.contactName = String(body.contactName)
