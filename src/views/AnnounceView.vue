@@ -9,6 +9,7 @@ import {
 } from '@/api/admin'
 import type { AnnouncementRow } from '@/types/domain'
 import { Delete, Edit } from '@element-plus/icons-vue'
+import { resolveApiErrorMessage } from '@/lib/apiError'
 
 const list = ref<AnnouncementRow[]>([])
 const modal = ref(false)
@@ -104,12 +105,17 @@ async function onPublish() {
     popupEnd: form.popup === '是' ? form.popupEnd.trim() : '',
     statusToneCn: form.statusToneCn,
   }
-  if (editingId.value == null) {
-    await publishAnnouncement(payload)
-    ElMessage.success('公告已发布')
-  } else {
-    await updateAnnouncementApi(editingId.value, payload)
-    ElMessage.success('公告已更新')
+  try {
+    if (editingId.value == null) {
+      await publishAnnouncement(payload)
+      ElMessage.success('公告已发布')
+    } else {
+      await updateAnnouncementApi(editingId.value, payload)
+      ElMessage.success('公告已更新')
+    }
+  } catch (e) {
+    ElMessage.error(resolveApiErrorMessage(e, '保存失败'))
+    return
   }
   modal.value = false
   await load()
@@ -207,7 +213,7 @@ onMounted(load)
             <div v-if="form.popup === '是'" class="full">
               <label>结束时间<span style="color: var(--rose)">*</span></label>
               <input v-model="form.popupEnd" type="datetime-local" style="margin-top: 6px; width: 100%; max-width: 320px" />
-              <p class="hint" style="margin-top: 6px">仅在小程序弹窗选「是」时必填。</p>
+              <p class="hint" style="margin-top: 6px">仅在小程序弹窗选「是」时必填；不同公告的弹窗时间段不可重叠。</p>
             </div>
             <div class="full">
               <label>列表强调色（中文）</label>

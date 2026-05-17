@@ -224,7 +224,6 @@ onMounted(load)
         <div class="full switch-row" style="border: none; padding: 0">
           <span>小程序可搜</span>
           <el-switch v-model="form.miniProgramSearch" />
-          <p class="hint-sm" style="margin-top: 6px">开启后一线小程序「视频话术」列表可见；关闭则仅后台保留。</p>
         </div>
       </div>
       <div style="display: flex; gap: 10px; margin-top: 18px">
