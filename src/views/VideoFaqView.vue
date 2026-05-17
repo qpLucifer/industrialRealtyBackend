@@ -21,9 +21,8 @@ const form = reactive({
   industry: '通用',
   videoPath: '',
   tagsCsv: '',
-  miniProgramSearch: false,
+  miniProgramSearch: true,
   summary: '',
-  metaLine: '',
 })
 const uploadingVideo = ref(false)
 
@@ -31,7 +30,7 @@ const filtered = computed(() => {
   const s = q.value.trim().toLowerCase()
   if (!s) return list.value
   return list.value.filter((r) => {
-    const blob = `${r.keywords} ${r.question} ${r.industry}`.toLowerCase()
+    const blob = `${r.keywords} ${r.question} ${r.industry} ${r.summary || ''}`.toLowerCase()
     return blob.includes(s)
   })
 })
@@ -64,9 +63,8 @@ function openNew() {
   form.industry = '通用'
   form.videoPath = ''
   form.tagsCsv = ''
-  form.miniProgramSearch = false
+  form.miniProgramSearch = true
   form.summary = ''
-  form.metaLine = ''
   drawer.value = true
 }
 
@@ -79,7 +77,6 @@ function openEdit(row: VideoFaqRow) {
   form.tagsCsv = csvFromTags(row.tags || [])
   form.miniProgramSearch = row.miniProgramSearch
   form.summary = row.summary || ''
-  form.metaLine = row.metaLine || ''
   drawer.value = true
 }
 
@@ -93,7 +90,6 @@ async function onSave() {
     tags,
     miniProgramSearch: form.miniProgramSearch,
     summary: form.summary.trim(),
-    metaLine: form.metaLine.trim(),
   }
   if (editingId.value) {
     await updateVideoFaqRow(editingId.value, payload)
@@ -150,6 +146,7 @@ onMounted(load)
         <thead>
           <tr>
             <th>客户提问摘要</th>
+            <th>视频摘要</th>
             <th>行业</th>
             <th>视频</th>
             <th>标签</th>
@@ -161,6 +158,7 @@ onMounted(load)
         <tbody>
           <tr v-for="r in filtered" :key="r.id">
             <td>{{ r.question }}</td>
+            <td class="cell-wrap hint-sm">{{ r.summary || '—' }}</td>
             <td>{{ r.industry }}</td>
             <td>{{ r.videoPath }}</td>
             <td>
@@ -220,13 +218,13 @@ onMounted(load)
           <input v-model="form.tagsCsv" type="text" placeholder="丙二类,黄埔" />
         </div>
         <div class="full">
-          <label>摘要 / meta</label>
-          <input v-model="form.summary" type="text" placeholder="summary" />
-          <input v-model="form.metaLine" type="text" placeholder="metaLine" style="margin-top: 6px" />
+          <label>视频摘要</label>
+          <textarea v-model="form.summary" rows="3" placeholder="视频内容要点，小程序列表与复制话术会展示" />
         </div>
         <div class="full switch-row" style="border: none; padding: 0">
           <span>小程序可搜</span>
           <el-switch v-model="form.miniProgramSearch" />
+          <p class="hint-sm" style="margin-top: 6px">开启后一线小程序「视频话术」列表可见；关闭则仅后台保留。</p>
         </div>
       </div>
       <div style="display: flex; gap: 10px; margin-top: 18px">
@@ -238,6 +236,16 @@ onMounted(load)
 </template>
 
 <style scoped>
+.hint-sm {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+}
+.cell-wrap {
+  max-width: 280px;
+  white-space: normal;
+  word-break: break-word;
+}
 .faq-video-preview {
   width: 100%;
   max-height: 260px;

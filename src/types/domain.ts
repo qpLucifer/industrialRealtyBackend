@@ -193,7 +193,6 @@ export interface VideoFaqRow {
   miniProgramSearch: boolean
   updatedAt: string
   summary?: string
-  metaLine?: string
 }
 
 export interface ViewingRow {

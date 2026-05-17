@@ -232,12 +232,12 @@ export async function fetchVideoFaq() {
   return unwrap(res) as { list: VideoFaqRow[] }
 }
 
-export async function createVideoFaqRow(payload: Partial<VideoFaqRow> & { metaLine?: string; summary?: string }) {
+export async function createVideoFaqRow(payload: Partial<VideoFaqRow> & { summary?: string }) {
   const res = await http.post('/video-faq', payload)
   return unwrap(res) as { success: boolean; id: string }
 }
 
-export async function updateVideoFaqRow(id: string, payload: Partial<VideoFaqRow> & { metaLine?: string; summary?: string }) {
+export async function updateVideoFaqRow(id: string, payload: Partial<VideoFaqRow> & { summary?: string }) {
   const res = await http.put(`/video-faq/${encodeURIComponent(id)}`, payload)
   return unwrap(res) as { success: boolean }
 }

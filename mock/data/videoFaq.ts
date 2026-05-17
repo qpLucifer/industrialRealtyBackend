@@ -9,6 +9,7 @@ export interface VideoFaqRow {
   tags: { label: string; tone: 'cyan' | 'mint' | 'amber' }[]
   miniProgramSearch: boolean
   updatedAt: string
+  summary?: string
 }
 
 export const mockVideoFaqRows: VideoFaqRow[] = [
@@ -24,6 +25,7 @@ export const mockVideoFaqRows: VideoFaqRow[] = [
     ],
     miniProgramSearch: true,
     updatedAt: '2026-05-02',
+    summary: '报装流程、典型周期、书面清单模板。',
   },
   {
     id: 'v2',
@@ -34,6 +36,7 @@ export const mockVideoFaqRows: VideoFaqRow[] = [
     tags: [{ label: '话术', tone: 'amber' }],
     miniProgramSearch: true,
     updatedAt: '2026-04-18',
+    summary: '替代方案、园区背书、书面免责口径。',
   },
   {
     id: 'v3',
@@ -42,7 +45,8 @@ export const mockVideoFaqRows: VideoFaqRow[] = [
     industry: '拿地建厂',
     videoPath: 'VOD / faq_20260310.mp4',
     tags: [{ label: '政策', tone: 'cyan' }],
-    miniProgramSearch: true,
+    miniProgramSearch: false,
     updatedAt: '2026-03-10',
+    summary: '图示推演、常见误区（仅后台，不对小程序开放）。',
   },
 ]

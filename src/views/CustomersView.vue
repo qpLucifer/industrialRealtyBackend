@@ -47,7 +47,8 @@ const editForm = reactive({
   addressHint: '',
   /** Staff ids for multi-select — serialized as owner names on save */
   ownerStaffIds: [] as string[],
-  scope: '私有' as '私有' | '公有',
+  /** Code dict customer_pool label (私有 / 公有) */
+  scope: '私有',
 })
 
 const followNote = ref('')
@@ -121,10 +122,12 @@ onMounted(() => {
 
 const pendingFollowCount = computed(() => list.value.filter((r) => r.nextReminder !== '—').length)
 
-const privateScopeLabel = computed(() => privatePoolLabel())
-
 /** 客户池为「私有」时须指定负责人 */
-const isPrivateScope = computed(() => editForm.scope === privateScopeLabel.value)
+const isPrivateScope = computed(() => {
+  const priv = poolOptions.value.find((o) => o.itemCode === 'private')
+  const label = priv?.label ?? '私有'
+  return editForm.scope === label
+})
 
 function gradeClass(g: string) {
   if (g.startsWith('A')) return 'mint'
