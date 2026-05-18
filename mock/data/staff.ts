@@ -13,6 +13,7 @@ export interface StaffRow {
   title: string
   regions: string
   status: StaffStatus
+  avatarUrl?: string
 }
 
 export interface StaffForm {
@@ -28,6 +29,7 @@ export interface StaffForm {
   dataScopeHint: string
   wechatNickname: string
   miniProgramOpenId: string
+  avatarUrl: string
   remark: string
 }
 
@@ -41,6 +43,7 @@ export const mockStaffRows: StaffRow[] = [
     title: '高级业务员',
     regions: '黄埔区、增城区',
     status: '正常',
+    avatarUrl: '',
   },
   {
     id: 's2',
@@ -67,5 +70,6 @@ export const mockStaffFormDefault: StaffForm = {
   dataScopeHint: '授权区域：黄埔区、增城区',
   wechatNickname: '陈思远',
   miniProgramOpenId: 'oXXXX_mock_openid_chen',
+  avatarUrl: '',
   remark: '已通过保密培训 2026-Q1',
 }
