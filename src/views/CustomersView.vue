@@ -49,6 +49,8 @@ const editForm = reactive({
   ownerStaffIds: [] as string[],
   /** Code dict customer_pool label (私有 / 公有) */
   scope: '私有',
+  /** Default on — counts toward mini home「客户总数」 */
+  listOnMini: true,
 })
 
 const followNote = ref('')
@@ -176,6 +178,7 @@ function openNew() {
   editForm.addressHint = ''
   editForm.ownerStaffIds = []
   editForm.scope = privatePoolLabel()
+  editForm.listOnMini = true
   drawer.value = true
 }
 
@@ -198,6 +201,7 @@ async function openEdit(row: CustomerRow) {
   editForm.addressHint = d.addressHint
   editForm.ownerStaffIds = staffIdsFromOwnerName(d.ownerName || '')
   editForm.scope = d.badgesHtml?.includes('公有') ? '公有' : '私有'
+  editForm.listOnMini = d.listOnMini !== false
   drawer.value = true
 }
 
@@ -227,6 +231,7 @@ async function onSaveCustomer() {
     addressHint: editForm.addressHint.trim(),
     ownerName,
     scope: editForm.scope,
+    listOnMini: editForm.listOnMini,
   }
   try {
     if (drawerMode.value === 'new') {
@@ -322,6 +327,7 @@ function onRemind() {
             <th style="min-width: 200px">需求摘要</th>
             <th style="min-width: 100px">等级</th>
             <th style="min-width: 100px">成交状态</th>
+            <th style="min-width: 88px">小程序</th>
             <th style="min-width: 130px">最近跟进</th>
             <th style="min-width: 130px">下次提醒</th>
             <th style="min-width: 90px">负责人</th>
@@ -341,6 +347,11 @@ function onRemind() {
             <td class="cell-wrap">{{ r.demandSummary }}</td>
             <td><span class="tag" :class="gradeClass(r.grade)">{{ r.grade }}</span></td>
             <td>{{ r.dealStatus || '—' }}</td>
+            <td>
+              <span class="tag" :class="r.listOnMini !== false ? 'mint' : 'slate'">{{
+                r.listOnMini !== false ? '展示' : '隐藏'
+              }}</span>
+            </td>
             <td>{{ r.lastFollowAt }}</td>
             <td>
               <template v-if="r.nextReminder === '—'">—</template>
@@ -376,6 +387,8 @@ function onRemind() {
             <span>负责人 {{ detail.ownerName || '—' }}</span>
             <span class="crm-dot">·</span>
             <span>成交 {{ detail.dealStatus }}</span>
+            <span class="crm-dot">·</span>
+            <span>小程序 {{ detail.listOnMini !== false ? '展示' : '隐藏' }}</span>
           </div>
         </div>
 
@@ -468,6 +481,13 @@ function onRemind() {
               <option value="搁置">搁置</option>
             </select>
           </div>
+          <div class="full">
+            <label class="crm-switch-row">
+              <span>小程序展示</span>
+              <el-switch v-model="editForm.listOnMini" />
+            </label>
+            <p class="hint" style="margin-top: 6px">默认开启；关闭后不在小程序客户列表与首页「客户总数」中统计。</p>
+          </div>
           <div>
             <label>客户池</label>
             <select v-model="editForm.scope" title="私有：须指定负责人；公有：团队共享">
@@ -517,6 +537,13 @@ function onRemind() {
 </template>
 
 <style scoped>
+.crm-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .crm-list-card {
   border-radius: 10px;
 }

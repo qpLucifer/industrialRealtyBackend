@@ -174,6 +174,8 @@ export interface CustomerRow {
   timelineHtml?: string
   ownerName: string
   hasNextReminderTag?: 'amber' | 'mint'
+  /** Shown on mini-program customer list when true (DB list_on_mini, default true) */
+  listOnMini?: boolean
 }
 
 /** Full customer row for detail drawer (includes phone) */
