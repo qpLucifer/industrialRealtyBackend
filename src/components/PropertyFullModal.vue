@@ -280,7 +280,10 @@ const imageLightboxIdx = ref(0)
 function numStr(v: unknown): string {
   if (v == null || v === '') return ''
   if (typeof v === 'number' && Number.isFinite(v)) return String(v)
-  return ''
+  const s = String(v).trim()
+  if (!s) return ''
+  const n = Number(s)
+  return Number.isFinite(n) ? String(n) : ''
 }
 
 function setDec(key: keyof PropertyFullForm, e: Event) {
