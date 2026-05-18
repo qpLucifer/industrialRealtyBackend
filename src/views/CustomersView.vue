@@ -14,6 +14,7 @@ import {
 import type { CodeMasterRow, CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 import { resolveApiErrorMessage } from '@/lib/apiError'
+import { isListOnMini } from '@/lib/listOnMini'
 import { isPhone11Cn, normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 
 const CUSTOMER_POOL_TYPE = 'customer_pool'
@@ -201,7 +202,7 @@ async function openEdit(row: CustomerRow) {
   editForm.addressHint = d.addressHint
   editForm.ownerStaffIds = staffIdsFromOwnerName(d.ownerName || '')
   editForm.scope = d.badgesHtml?.includes('公有') ? '公有' : '私有'
-  editForm.listOnMini = d.listOnMini !== false
+  editForm.listOnMini = isListOnMini(d.listOnMini)
   drawer.value = true
 }
 
@@ -348,8 +349,8 @@ function onRemind() {
             <td><span class="tag" :class="gradeClass(r.grade)">{{ r.grade }}</span></td>
             <td>{{ r.dealStatus || '—' }}</td>
             <td>
-              <span class="tag" :class="r.listOnMini !== false ? 'mint' : 'slate'">{{
-                r.listOnMini !== false ? '展示' : '隐藏'
+              <span class="tag" :class="isListOnMini(r.listOnMini) ? 'mint' : 'slate'">{{
+                isListOnMini(r.listOnMini) ? '展示' : '隐藏'
               }}</span>
             </td>
             <td>{{ r.lastFollowAt }}</td>
@@ -388,7 +389,7 @@ function onRemind() {
             <span class="crm-dot">·</span>
             <span>成交 {{ detail.dealStatus }}</span>
             <span class="crm-dot">·</span>
-            <span>小程序 {{ detail.listOnMini !== false ? '展示' : '隐藏' }}</span>
+            <span>小程序 {{ isListOnMini(detail.listOnMini) ? '展示' : '隐藏' }}</span>
           </div>
         </div>
 
