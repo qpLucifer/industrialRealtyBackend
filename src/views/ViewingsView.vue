@@ -69,13 +69,6 @@ async function load() {
   deals.value = d.deals
 }
 
-function companionLabel(ids: string[]) {
-  return ids
-    .map((id) => staffOptions.value.find((s) => s.id === id)?.name)
-    .filter(Boolean)
-    .join('、')
-}
-
 function parseCompanionIds(names: string) {
   if (!names.trim()) return []
   const parts = names.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
