@@ -105,7 +105,8 @@ function openEditViewing(row: ViewingRow) {
   vForm.end = row.end
   vForm.propertyRef = row.propertyRef
   vForm.customerSlug = row.customerSlug || ''
-  vForm.companionStaffIds = parseCompanionIds(row.companions || '')
+  vForm.companionStaffIds =
+    row.companionStaffIds?.length ? [...row.companionStaffIds] : parseCompanionIds(row.companions || '')
   vForm.score = row.score
   vModal.value = true
 }
@@ -121,14 +122,13 @@ async function saveViewing() {
   }
   const cust = customerOptions.value.find((c) => (c.slug || c.id) === vForm.customerSlug)
   const customerName = cust ? cust.titleLine || [cust.contactName, cust.company].filter(Boolean).join(' · ') || cust.name : ''
-  const companions = companionLabel(vForm.companionStaffIds)
   const payload = {
     start: vForm.start,
     end: vForm.end,
     propertyRef: String(vForm.propertyRef || '').trim(),
     customerSlug: vForm.customerSlug,
     customerName,
-    companions,
+    companionStaffIds: [...vForm.companionStaffIds],
     score: vForm.score,
   }
   if (vEditingId.value != null) {

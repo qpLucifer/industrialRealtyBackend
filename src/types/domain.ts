@@ -205,8 +205,13 @@ export interface ViewingRow {
   customerName: string
   /** Customer row slug when chosen from CRM */
   customerSlug?: string | null
+  /** Denormalized display names */
   companions: string
+  /** Staff ids for companions */
+  companionStaffIds?: string[]
   score: string
+  miniStaffId?: string | null
+  miniStaff?: string | null
 }
 
 export interface DealRow {
