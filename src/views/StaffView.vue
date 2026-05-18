@@ -248,7 +248,6 @@ function onDownloadStaffTemplate() {
       <table class="data">
         <thead>
           <tr>
-            <th>头像</th>
             <th>工号</th>
             <th>姓名</th>
             <th>手机</th>
@@ -261,16 +260,6 @@ function onDownloadStaffTemplate() {
         </thead>
         <tbody>
           <tr v-for="s in list" :key="s.id">
-            <td>
-              <img
-                v-if="s.avatarUrl"
-                :src="s.avatarUrl"
-                alt=""
-                class="staff-avatar-thumb"
-                referrerpolicy="no-referrer"
-              />
-              <span v-else class="staff-avatar-placeholder">—</span>
-            </td>
             <td>{{ s.employeeNo }}</td>
             <td>{{ s.name }}</td>
             <td>{{ s.phoneMasked }}</td>
@@ -396,23 +385,6 @@ function onDownloadStaffTemplate() {
           <label>数据可见范围（自动生成）</label>
           <input v-model="form.dataScopeHint" type="text" readonly />
         </div>
-        <div class="full staff-wechat-avatar">
-          <label>微信头像</label>
-          <p class="hint" style="margin: 4px 0 10px">由员工在小程序「我的」页授权同步，后台只读展示。</p>
-          <div v-if="form.avatarUrl" class="staff-avatar-preview-wrap">
-            <img :src="form.avatarUrl" alt="" class="staff-avatar-preview" referrerpolicy="no-referrer" />
-          </div>
-          <p v-else class="hint" style="margin: 0">尚未绑定头像</p>
-          <input v-model="form.avatarUrl" type="text" maxlength="512" readonly class="staff-avatar-url" />
-        </div>
-        <div>
-          <label>微信名称（对外展示）</label>
-          <input v-model="form.wechatNickname" type="text" maxlength="128" placeholder="客户在微信中看到的昵称" />
-        </div>
-        <div>
-          <label>小程序 OpenId</label>
-          <input v-model="form.miniProgramOpenId" type="text" maxlength="255" placeholder="用户小程序 openid" />
-        </div>
         <div class="full">
           <label>备注（人事 / 合规）</label>
           <textarea v-model="form.remark" maxlength="500" rows="3" placeholder="最长 500 字" />
@@ -434,36 +406,5 @@ function onDownloadStaffTemplate() {
 .cell-wrap {
   max-width: 140px;
   word-break: break-word;
-}
-.staff-avatar-thumb {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  object-fit: cover;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  background: #f1f5f9;
-  vertical-align: middle;
-}
-.staff-avatar-placeholder {
-  color: var(--muted);
-  font-size: 13px;
-}
-.staff-avatar-preview-wrap {
-  margin-bottom: 10px;
-}
-.staff-avatar-preview {
-  width: 88px;
-  height: 88px;
-  border-radius: 12px;
-  object-fit: cover;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  background: #f1f5f9;
-}
-.staff-avatar-url {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--muted);
-  background: #f8fafc;
-  cursor: default;
 }
 </style>

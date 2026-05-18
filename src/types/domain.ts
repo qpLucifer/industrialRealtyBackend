@@ -57,8 +57,6 @@ export interface StaffRow {
   title: string
   regions: string
   status: StaffStatus
-  /** Mini-program WeChat avatar (staff.avatar_url) */
-  avatarUrl?: string
 }
 
 export interface StaffForm {
@@ -73,12 +71,6 @@ export interface StaffForm {
   accountStatus: StaffAccountStatus
   regionIds: string[]
   dataScopeHint: string
-  /** WeChat display name (stored in staff.wecom_user_id) */
-  wechatNickname: string
-  /** Mini program OpenId hint (stored in staff.open_id_hint) */
-  miniProgramOpenId: string
-  /** WeChat avatar URL from mini program (staff.avatar_url) */
-  avatarUrl: string
   remark: string
 }
 
