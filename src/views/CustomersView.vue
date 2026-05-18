@@ -101,13 +101,6 @@ function onEditPhoneInput(e: Event) {
   editForm.phone = normalizeCnMobileInput((e.target as HTMLInputElement).value)
 }
 
-function ownerNamesFromStaffIds(ids: string[]) {
-  return ids
-    .map((id) => staffOptions.value.find((x) => x.id === id)?.name)
-    .filter(Boolean)
-    .join('、')
-}
-
 function staffIdsFromOwnerName(ownerName: string) {
   if (!ownerName.trim()) return []
   const parts = ownerName.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
