@@ -24,7 +24,7 @@ export interface StaffForm {
   title: string
   hireDate: string
   accountStatus: StaffAccountStatus
-  regionIds: string[]
+  regionIds: number[]
   dataScopeHint: string
   remark: string
 }
@@ -61,7 +61,7 @@ export const mockStaffFormDefault: StaffForm = {
   title: '资深置业顾问',
   hireDate: '2024-03-01',
   accountStatus: '正常',
-  regionIds: ['黄埔区', '增城区'],
+  regionIds: [1, 2],
   dataScopeHint: '授权区域：黄埔区、增城区',
   remark: '已通过保密培训 2026-Q1',
 }

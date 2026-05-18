@@ -27,17 +27,21 @@ const vEditingId = ref<number | null>(null)
 const vForm = reactive({
   start: '',
   end: '',
+  propertyId: '' as string,
   propertyRef: '',
   customerSlug: '' as string,
   companionStaffIds: [] as string[],
   score: 'B',
 })
 
-/** Current property_ref not present in loaded list (legacy / deleted) — still show as selectable. */
-const orphanPropertyRef = computed(() => {
-  const cur = String(vForm.propertyRef || '').trim()
-  if (!cur) return ''
-  return propertyOptions.value.some((p) => p.code === cur) ? '' : cur
+/** Property id on record but missing from loaded list — still show as selectable. */
+const orphanPropertyOption = computed(() => {
+  const cur = String(vForm.propertyId || '').trim()
+  if (!cur) return null
+  const hit = propertyOptions.value.find((p) => p.id === cur)
+  if (hit) return null
+  const label = String(vForm.propertyRef || cur).trim()
+  return { id: cur, label }
 })
 
 const dModal = ref(false)
@@ -84,6 +88,7 @@ function openNewViewing() {
   vEditingId.value = null
   vForm.start = ''
   vForm.end = ''
+  vForm.propertyId = ''
   vForm.propertyRef = ''
   vForm.customerSlug = ''
   vForm.companionStaffIds = []
@@ -96,8 +101,13 @@ function openEditViewing(row: ViewingRow) {
   vEditingId.value = row.id
   vForm.start = row.start
   vForm.end = row.end
+  vForm.propertyId = row.propertyId || ''
   vForm.propertyRef = row.propertyRef
   vForm.customerSlug = row.customerSlug || ''
+  if (!vForm.propertyId && row.propertyRef) {
+    const byCode = propertyOptions.value.find((p) => p.code === row.propertyRef)
+    if (byCode) vForm.propertyId = byCode.id
+  }
   vForm.companionStaffIds =
     row.companionStaffIds?.length ? [...row.companionStaffIds] : parseCompanionIds(row.companions || '')
   vForm.score = row.score
@@ -115,10 +125,12 @@ async function saveViewing() {
   }
   const cust = customerOptions.value.find((c) => (c.slug || c.id) === vForm.customerSlug)
   const customerName = cust ? cust.titleLine || [cust.contactName, cust.company].filter(Boolean).join(' · ') || cust.name : ''
+  const prop = propertyOptions.value.find((p) => p.id === vForm.propertyId)
   const payload = {
     start: vForm.start,
     end: vForm.end,
-    propertyRef: String(vForm.propertyRef || '').trim(),
+    propertyId: vForm.propertyId || undefined,
+    propertyRef: prop?.code || String(vForm.propertyRef || '').trim(),
     customerSlug: vForm.customerSlug,
     customerName,
     companionStaffIds: [...vForm.companionStaffIds],
@@ -343,23 +355,23 @@ onMounted(async () => {
             <div class="full">
               <label>关联房源（可选）</label>
               <el-select
-                v-model="vForm.propertyRef"
+                v-model="vForm.propertyId"
                 filterable
                 clearable
                 placeholder="从房源列表搜索选择，可不选"
                 style="width: 100%; margin-top: 4px"
               >
                 <el-option
-                  v-if="orphanPropertyRef"
-                  :key="`orphan-${orphanPropertyRef}`"
-                  :label="`${orphanPropertyRef}（当前记录）`"
-                  :value="orphanPropertyRef"
+                  v-if="orphanPropertyOption"
+                  :key="`orphan-${orphanPropertyOption.id}`"
+                  :label="`${orphanPropertyOption.label}（当前记录）`"
+                  :value="orphanPropertyOption.id"
                 />
                 <el-option
                   v-for="p in propertyOptions"
-                  :key="p.code"
+                  :key="p.id"
                   :label="`${p.title} · ${p.code}`"
-                  :value="p.code"
+                  :value="p.id"
                 />
               </el-select>
             </div>

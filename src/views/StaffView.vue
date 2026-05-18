@@ -82,7 +82,7 @@ function selectAllRegions() {
     ElMessage.warning('请先在「区域名称」中维护区域')
     return
   }
-  form.regionIds = regionDefs.value.map((d) => d.name)
+  form.regionIds = regionDefs.value.map((d) => d.id)
 }
 
 function clearRegions() {
@@ -121,9 +121,12 @@ onMounted(async () => {
 })
 
 watch(
-  () => [...(form.regionIds || [])].sort().join(','),
+  () => [...(form.regionIds || [])].sort((a, b) => a - b).join(','),
   () => {
-    const names = (form.regionIds || []).filter(Boolean)
+    const ids = (form.regionIds || []).filter((id) => id != null)
+    const names = ids
+      .map((id) => regionDefs.value.find((d) => d.id === id)?.name)
+      .filter(Boolean) as string[]
     form.dataScopeHint = names.length ? `授权区域：${names.join('、')}` : '未选择区域'
   },
 )
@@ -378,7 +381,7 @@ function onDownloadStaffTemplate() {
             placeholder="下拉选择区域，或使用上方全选"
             style="width: 100%; margin-top: 8px"
           >
-            <el-option v-for="d in regionDefs" :key="d.id" :label="d.name" :value="d.name" />
+            <el-option v-for="d in regionDefs" :key="d.id" :label="d.name" :value="d.id" />
           </el-select>
         </div>
         <div class="full">

@@ -200,7 +200,8 @@ async function openEdit(row: CustomerRow) {
   editForm.dealStatus = d.dealStatus || '洽谈中'
   editForm.demandSummary = d.demandSummary
   editForm.addressHint = d.addressHint
-  editForm.ownerStaffIds = staffIdsFromOwnerName(d.ownerName || '')
+  editForm.ownerStaffIds =
+    d.ownerStaffIds?.length ? [...d.ownerStaffIds] : staffIdsFromOwnerName(d.ownerName || '')
   editForm.scope = d.badgesHtml?.includes('公有') ? '公有' : '私有'
   editForm.listOnMini = isListOnMini(d.listOnMini)
   drawer.value = true
@@ -220,7 +221,6 @@ async function onSaveCustomer() {
     ElMessage.warning('私有客户必须选择负责人')
     return
   }
-  const ownerName = ownerNamesFromStaffIds(editForm.ownerStaffIds)
   const payload = {
     company: editForm.company.trim(),
     contactName: editForm.contactName.trim(),
@@ -230,7 +230,7 @@ async function onSaveCustomer() {
     dealStatus: editForm.dealStatus,
     demandSummary: editForm.demandSummary.trim(),
     addressHint: editForm.addressHint.trim(),
-    ownerName,
+    ownerStaffIds: [...editForm.ownerStaffIds],
     scope: editForm.scope,
     listOnMini: editForm.listOnMini,
   }

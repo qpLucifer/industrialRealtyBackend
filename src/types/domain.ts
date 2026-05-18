@@ -69,7 +69,8 @@ export interface StaffForm {
   title: string
   hireDate: string
   accountStatus: StaffAccountStatus
-  regionIds: string[]
+  /** region_defs.id */
+  regionIds: number[]
   dataScopeHint: string
   remark: string
 }
@@ -169,6 +170,8 @@ export interface CustomerRow {
   nextReminder: string | '—'
   timelineHtml?: string
   ownerName: string
+  /** Private pool — staff.id list */
+  ownerStaffIds?: string[]
   hasNextReminderTag?: 'amber' | 'mint'
   /** Shown on mini-program customer list when true (DB list_on_mini, default true) */
   listOnMini?: boolean
@@ -197,6 +200,9 @@ export interface ViewingRow {
   id?: number
   start: string
   end: string
+  /** properties.id */
+  propertyId?: string | null
+  /** Denormalized property code / label */
   propertyRef: string
   customerName: string
   /** Customer row slug when chosen from CRM */
