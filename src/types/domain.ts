@@ -204,6 +204,9 @@ export interface ViewingRow {
   propertyId?: string | null
   /** Denormalized property code / label */
   propertyRef: string
+  /** Resolved from property_id when property_ref empty */
+  propertyTitle?: string | null
+  miniPropCode?: string | null
   customerName: string
   /** Customer row slug when chosen from CRM */
   customerSlug?: string | null
@@ -214,6 +217,7 @@ export interface ViewingRow {
   score: string
   miniStaffId?: string | null
   miniStaff?: string | null
+  active?: boolean
 }
 
 export interface DealRow {

@@ -56,6 +56,38 @@ const dForm = reactive({
 
 const ARCHIVE_OPTIONS = ['待归档', '已归档', '处理中', '已驳回'] as const
 
+/** Align with miniapp slot format (YYYY-MM-DD HH:mm). */
+const VIEWING_SLOT_FORMAT = 'YYYY-MM-DD HH:mm'
+
+function formatViewingSlot(s: string) {
+  const t = String(s || '').trim().replace('T', ' ')
+  if (!t) return ''
+  const m = t.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})/)
+  if (!m) return t
+  const pad = (n: string) => n.padStart(2, '0')
+  return `${m[1]} ${pad(m[2])}:${pad(m[3])}`
+}
+
+function formatViewingSlotDisplay(s: string) {
+  return formatViewingSlot(s) || '—'
+}
+
+function propertyLine(r: ViewingRow) {
+  const code = String(r.propertyRef || r.miniPropCode || '').trim()
+  const title = String(r.propertyTitle || '').trim()
+  if (code && title) return `${code} · ${title}`
+  return code || title || '—'
+}
+
+function staffLine(r: ViewingRow) {
+  const reg = String(r.miniStaff || '').trim()
+  const comp = String(r.companions || '').trim()
+  const parts: string[] = []
+  if (reg) parts.push(`登记：${reg}`)
+  if (comp) parts.push(`陪同：${comp}`)
+  return parts.length ? parts.join(' · ') : '—'
+}
+
 async function loadRefs() {
   const [{ list: cust }, { list: staff }, { list: props }] = await Promise.all([
     fetchCustomers({}),
@@ -99,8 +131,8 @@ function openNewViewing() {
 function openEditViewing(row: ViewingRow) {
   if (row.id == null) return
   vEditingId.value = row.id
-  vForm.start = row.start
-  vForm.end = row.end
+  vForm.start = formatViewingSlot(row.start)
+  vForm.end = formatViewingSlot(row.end)
   vForm.propertyId = row.propertyId || ''
   vForm.propertyRef = row.propertyRef
   vForm.customerSlug = row.customerSlug || ''
@@ -226,11 +258,10 @@ onMounted(async () => {
           <thead>
             <tr>
               <th>ID</th>
-              <th>开始</th>
-              <th>结束</th>
+              <th>带看时段</th>
               <th>房源</th>
               <th>客户</th>
-              <th>陪同员工</th>
+              <th>员工</th>
               <th>评分</th>
               <th>操作</th>
             </tr>
@@ -238,11 +269,13 @@ onMounted(async () => {
           <tbody>
             <tr v-for="r in viewings" :key="r.id ?? r.start + r.propertyRef">
               <td>{{ r.id ?? '—' }}</td>
-              <td>{{ r.start }}</td>
-              <td>{{ r.end }}</td>
-              <td>{{ r.propertyRef }}</td>
-              <td>{{ r.customerName }}</td>
-              <td>{{ r.companions }}</td>
+              <td>
+                <span v-if="r.active" class="tag mint" style="margin-right: 6px">进行中</span>
+                {{ formatViewingSlotDisplay(r.start) }} 至 {{ formatViewingSlotDisplay(r.end) }}
+              </td>
+              <td>{{ propertyLine(r) }}</td>
+              <td>{{ r.customerName || '—' }}</td>
+              <td>{{ staffLine(r) }}</td>
               <td>{{ r.score }}</td>
               <td class="table-actions">
                 <el-tooltip content="编辑" placement="top">
@@ -337,7 +370,8 @@ onMounted(async () => {
               <el-date-picker
                 v-model="vForm.start"
                 type="datetime"
-                value-format="YYYY-MM-DD HH:mm:ss"
+                :value-format="VIEWING_SLOT_FORMAT"
+                format="YYYY-MM-DD HH:mm"
                 placeholder="选择开始"
                 style="width: 100%; margin-top: 4px"
               />
@@ -347,7 +381,8 @@ onMounted(async () => {
               <el-date-picker
                 v-model="vForm.end"
                 type="datetime"
-                value-format="YYYY-MM-DD HH:mm:ss"
+                :value-format="VIEWING_SLOT_FORMAT"
+                format="YYYY-MM-DD HH:mm"
                 placeholder="选择结束"
                 style="width: 100%; margin-top: 4px"
               />
