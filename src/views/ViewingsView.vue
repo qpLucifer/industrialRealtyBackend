@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { formatBeijingDisplay, toDatetimeLocalValue } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import {
   createDealApi,
@@ -59,17 +60,8 @@ const ARCHIVE_OPTIONS = ['待归档', '已归档', '处理中', '已驳回'] as 
 /** Align with miniapp slot format (YYYY-MM-DD HH:mm). */
 const VIEWING_SLOT_FORMAT = 'YYYY-MM-DD HH:mm'
 
-function formatViewingSlot(s: string) {
-  const t = String(s || '').trim().replace('T', ' ')
-  if (!t) return ''
-  const m = t.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})/)
-  if (!m) return t
-  const pad = (n: string) => n.padStart(2, '0')
-  return `${m[1]} ${pad(m[2])}:${pad(m[3])}`
-}
-
 function formatViewingSlotDisplay(s: string) {
-  return formatViewingSlot(s) || '—'
+  return formatBeijingDisplay(s) || '—'
 }
 
 function propertyLine(r: ViewingRow) {
@@ -131,8 +123,8 @@ function openNewViewing() {
 function openEditViewing(row: ViewingRow) {
   if (row.id == null) return
   vEditingId.value = row.id
-  vForm.start = formatViewingSlot(row.start)
-  vForm.end = formatViewingSlot(row.end)
+  vForm.start = toDatetimeLocalValue(row.start)
+  vForm.end = toDatetimeLocalValue(row.end)
   vForm.propertyId = row.propertyId || ''
   vForm.propertyRef = row.propertyRef
   vForm.customerSlug = row.customerSlug || ''

@@ -9,6 +9,7 @@ import {
 } from '@/api/admin'
 import type { AnnouncementRow } from '@/types/domain'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { datetimeLocalToApi, formatBeijingDisplay, parseBeijingNaiveToInstant, toDatetimeLocalValue } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<AnnouncementRow[]>([])
@@ -38,15 +39,9 @@ function statusClass(t: AnnouncementRow['statusTone']) {
   return t === 'mint' ? 'mint' : 'amber'
 }
 
-/** List column: show popup window range without ISO "T" (e.g. 2026-05-14 19:36). */
+/** List column: Beijing `YYYY-MM-DD HH:mm`. */
 function formatAnnouncementListDateTime(raw: string): string {
-  let s = String(raw || '').trim()
-  if (!s) return ''
-  s = s.replace('T', ' ')
-  s = s.replace(/Z$/i, '')
-  s = s.replace(/\.\d+$/, '')
-  s = s.replace(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}):00$/, '$1')
-  return s
+  return formatBeijingDisplay(raw)
 }
 
 function popupWindowLabel(row: AnnouncementRow): string {
@@ -75,8 +70,8 @@ function openEdit(row: AnnouncementRow) {
   form.body = row.body || ''
   form.scope = row.scope
   form.popup = row.popup
-  form.popupStart = String(row.popupStart || '').trim()
-  form.popupEnd = String(row.popupEnd || '').trim()
+  form.popupStart = toDatetimeLocalValue(row.popupStart)
+  form.popupEnd = toDatetimeLocalValue(row.popupEnd)
   form.statusToneCn = toneDbToCn(row.statusTone)
   modal.value = true
 }
@@ -101,8 +96,8 @@ async function onPublish() {
     body: form.body.trim(),
     scope: form.scope,
     popup: form.popup,
-    popupStart: form.popup === '是' ? form.popupStart.trim() : '',
-    popupEnd: form.popup === '是' ? form.popupEnd.trim() : '',
+    popupStart: form.popup === '是' ? datetimeLocalToApi(form.popupStart) : '',
+    popupEnd: form.popup === '是' ? datetimeLocalToApi(form.popupEnd) : '',
     statusToneCn: form.statusToneCn,
   }
   try {
@@ -124,10 +119,10 @@ function isRowPopupActive(row: AnnouncementRow): boolean {
   const p = String(row.popup || '').trim()
   if (p !== '是' && p.toLowerCase() !== 'yes') return false
   const now = Date.now()
-  const start = row.popupStart ? new Date(row.popupStart).getTime() : NaN
-  const end = row.popupEnd ? new Date(row.popupEnd).getTime() : NaN
-  if (!Number.isNaN(start) && now < start) return false
-  if (!Number.isNaN(end) && now > end) return false
+  const startMs = row.popupStart ? parseBeijingNaiveToInstant(row.popupStart)?.getTime() : undefined
+  const endMs = row.popupEnd ? parseBeijingNaiveToInstant(row.popupEnd)?.getTime() : undefined
+  if (startMs != null && !Number.isNaN(startMs) && now < startMs) return false
+  if (endMs != null && !Number.isNaN(endMs) && now > endMs) return false
   return true
 }
 

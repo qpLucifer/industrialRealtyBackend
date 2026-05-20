@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { safeAppRedirect } from '@/lib/safeRedirect'
 import { ElMessage } from 'element-plus'
+import { formatBeijingYmdHm } from '@/lib/beijingTime'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,7 +26,7 @@ async function onSubmit() {
     await auth.login(u, p)
     const exp = auth.sessionExpiresAt
     ElMessage.success(
-      exp ? `登录成功，会话将于 ${new Date(exp).toLocaleString()} 过期` : '登录成功',
+      exp ? `登录成功，会话将于 ${formatBeijingYmdHm(new Date(exp))}（北京时间）过期` : '登录成功',
     )
     await router.push(safeAppRedirect(route.query.redirect))
   } catch (e: unknown) {

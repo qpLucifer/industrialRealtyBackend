@@ -16,6 +16,7 @@ import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 import { isListOnMini } from '@/lib/listOnMini'
 import { timelineLinesFromDetail } from '@/lib/customerTimeline'
+import { datetimeLocalToApi, formatBeijingDisplay, nowBeijingDatetimeLocal } from '@/lib/beijingTime'
 import { isPhone11Cn, normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 
 const CUSTOMER_POOL_TYPE = 'customer_pool'
@@ -142,7 +143,7 @@ function drawerTitle() {
 
 function resetFollowFields() {
   followNote.value = ''
-  followOccurredAt.value = new Date().toISOString().slice(0, 16)
+  followOccurredAt.value = nowBeijingDatetimeLocal()
   followGrade.value = ''
   followNextAt.value = ''
 }
@@ -273,12 +274,12 @@ async function onSaveFollow() {
   const payload: Record<string, string> = {
     slug,
     note: followNote.value.trim(),
-    occurredAt: followOccurredAt.value.replace('T', ' '),
+    occurredAt: datetimeLocalToApi(followOccurredAt.value),
   }
   if (followGrade.value) payload.grade = followGrade.value
   if (followNextAt.value) {
-    payload.nextReminderAt = followNextAt.value.replace('T', ' ')
-    payload.nextReminder = followNextAt.value.replace('T', ' ')
+    payload.nextReminderAt = datetimeLocalToApi(followNextAt.value)
+    payload.nextReminder = datetimeLocalToApi(followNextAt.value)
   }
   await postCustomerFollowUp(payload)
   ElMessage.success('跟进已保存')
@@ -366,7 +367,7 @@ function onRemind() {
                 isListOnMini(r.listOnMini) ? '展示' : '隐藏'
               }}</span>
             </td>
-            <td>{{ r.lastFollowAt }}</td>
+            <td>{{ formatBeijingDisplay(r.lastFollowAt) || '—' }}</td>
             <td>
               <template v-if="r.nextReminder === '—'">—</template>
               <span v-else class="tag" :class="r.hasNextReminderTag === 'amber' ? 'amber' : 'mint'">{{ r.nextReminder }}</span>
