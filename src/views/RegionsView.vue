@@ -32,9 +32,8 @@ async function onAddRegion() {
     ElMessage.success('已新增')
     newName.value = ''
     await loadDefs()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '新增失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 
@@ -60,9 +59,8 @@ async function onSaveEdit() {
     ElMessage.success('已保存')
     cancelEdit()
     await loadDefs()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '保存失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 
@@ -76,9 +74,8 @@ async function onDeleteRegion(row: RegionDefRow) {
     await deleteRegionDef(row.id)
     ElMessage.success('已删除')
     await loadDefs()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '删除失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 

@@ -92,9 +92,13 @@ async function onDeleteRow(row: PropertyRow) {
   } catch {
     return
   }
-  await deletePropertyApi(row.code)
-  ElMessage.success('已删除')
-  await loadList()
+  try {
+    await deletePropertyApi(row.code)
+    ElMessage.success('已删除')
+    await loadList()
+  } catch {
+    /* http interceptor shows API error */
+  }
 }
 </script>
 

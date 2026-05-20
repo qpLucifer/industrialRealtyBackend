@@ -107,9 +107,8 @@ async function onSaveModal() {
     }
     modal.value = false
     await loadRows()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '保存失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 
@@ -123,9 +122,8 @@ async function onDelete(row: CodeMasterRow) {
     await deleteCodeMasterItem(row.id)
     ElMessage.success('已删除')
     await loadRows()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '删除失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 </script>

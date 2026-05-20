@@ -182,9 +182,13 @@ async function onDelete(row: StaffRow) {
   } catch {
     return
   }
-  await deleteStaffApi(row.id)
-  ElMessage.success('已删除')
-  await loadList()
+  try {
+    await deleteStaffApi(row.id)
+    ElMessage.success('已删除')
+    await loadList()
+  } catch {
+    /* http interceptor shows API error */
+  }
 }
 
 function onExportStaffCsv() {

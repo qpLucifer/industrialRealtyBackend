@@ -1,6 +1,7 @@
 import axios from 'axios'
-import type { AxiosResponse } from 'axios'
+import type { AxiosError, AxiosResponse } from 'axios'
 import { notifySessionExpired } from '@/lib/sessionExpireNotify'
+import { resolveApiErrorMessage, shouldShowGlobalApiError } from '@/lib/apiError'
 
 /** Standard API Result wrapper — align with backend `Result<T>` / `R<T>` */
 export interface ApiResult<T> {
@@ -52,12 +53,23 @@ http.interceptors.request.use((config) => {
 })
 
 http.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    const body = res.data
+    if (body && typeof body === 'object' && typeof (body as ApiResult<unknown>).code === 'number') {
+      const code = (body as ApiResult<unknown>).code
+      if (code !== API_SUCCESS_CODE) {
+        const msg = (body as ApiResult<unknown>).message || '请求失败'
+        return Promise.reject(Object.assign(new Error(msg), { response: res }))
+      }
+    }
+    return res
+  },
   async (err: unknown) => {
     if (!axios.isAxiosError(err)) return Promise.reject(err)
-    const status = err.response?.status
-    const url = String(err.config?.url || '')
-    const code = err.code
+    const axErr = err as AxiosError<ApiResult<unknown>>
+    const status = axErr.response?.status
+    const url = String(axErr.config?.url || '')
+    const code = axErr.code
     if ((status === 401 || code === 'ERR_SESSION_EXPIRED') && !url.includes('/auth/login')) {
       const hadSession =
         !!localStorage.getItem(ADMIN_TOKEN_KEY) ||
@@ -73,7 +85,7 @@ http.interceptors.response.use(
         /* Pinia may not be ready */
       }
       if (hadSession || code === 'ERR_SESSION_EXPIRED') {
-        const body = err.response?.data as { message?: string } | undefined
+        const body = axErr.response?.data
         const serverMsg = typeof body?.message === 'string' ? body.message.trim() : ''
         notifySessionExpired(
           code === 'ERR_SESSION_EXPIRED'
@@ -81,8 +93,13 @@ http.interceptors.response.use(
             : serverMsg || undefined,
         )
       }
+    } else if (shouldShowGlobalApiError(axErr.config, status)) {
+      const msg = resolveApiErrorMessage(axErr, '请求失败')
+      const { ElMessage } = await import('element-plus')
+      ElMessage.error(msg)
     }
-    return Promise.reject(err)
+    const msg = resolveApiErrorMessage(axErr, '请求失败')
+    return Promise.reject(Object.assign(new Error(msg), { cause: axErr }))
   },
 )
 

@@ -14,7 +14,6 @@ import {
 import type { CodeMasterRow, CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
-import { resolveApiErrorMessage } from '@/lib/apiError'
 import { isListOnMini } from '@/lib/listOnMini'
 import { isPhone11Cn, normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 
@@ -239,7 +238,7 @@ async function onSaveCustomer() {
     drawer.value = false
     await load()
   } catch (e) {
-    ElMessage.error(resolveApiErrorMessage(e, '保存失败'))
+    /* http interceptor shows API error; keep drawer open */
   }
 }
 
@@ -251,10 +250,14 @@ async function onDelete(row: CustomerRow) {
   } catch {
     return
   }
-  await deleteCustomerBySlug(slug)
-  ElMessage.success('已删除')
-  if (activeSlug.value === slug) drawer.value = false
-  await load()
+  try {
+    await deleteCustomerBySlug(slug)
+    ElMessage.success('已删除')
+    if (activeSlug.value === slug) drawer.value = false
+    await load()
+  } catch {
+    /* http interceptor shows API error */
+  }
 }
 
 async function onSaveFollow() {
