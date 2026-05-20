@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createSysAdminUser, deleteSysAdminUser, fetchSysAdminUsers, updateSysAdminUser, uploadOssFile } from '@/api/admin'
 import type { SysAdminUserRow } from '@/types/domain'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { formatBeijingDisplay } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<SysAdminUserRow[]>([])
@@ -146,7 +147,7 @@ async function onDelete(row: SysAdminUserRow) {
             <td>{{ r.username }}</td>
             <td>{{ r.displayName }}</td>
             <td class="cell-wrap">{{ r.roleLine }}</td>
-            <td>{{ r.createdAt }}</td>
+            <td>{{ formatBeijingDisplay(r.createdAt) || r.createdAt || '—' }}</td>
             <td class="table-actions">
               <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
               <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(r)" />

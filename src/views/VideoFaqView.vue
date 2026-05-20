@@ -10,6 +10,7 @@ import {
 } from '@/api/admin'
 import type { VideoFaqRow } from '@/types/domain'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { formatBeijingDisplay } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<VideoFaqRow[]>([])
@@ -165,7 +166,7 @@ onMounted(load)
               <span v-for="t in r.tags" :key="t.label" class="tag" :class="tagTone(t.tone)" style="margin-right: 4px">{{ t.label }}</span>
             </td>
             <td><span class="tag mint">{{ r.miniProgramSearch ? '是' : '否' }}</span></td>
-            <td>{{ r.updatedAt }}</td>
+            <td>{{ formatBeijingDisplay(r.updatedAt) || r.updatedAt || '—' }}</td>
             <td>
               <div class="row-actions">
                 <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />

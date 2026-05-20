@@ -1,3 +1,5 @@
+import { formatTimelineLine } from './beijingTime'
+
 /** Parse follow-up timeline lines without rendering HTML (XSS-safe). */
 export function timelineLinesFromDetail(detail: {
   timelineJson?: unknown
@@ -14,7 +16,7 @@ export function timelineLinesFromDetail(detail: {
       }
     }
     if (Array.isArray(arr)) {
-      return arr.map((s) => String(s).trim()).filter(Boolean)
+      return arr.map((s) => formatTimelineLine(String(s).trim())).filter(Boolean)
     }
   }
   const html = String(detail.timelineHtml || '').trim()
@@ -22,5 +24,6 @@ export function timelineLinesFromDetail(detail: {
   return html
     .split(/<br\s*\/?>/gi)
     .map((line) => line.replace(/<[^>]*>/g, '').trim())
+    .map((line) => formatTimelineLine(line))
     .filter(Boolean)
 }

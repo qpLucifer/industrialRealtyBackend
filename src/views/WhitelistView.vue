@@ -7,7 +7,7 @@ import { csvEscape, headerIndex, parseCsvWithHeader } from '@/lib/csv'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import { normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
-import { beijingTodayYmd } from '@/lib/beijingTime'
+import { beijingTodayYmd, formatBeijingDisplay } from '@/lib/beijingTime'
 
 const list = ref<WhitelistRow[]>([])
 const drawer = ref(false)
@@ -172,7 +172,7 @@ onMounted(load)
             <td>{{ r.name }}</td>
             <td>{{ r.remark }}</td>
             <td>{{ r.updatedBy }}</td>
-            <td>{{ r.updatedAt }}</td>
+            <td>{{ formatBeijingDisplay(r.updatedAt) || r.updatedAt || '—' }}</td>
             <td>
               <div class="row-actions">
                 <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
