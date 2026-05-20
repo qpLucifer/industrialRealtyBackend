@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteRegionDef, fetchRegionDefs, postRegionDef, putRegionDef } from '@/api/admin'
 import type { RegionDefRow } from '@/types/domain'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Check, Close, Delete, Edit } from '@element-plus/icons-vue'
 
 const defs = ref<RegionDefRow[]>([])
@@ -110,20 +111,12 @@ onMounted(loadDefs)
             </td>
             <td>
               <template v-if="editId === row.id">
-                <el-tooltip content="保存" placement="top">
-                  <el-button type="success" :icon="Check" circle plain size="small" @click="onSaveEdit" />
-                </el-tooltip>
-                <el-tooltip content="取消" placement="top">
-                  <el-button :icon="Close" circle plain size="small" @click="cancelEdit" />
-                </el-tooltip>
+                <TableActionBtn title="保存" :icon="Check" variant="success" @click="onSaveEdit" />
+                <TableActionBtn title="取消" :icon="Close" variant="neutral" @click="cancelEdit" />
               </template>
               <template v-else>
-                <el-tooltip content="编辑" placement="top">
-                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="startEdit(row)" />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDeleteRegion(row)" />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" @click="startEdit(row)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDeleteRegion(row)" />
               </template>
             </td>
           </tr>

@@ -12,6 +12,7 @@ import {
   putCustomerApi,
 } from '@/api/admin'
 import type { CodeMasterRow, CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 import { resolveApiErrorMessage } from '@/lib/apiError'
 import { isListOnMini } from '@/lib/listOnMini'
@@ -353,15 +354,9 @@ function onRemind() {
             </td>
             <td>{{ r.ownerName }}</td>
             <td class="table-actions">
-              <el-tooltip content="详情" placement="top">
-                <el-button type="primary" :icon="View" circle plain size="small" @click="openDetail(r)" />
-              </el-tooltip>
-              <el-tooltip content="编辑" placement="top">
-                <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
-              </el-tooltip>
-              <el-tooltip content="删除" placement="top">
-                <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
-              </el-tooltip>
+              <TableActionBtn title="详情" :icon="View" @click="openDetail(r)" />
+              <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
+              <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(r)" />
             </td>
           </tr>
         </tbody>

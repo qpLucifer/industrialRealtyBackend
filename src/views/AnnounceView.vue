@@ -8,6 +8,7 @@ import {
   updateAnnouncementApi,
 } from '@/api/admin'
 import type { AnnouncementRow } from '@/types/domain'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import { resolveApiErrorMessage } from '@/lib/apiError'
 
@@ -164,12 +165,8 @@ onMounted(load)
             </td>
             <td>
               <div class="row-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(r)" />
               </div>
             </td>
           </tr>

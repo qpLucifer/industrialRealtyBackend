@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteStaffApi, fetchCodeMasterItems, fetchRegionDefs, fetchStaffForm, fetchStaffList, patchStaffStatusApi, postStaffImportCsv, saveStaffForm } from '@/api/admin'
 import type { CodeMasterRow, RegionDefRow, StaffForm, StaffRow } from '@/types/domain'
 import { csvEscape } from '@/lib/csv'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit, Lock } from '@element-plus/icons-vue'
 import {
   emailFormatErrorMessage,
@@ -272,15 +273,9 @@ function onDownloadStaffTemplate() {
             <td><span class="tag" :class="s.status === '正常' ? 'mint' : 'rose'">{{ s.status }}</span></td>
             <td>
               <div class="row-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(s)" />
-                </el-tooltip>
-                <el-tooltip content="禁用" placement="top">
-                  <el-button type="warning" :icon="Lock" circle plain size="small" @click="onDisable(s)" />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(s)" />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(s)" />
+                <TableActionBtn title="禁用" :icon="Lock" variant="warning" @click="onDisable(s)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(s)" />
               </div>
             </td>
           </tr>

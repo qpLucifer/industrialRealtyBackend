@@ -1494,6 +1494,6 @@ textarea.ro-input-readonly {
 }
 .media-video-link {
   font-size: 12px;
-  color: var(--mint, #0d9488);
+  color: var(--brand, #1a3a6c);
 }
 </style>

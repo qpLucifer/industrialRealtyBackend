@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { auditPassApi, auditRejectApi, fetchAuditQueue } from '@/api/admin'
 import type { AuditQueueRow } from '@/types/domain'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { CircleCheck, CloseBold, View } from '@element-plus/icons-vue'
 
 const list = ref<AuditQueueRow[]>([])
@@ -97,15 +98,9 @@ async function onReject(row: AuditQueueRow) {
               <td class="cell-wrap hint-sm">{{ r.auditHint || '—' }}</td>
               <td><span class="tag cyan">{{ r.riskTag || '—' }}</span></td>
               <td class="table-actions">
-                <el-tooltip content="详情" placement="top">
-                  <el-button type="primary" :icon="View" circle plain size="small" @click="openDetail(r)" />
-                </el-tooltip>
-                <el-tooltip content="通过" placement="top">
-                  <el-button type="success" :icon="CircleCheck" circle plain size="small" @click="onPass(r)" />
-                </el-tooltip>
-                <el-tooltip content="驳回" placement="top">
-                  <el-button type="warning" :icon="CloseBold" circle plain size="small" @click="onReject(r)" />
-                </el-tooltip>
+                <TableActionBtn title="详情" :icon="View" @click="openDetail(r)" />
+                <TableActionBtn title="通过" :icon="CircleCheck" variant="success" @click="onPass(r)" />
+                <TableActionBtn title="驳回" :icon="CloseBold" variant="warning" @click="onReject(r)" />
               </td>
             </tr>
           </tbody>

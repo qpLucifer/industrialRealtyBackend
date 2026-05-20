@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createPropertyDraft, deletePropertyApi, fetchCodeMasterItems, fetchProperties, fetchRegionDefs } from '@/api/admin'
 import type { PropertyRow, RegionDefRow } from '@/types/domain'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 
 const list = ref<PropertyRow[]>([])
@@ -141,15 +142,9 @@ async function onDeleteRow(row: PropertyRow) {
             <td><span class="tag" :class="statusTagClass(r.status)">{{ r.status }}</span></td>
             <td>{{ r.submitter }}</td>
             <td class="table-actions">
-              <el-tooltip content="编辑" placement="top">
-                <el-button type="primary" :icon="Edit" circle plain size="small" @click="openProp('edit', r.code)" />
-              </el-tooltip>
-              <el-tooltip content="详情" placement="top">
-                <el-button type="primary" :icon="View" circle plain size="small" @click="openProp('view', r.code)" />
-              </el-tooltip>
-              <el-tooltip content="删除" placement="top">
-                <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDeleteRow(r)" />
-              </el-tooltip>
+              <TableActionBtn title="编辑" :icon="Edit" @click="openProp('edit', r.code)" />
+              <TableActionBtn title="详情" :icon="View" @click="openProp('view', r.code)" />
+              <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDeleteRow(r)" />
             </td>
           </tr>
         </tbody>

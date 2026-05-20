@@ -19,7 +19,7 @@ const chartEl = ref<HTMLElement | null>(null)
 let chart: ReturnType<typeof echarts.init> | null = null
 let ro: ResizeObserver | null = null
 
-const barPalette = ['#6366f1', '#818cf8', '#0ea5e9', '#14b8a6', '#64748b', '#94a3b8']
+const barPalette = ['#1a3a6c', '#2d4f8c', '#4a6fa8', '#64748b', '#94a3b8', '#c5d4e8']
 
 function disposeChart() {
   ro?.disconnect()

@@ -73,9 +73,14 @@ function isActive(name: string) {
   <div class="layout-app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">INDUSTRIAL</div>
-        <div class="brand-sub">
-          浙江企鹏工业地产后台管理系统
+        <div class="brand-row">
+          <div class="brand-logo-wrap">
+            <img class="brand-logo" src="/favicon.svg" alt="鹏基" />
+          </div>
+          <div class="brand-text">
+            <div class="brand-title">浙江企鹏工业地产</div>
+            <div class="brand-sub">内部管理后台</div>
+          </div>
         </div>
       </div>
 
@@ -308,6 +313,6 @@ a.nav-btn {
 }
 
 .user-pill:hover {
-  border-color: rgba(13, 148, 136, 0.35);
+  border-color: var(--brand-border);
 }
 </style>

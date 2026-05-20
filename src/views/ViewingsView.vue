@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import {
   createDealApi,
@@ -278,28 +279,8 @@ onMounted(async () => {
               <td>{{ staffLine(r) }}</td>
               <td>{{ r.score }}</td>
               <td class="table-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button
-                    type="primary"
-                    :icon="Edit"
-                    circle
-                    plain
-                    size="small"
-                    :disabled="r.id == null"
-                    @click="openEditViewing(r)"
-                  />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button
-                    type="danger"
-                    :icon="Delete"
-                    circle
-                    plain
-                    size="small"
-                    :disabled="r.id == null"
-                    @click="removeViewing(r)"
-                  />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" :disabled="r.id == null" @click="openEditViewing(r)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" :disabled="r.id == null" @click="removeViewing(r)" />
               </td>
             </tr>
           </tbody>
@@ -331,28 +312,8 @@ onMounted(async () => {
               <td>{{ r.invoiceType }}</td>
               <td><span class="tag mint">{{ r.archiveStatus }}</span></td>
               <td class="table-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button
-                    type="primary"
-                    :icon="Edit"
-                    circle
-                    plain
-                    size="small"
-                    :disabled="r.id == null"
-                    @click="openEditDeal(r)"
-                  />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button
-                    type="danger"
-                    :icon="Delete"
-                    circle
-                    plain
-                    size="small"
-                    :disabled="r.id == null"
-                    @click="removeDeal(r)"
-                  />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" :disabled="r.id == null" @click="openEditDeal(r)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" :disabled="r.id == null" @click="removeDeal(r)" />
               </td>
             </tr>
           </tbody>
