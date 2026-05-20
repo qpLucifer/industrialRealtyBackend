@@ -120,13 +120,32 @@ async function onPublish() {
   await load()
 }
 
+function isRowPopupActive(row: AnnouncementRow): boolean {
+  const p = String(row.popup || '').trim()
+  if (p !== '是' && p.toLowerCase() !== 'yes') return false
+  const now = Date.now()
+  const start = row.popupStart ? new Date(row.popupStart).getTime() : NaN
+  const end = row.popupEnd ? new Date(row.popupEnd).getTime() : NaN
+  if (!Number.isNaN(start) && now < start) return false
+  if (!Number.isNaN(end) && now > end) return false
+  return true
+}
+
 async function onDelete(row: AnnouncementRow) {
+  if (isRowPopupActive(row)) {
+    ElMessage.warning('该公告正在弹窗展示期内，请先在编辑中关闭弹窗或调整展示时间后再删除')
+    return
+  }
   try {
     await ElMessageBox.confirm(`删除公告「${row.title}」？`, '确认', { type: 'warning' })
   } catch {
     return
   }
-  await deleteAnnouncementApi(row.id)
+  try {
+    await deleteAnnouncementApi(row.id)
+  } catch {
+    return
+  }
   ElMessage.success('已删除')
   await load()
 }

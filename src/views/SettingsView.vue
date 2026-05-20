@@ -5,16 +5,33 @@ import { fetchSecuritySettings, putSecuritySettings } from '@/api/admin'
 import type { SecuritySwitch } from '@/types/domain'
 
 const switches = ref<SecuritySwitch[]>([])
+const loading = ref(false)
+const loadError = ref('')
 
-onMounted(async () => {
-  const { switches: sw } = await fetchSecuritySettings()
-  switches.value = sw.map((s) => ({ ...s }))
-})
+async function loadSettings() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const { switches: sw } = await fetchSecuritySettings()
+    switches.value = sw.map((s) => ({ ...s }))
+  } catch {
+    loadError.value = '加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadSettings)
 
 async function onToggle(row: SecuritySwitch, val: boolean) {
+  const prev = row.enabled
   row.enabled = val
-  await putSecuritySettings(switches.value)
-  ElMessage.info(`${row.label} → ${val ? '开启' : '关闭'}`)
+  try {
+    await putSecuritySettings(switches.value)
+    ElMessage.info(`${row.label} → ${val ? '开启' : '关闭'}`)
+  } catch {
+    row.enabled = prev
+  }
 }
 
 function onLowCodeInfo() {
@@ -26,6 +43,11 @@ function onLowCodeInfo() {
   <section class="panel active">
     <div class="card">
       <h3>安全策略</h3>
+      <p v-if="loading" class="hint">加载中…</p>
+      <p v-else-if="loadError" class="hint">
+        {{ loadError }}
+        <button type="button" class="btn" style="margin-left: 8px" @click="loadSettings">重试</button>
+      </p>
       <div v-for="s in switches" :key="s.key" class="switch-row">
         <span>{{ s.label }}</span>
         <el-switch :model-value="s.enabled" @change="(v) => onToggle(s, Boolean(v))" />

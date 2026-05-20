@@ -14,6 +14,8 @@ import type { KpiItem, RegionBar, StaffActivityRow } from '@/types/domain'
 const kpis = ref<KpiItem[]>([])
 const regionBars = ref<RegionBar[]>([])
 const staffActivity = ref<StaffActivityRow[]>([])
+const loading = ref(false)
+const loadError = ref('')
 
 const chartEl = ref<HTMLElement | null>(null)
 let chart: ReturnType<typeof echarts.init> | null = null
@@ -93,13 +95,25 @@ function renderRegionChart(bars: RegionBar[]) {
 
 watch(regionBars, (b) => nextTick(() => renderRegionChart(b)), { deep: true })
 
+async function loadDashboard() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const data = await fetchDashboard()
+    kpis.value = data.kpis
+    regionBars.value = data.regionBars
+    staffActivity.value = data.staffActivity
+    await nextTick()
+    renderRegionChart(regionBars.value)
+  } catch {
+    loadError.value = '加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(async () => {
-  const data = await fetchDashboard()
-  kpis.value = data.kpis
-  regionBars.value = data.regionBars
-  staffActivity.value = data.staffActivity
-  await nextTick()
-  renderRegionChart(regionBars.value)
+  await loadDashboard()
   if (chartEl.value && typeof ResizeObserver !== 'undefined') {
     ro = new ResizeObserver(() => chart?.resize())
     ro.observe(chartEl.value)
@@ -119,6 +133,11 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="panel active dashboard-page">
+    <p v-if="loading" class="hint" style="padding: 12px 0">加载中…</p>
+    <p v-else-if="loadError" class="hint" style="padding: 12px 0; color: var(--rose)">
+      {{ loadError }}
+      <button type="button" class="btn" style="margin-left: 8px" @click="loadDashboard">重试</button>
+    </p>
     <div class="dash-kpis">
       <article v-for="k in kpis" :key="k.label" class="dash-kpi-card">
         <p class="dash-kpi-label">{{ k.label }}</p>

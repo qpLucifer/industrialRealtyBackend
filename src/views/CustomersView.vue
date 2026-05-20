@@ -117,8 +117,6 @@ onMounted(() => {
   void Promise.all([loadStaff(), loadPoolOptions()]).then(() => load())
 })
 
-const pendingFollowCount = computed(() => list.value.filter((r) => r.nextReminder !== '—').length)
-
 const detailTimelineLines = computed(() =>
   detail.value ? timelineLinesFromDetail(detail.value) : [],
 )
@@ -289,8 +287,21 @@ async function onSaveFollow() {
   await load()
 }
 
+const pendingFollowOnly = ref(false)
+
+const displayedList = computed(() => {
+  if (!pendingFollowOnly.value) return list.value
+  return list.value.filter((r) => r.nextReminder !== '—')
+})
+
 function onRemind() {
-  ElMessage.success(`今日待跟进相关客户约 ${pendingFollowCount.value} 条`)
+  pendingFollowOnly.value = true
+  scopeFilter.value = 'all'
+  gradeFilter.value = 'all'
+  dealFilter.value = 'all'
+  searchQ.value = ''
+  const n = displayedList.value.length
+  ElMessage.success(n > 0 ? `已筛选今日待跟进 ${n} 条` : '当前列表无待跟进客户')
 }
 </script>
 
@@ -315,7 +326,7 @@ function onRemind() {
         <option value="搁置">搁置</option>
       </select>
       <input v-model="searchQ" type="search" placeholder="电话尾号 / 公司 / 需求关键词…" style="min-width: 240px" @keyup.enter="load" />
-      <button type="button" class="btn btn-primary" @click="() => loadStaff().then(() => load())">查询</button>
+      <button type="button" class="btn btn-primary" @click="pendingFollowOnly = false; loadStaff().then(() => load())">查询</button>
       <button type="button" class="btn btn-primary" @click="openNew">＋ 新增客户</button>
       <button type="button" class="btn" @click="onRemind">今日待跟进</button>
     </div>
@@ -338,7 +349,7 @@ function onRemind() {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in list" :key="r.slug || r.id">
+          <tr v-for="r in displayedList" :key="r.slug || r.id">
             <td>{{ r.phoneMasked }}</td>
             <td>
               <span class="crm-cell-strong">{{ r.company || '—' }}</span>

@@ -12,6 +12,7 @@ export interface ViewingRow {
 }
 
 export interface DealRow {
+  id?: number
   contractType: string
   amount: string
   commission: string
@@ -34,6 +35,7 @@ export const mockViewingRows: ViewingRow[] = [
 
 export const mockDealRows: DealRow[] = [
   {
+    id: 1,
     contractType: '租赁合同',
     amount: '¥1,280,000',
     commission: '¥64,000',

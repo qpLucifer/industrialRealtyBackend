@@ -6,7 +6,6 @@ import { Delete, Edit } from '@element-plus/icons-vue'
 import {
   createDealApi,
   createViewingApi,
-  deleteDealApi,
   deleteViewingApi,
   fetchCustomers,
   fetchProperties,
@@ -226,18 +225,6 @@ async function saveDeal() {
   await load()
 }
 
-async function removeDeal(row: DealRow) {
-  if (row.id == null) return
-  try {
-    await ElMessageBox.confirm('删除该成交备案？', '确认', { type: 'warning' })
-  } catch {
-    return
-  }
-  await deleteDealApi(row.id)
-  ElMessage.success('已删除')
-  await load()
-}
-
 onMounted(async () => {
   await loadRefs()
   await load()
@@ -313,7 +300,6 @@ onMounted(async () => {
               <td><span class="tag mint">{{ r.archiveStatus }}</span></td>
               <td class="table-actions">
                 <TableActionBtn title="编辑" :icon="Edit" :disabled="r.id == null" @click="openEditDeal(r)" />
-                <TableActionBtn title="删除" :icon="Delete" variant="danger" :disabled="r.id == null" @click="removeDeal(r)" />
               </td>
             </tr>
           </tbody>
