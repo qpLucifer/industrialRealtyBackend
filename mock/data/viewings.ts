@@ -18,6 +18,8 @@ export interface DealRow {
   commission: string
   invoiceType: string
   archiveStatus: string
+  staffId?: string | null
+  staffName?: string | null
 }
 
 export const mockViewingRows: ViewingRow[] = [
@@ -41,5 +43,7 @@ export const mockDealRows: DealRow[] = [
     commission: '¥64,000',
     invoiceType: '专票',
     archiveStatus: '已归档',
+    staffId: 's1',
+    staffName: '陈思远',
   },
 ]

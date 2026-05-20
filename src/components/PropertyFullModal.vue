@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchCodeMasterItems, fetchPropertyDetail, fetchRegionDefs, publishPropertyApi, savePropertySnapshot, uploadOssFile } from '@/api/admin'
-import MapLatLngPicker from '@/components/MapLatLngPicker.vue'
+import MapLatLngPicker, { type MapLocationPickPayload } from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
 import {
   isPhone11Cn,
@@ -320,6 +320,22 @@ function sanitizeCoord(raw: string): string {
 function onCoordInput(which: 'lat' | 'lng', e: Event) {
   const v = sanitizeCoord((e.target as HTMLInputElement).value).slice(0, 20)
   form[which] = v
+}
+
+/** Same as miniapp `guessDistrictFromAddress` + `applyLocationPick`. */
+function guessDistrictFromAddress(address: string) {
+  const text = String(address || '').trim()
+  if (!text) return
+  const hit = regionDefs.value.find((r) => r.name && text.includes(r.name))
+  if (hit) form.district = hit.name
+}
+
+function onMapLocationPick(payload: MapLocationPickPayload) {
+  const addr = String(payload.address || '').trim()
+  if (addr) form.address = addr.slice(0, 200)
+  form.lat = payload.lat.toFixed(6)
+  form.lng = payload.lng.toFixed(6)
+  guessDistrictFromAddress(addr || form.address)
 }
 
 function onPhone11Input(e: Event) {
@@ -768,6 +784,7 @@ async function onPickVideos(ev: Event) {
                   v-model:lat="form.lat"
                   v-model:lng="form.lng"
                   :disabled="false"
+                  @location-pick="onMapLocationPick"
                 />
               </div>
             </div>

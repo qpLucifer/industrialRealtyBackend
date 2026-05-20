@@ -229,6 +229,10 @@ export interface DealRow {
   commission: string
   invoiceType: string
   archiveStatus: string
+  /** staff.id — required for new deals */
+  staffId?: string | null
+  staffName?: string | null
+  recordedAt?: string | null
 }
 
 /** Admin code dictionary — `type_code` whitelist on server */
