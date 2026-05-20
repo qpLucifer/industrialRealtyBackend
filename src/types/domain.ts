@@ -169,6 +169,8 @@ export interface CustomerRow {
   lastFollowAt: string
   nextReminder: string | '—'
   timelineHtml?: string
+  /** Raw follow-up lines from API (preferred over timelineHtml for display) */
+  timelineJson?: string[]
   ownerName: string
   /** Private pool — staff.id list */
   ownerStaffIds?: string[]

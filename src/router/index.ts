@@ -14,7 +14,12 @@ router.beforeEach(async (to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (auth.isAuthenticated && !auth.user) {
-    await auth.hydrateUser()
+    try {
+      await auth.hydrateUser()
+    } catch {
+      await auth.logout()
+      return { name: 'login', query: { redirect: to.fullPath } }
+    }
   }
   return true
 })

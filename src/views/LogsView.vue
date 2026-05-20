@@ -32,7 +32,9 @@ async function load() {
 }
 
 function filter() {
-  load().catch(() => ElMessage.error('加载失败'))
+  load().catch(() => {
+    /* global http interceptor shows API error */
+  })
 }
 
 async function onPurgeByFilters() {
@@ -57,7 +59,7 @@ async function onPurgeByFilters() {
     ElMessage.success(`已删除 ${deleted} 条（匹配 ${matchedBefore} 条）`)
     await load()
   } catch {
-    ElMessage.error('删除失败')
+    /* global http interceptor shows API error */
   }
 }
 
@@ -83,7 +85,7 @@ async function onPurgeOlderThan() {
     ElMessage.success(`已删除 ${deleted} 条`)
     await load()
   } catch {
-    ElMessage.error('删除失败')
+    /* global http interceptor shows API error */
   }
 }
 

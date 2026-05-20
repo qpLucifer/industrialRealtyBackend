@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { safeAppRedirect } from '@/lib/safeRedirect'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -26,8 +27,7 @@ async function onSubmit() {
     ElMessage.success(
       exp ? `登录成功，会话将于 ${new Date(exp).toLocaleString()} 过期` : '登录成功',
     )
-    const redirect = (route.query.redirect as string) || '/app/dashboard'
-    await router.push(redirect)
+    await router.push(safeAppRedirect(route.query.redirect))
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : '登录失败'
     ElMessage.error(msg)

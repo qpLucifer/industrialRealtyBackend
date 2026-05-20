@@ -15,6 +15,7 @@ import type { CodeMasterRow, CustomerDetail, CustomerGrade, CustomerRow, StaffRo
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 import { isListOnMini } from '@/lib/listOnMini'
+import { timelineLinesFromDetail } from '@/lib/customerTimeline'
 import { isPhone11Cn, normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 
 const CUSTOMER_POOL_TYPE = 'customer_pool'
@@ -117,6 +118,10 @@ onMounted(() => {
 })
 
 const pendingFollowCount = computed(() => list.value.filter((r) => r.nextReminder !== '—').length)
+
+const detailTimelineLines = computed(() =>
+  detail.value ? timelineLinesFromDetail(detail.value) : [],
+)
 
 /** 客户池为「私有」时须指定负责人 */
 const isPrivateScope = computed(() => {
@@ -392,7 +397,9 @@ function onRemind() {
 
         <div class="crm-card">
           <div class="crm-card-title">跟进时间轴</div>
-          <div v-if="detail.timelineHtml" class="crm-timeline cell-wrap" v-html="detail.timelineHtml" />
+          <ul v-if="detailTimelineLines.length" class="crm-timeline">
+            <li v-for="(line, idx) in detailTimelineLines" :key="idx">{{ line }}</li>
+          </ul>
           <p v-else class="crm-card-muted">（暂无记录）</p>
         </div>
 
@@ -621,10 +628,12 @@ function onRemind() {
   line-height: 1.5;
 }
 .crm-timeline {
+  margin: 0;
+  padding: 10px 12px 10px 28px;
+  list-style: disc;
   font-size: 13px;
   line-height: 1.65;
   color: #334155;
-  padding: 10px 12px;
   border-radius: 8px;
   background: #f8fafc;
   border: 1px dashed rgba(100, 116, 139, 0.35);

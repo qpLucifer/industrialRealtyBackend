@@ -527,9 +527,8 @@ async function onPublish() {
     ElMessage.success('已提交发布，进入待审核')
     emit('saved')
     await reloadPropertyForm()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '发布失败')
+  } catch {
+    /* global http interceptor shows API error */
   }
 }
 
@@ -560,9 +559,8 @@ async function onPickImages(ev: Event) {
     }
     mediaImageBlock.value = lines.join('\n')
     ElMessage.success(`已上传 ${files.length} 张图片`)
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '上传失败')
+  } catch {
+    /* global http interceptor shows API error */
   } finally {
     uploadingImage.value = false
     input.value = ''
@@ -586,9 +584,8 @@ async function onPickVideos(ev: Event) {
     }
     mediaVideoBlock.value = lines.join('\n')
     ElMessage.success(`已上传 ${files.length} 个视频`)
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '上传失败')
+  } catch {
+    /* global http interceptor shows API error */
   } finally {
     uploadingVideo.value = false
     input.value = ''

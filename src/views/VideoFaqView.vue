@@ -123,9 +123,8 @@ async function onVideoPick(ev: Event) {
     const { url } = await uploadOssFile(file, 'video-faq')
     form.videoPath = url
     ElMessage.success('视频已上传，URL 已填入')
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '上传失败')
+  } catch {
+    /* global http interceptor shows API error */
   } finally {
     uploadingVideo.value = false
     input.value = ''

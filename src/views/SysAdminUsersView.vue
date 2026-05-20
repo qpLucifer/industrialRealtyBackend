@@ -58,9 +58,8 @@ async function onAvatarPick(ev: Event) {
     const { url } = await uploadOssFile(file, 'sys-admin-avatars')
     form.avatarUrl = url
     ElMessage.success('头像已上传')
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '上传失败')
+  } catch {
+    /* global http interceptor shows API error */
   } finally {
     uploadingAvatar.value = false
     input.value = ''
@@ -117,9 +116,8 @@ async function onDelete(row: SysAdminUserRow) {
     await deleteSysAdminUser(row.id)
     ElMessage.success('已删除')
     await load()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '删除失败')
+  } catch {
+    /* global http interceptor shows API error */
   }
 }
 </script>

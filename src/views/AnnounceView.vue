@@ -10,7 +10,6 @@ import {
 import type { AnnouncementRow } from '@/types/domain'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit } from '@element-plus/icons-vue'
-import { resolveApiErrorMessage } from '@/lib/apiError'
 
 const list = ref<AnnouncementRow[]>([])
 const modal = ref(false)
@@ -114,8 +113,7 @@ async function onPublish() {
       await updateAnnouncementApi(editingId.value, payload)
       ElMessage.success('公告已更新')
     }
-  } catch (e) {
-    ElMessage.error(resolveApiErrorMessage(e, '保存失败'))
+  } catch {
     return
   }
   modal.value = false
