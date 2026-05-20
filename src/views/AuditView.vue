@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { auditPassApi, auditRejectApi, fetchAuditQueue } from '@/api/admin'
 import type { AuditQueueRow } from '@/types/domain'
+import { formatBeijingDisplay } from '@/lib/beijingTime'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { CircleCheck, CloseBold, View } from '@element-plus/icons-vue'
@@ -101,7 +102,7 @@ async function onReject(row: AuditQueueRow) {
               <td>{{ r.district || '—' }}</td>
               <td>{{ r.type || '—' }}</td>
               <td>{{ r.submitter }}</td>
-              <td class="nowrap">{{ r.submittedAt }}</td>
+              <td class="nowrap">{{ formatBeijingDisplay(r.submittedAt) || r.submittedAt || '—' }}</td>
               <!-- <td class="cell-wrap hint-sm">
                 <div>{{ r.listingLine1 || '—' }}</div>
                 <div>{{ r.listingLine2 || '—' }}</div>

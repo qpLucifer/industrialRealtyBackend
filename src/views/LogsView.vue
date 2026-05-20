@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchLogs, fetchLogsCount, purgeLogs } from '@/api/admin'
 import type { LogAction, LogKind, LogRow } from '@/types/domain'
+import { formatBeijingDisplay } from '@/lib/beijingTime'
 
 const list = ref<LogRow[]>([])
 const obj = ref<LogKind | 'all'>('all')
@@ -173,8 +174,8 @@ onMounted(() => {
         <tbody>
           <tr v-for="r in list" :key="r.id ?? r.time + r.detail">
             <td>{{ r.id ?? '—' }}</td>
-            <td>{{ r.loggedAt ?? '—' }}</td>
-            <td>{{ r.time }}</td>
+            <td>{{ formatBeijingDisplay(r.loggedAt) || '—' }}</td>
+            <td>{{ formatBeijingDisplay(r.time) || r.time || '—' }}</td>
             <td>{{ r.actor }}</td>
             <td>{{ r.objectLabel }}</td>
             <td>{{ r.actionLabel }}</td>
