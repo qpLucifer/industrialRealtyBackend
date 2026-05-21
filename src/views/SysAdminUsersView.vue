@@ -3,6 +3,8 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createSysAdminUser, deleteSysAdminUser, fetchSysAdminUsers, updateSysAdminUser, uploadOssFile } from '@/api/admin'
 import type { SysAdminUserRow } from '@/types/domain'
+import TableActionBtn from '@/components/TableActionBtn.vue'
+import { formatBeijingDisplay } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<SysAdminUserRow[]>([])
@@ -57,9 +59,8 @@ async function onAvatarPick(ev: Event) {
     const { url } = await uploadOssFile(file, 'sys-admin-avatars')
     form.avatarUrl = url
     ElMessage.success('头像已上传')
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '上传失败')
+  } catch {
+    /* global http interceptor shows API error */
   } finally {
     uploadingAvatar.value = false
     input.value = ''
@@ -116,9 +117,8 @@ async function onDelete(row: SysAdminUserRow) {
     await deleteSysAdminUser(row.id)
     ElMessage.success('已删除')
     await load()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '删除失败')
+  } catch {
+    /* global http interceptor shows API error */
   }
 }
 </script>
@@ -147,14 +147,10 @@ async function onDelete(row: SysAdminUserRow) {
             <td>{{ r.username }}</td>
             <td>{{ r.displayName }}</td>
             <td class="cell-wrap">{{ r.roleLine }}</td>
-            <td>{{ r.createdAt }}</td>
+            <td>{{ formatBeijingDisplay(r.createdAt) || r.createdAt || '—' }}</td>
             <td class="table-actions">
-              <el-tooltip content="编辑" placement="top">
-                <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
-              </el-tooltip>
-              <el-tooltip content="删除" placement="top">
-                <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
-              </el-tooltip>
+              <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
+              <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(r)" />
             </td>
           </tr>
         </tbody>

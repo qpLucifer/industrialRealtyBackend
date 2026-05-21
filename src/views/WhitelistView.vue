@@ -4,8 +4,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createWhitelistRow, deleteWhitelistRow, fetchWhitelist, updateWhitelistRow } from '@/api/admin'
 import type { WhitelistRow } from '@/types/domain'
 import { csvEscape, headerIndex, parseCsvWithHeader } from '@/lib/csv'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import { normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
+import { beijingTodayYmd, formatBeijingDisplay } from '@/lib/beijingTime'
 
 const list = ref<WhitelistRow[]>([])
 const drawer = ref(false)
@@ -39,7 +41,7 @@ async function onSave() {
     ElMessage.warning('请输入 11 位数字手机号')
     return
   }
-  const today = new Date().toISOString().slice(0, 10)
+  const today = beijingTodayYmd()
   const updatedBy = '后台管理员'
   if (editingId.value == null) {
     await createWhitelistRow({
@@ -109,7 +111,7 @@ function onImportClick() {
       const colPhone = iPhone >= 0 ? iPhone : 0
       const colName = iName >= 0 ? iName : 1
       const colRemark = iRemark >= 0 ? iRemark : 2
-      const today = new Date().toISOString().slice(0, 10)
+      const today = beijingTodayYmd()
       let n = 0
       let skipped = 0
       for (const cols of rows) {
@@ -170,15 +172,11 @@ onMounted(load)
             <td>{{ r.name }}</td>
             <td>{{ r.remark }}</td>
             <td>{{ r.updatedBy }}</td>
-            <td>{{ r.updatedAt }}</td>
+            <td>{{ formatBeijingDisplay(r.updatedAt) || r.updatedAt || '—' }}</td>
             <td>
               <div class="row-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(r)" />
               </div>
             </td>
           </tr>

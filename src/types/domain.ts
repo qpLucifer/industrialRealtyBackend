@@ -169,6 +169,8 @@ export interface CustomerRow {
   lastFollowAt: string
   nextReminder: string | '—'
   timelineHtml?: string
+  /** Raw follow-up lines from API (preferred over timelineHtml for display) */
+  timelineJson?: string[]
   ownerName: string
   /** Private pool — staff.id list */
   ownerStaffIds?: string[]
@@ -204,6 +206,9 @@ export interface ViewingRow {
   propertyId?: string | null
   /** Denormalized property code / label */
   propertyRef: string
+  /** Resolved from property_id when property_ref empty */
+  propertyTitle?: string | null
+  miniPropCode?: string | null
   customerName: string
   /** Customer row slug when chosen from CRM */
   customerSlug?: string | null
@@ -214,6 +219,7 @@ export interface ViewingRow {
   score: string
   miniStaffId?: string | null
   miniStaff?: string | null
+  active?: boolean
 }
 
 export interface DealRow {
@@ -223,6 +229,10 @@ export interface DealRow {
   commission: string
   invoiceType: string
   archiveStatus: string
+  /** staff.id — required for new deals */
+  staffId?: string | null
+  staffName?: string | null
+  recordedAt?: string | null
 }
 
 /** Admin code dictionary — `type_code` whitelist on server */

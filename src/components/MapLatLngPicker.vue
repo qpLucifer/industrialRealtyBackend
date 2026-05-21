@@ -21,9 +21,17 @@ const props = withDefaults(
   { lat: '', lng: '', disabled: false },
 )
 
+export type MapLocationPickPayload = {
+  /** Combined address line (GCJ-02 pick), same order as mini `applyLocationPick`. */
+  address: string
+  lng: number
+  lat: number
+}
+
 const emit = defineEmits<{
   (e: 'update:lat', v: string): void
   (e: 'update:lng', v: string): void
+  (e: 'locationPick', payload: MapLocationPickPayload): void
 }>()
 
 const mapRootRef = ref<HTMLElement | null>(null)
@@ -59,6 +67,52 @@ function parseCenter(): { lng: number; lat: number } {
 function emitPos(lng: number, lat: number) {
   emit('update:lat', lat.toFixed(6))
   emit('update:lng', lng.toFixed(6))
+}
+
+/** Align with miniapp `applyLocationPick`: `address` + `name` joined by space. */
+function formatLocationAddress(name: string, address: string): string {
+  return [address, name].map((s) => String(s || '').trim()).filter(Boolean).join(' ')
+}
+
+function emitLocationPick(lng: number, lat: number, address: string) {
+  emit('locationPick', { address: address.trim(), lng, lat })
+}
+
+function reverseGeocodeAddress(lng: number, lat: number): Promise<string> {
+  return new Promise((resolve) => {
+    const AMap = getAmapGlobal() as {
+      plugin: (names: string | string[], cb: () => void) => void
+      Geocoder: new () => {
+        getAddress: (
+          pos: number[],
+          cb: (status: string, result: { regeocode?: { formattedAddress?: string } }) => void,
+        ) => void
+      }
+    }
+    AMap.plugin(['AMap.Geocoder'], () => {
+      const geocoder = new AMap.Geocoder()
+      geocoder.getAddress([lng, lat], (status, result) => {
+        if (status === 'complete' && result.regeocode?.formattedAddress) {
+          resolve(String(result.regeocode.formattedAddress).trim())
+          return
+        }
+        resolve('')
+      })
+    })
+  })
+}
+
+async function applyMapPoint(lng: number, lat: number, addressHint = '') {
+  let address = String(addressHint || '').trim()
+  if (!address) {
+    try {
+      address = await reverseGeocodeAddress(lng, lat)
+    } catch {
+      address = ''
+    }
+  }
+  emitPos(lng, lat)
+  emitLocationPick(lng, lat, address)
 }
 
 function poiToHit(poi: Record<string, unknown>): MapSearchHit | null {
@@ -164,7 +218,8 @@ function pickHit(hit: MapSearchHit) {
     m.setCenter?.([hit.lng, hit.lat])
     m.setZoom?.(16)
   }
-  emitPos(hit.lng, hit.lat)
+  const address = formatLocationAddress(hit.name, hit.address)
+  void applyMapPoint(hit.lng, hit.lat, address)
   searchResults.value = []
   void nextTick(() => map && (map as { resize?: () => void }).resize?.())
 }
@@ -197,13 +252,13 @@ onMounted(async () => {
     })
     ;(marker as { on: (ev: string, fn: (e: { lnglat: AmapLngLat }) => void) => void }).on('dragend', (e) => {
       const { lng: gl, lat: la } = lngLatNums(e.lnglat)
-      emitPos(gl, la)
+      void applyMapPoint(gl, la)
     })
     ;(map as { on: (ev: string, fn: (e: { lnglat: AmapLngLat }) => void) => void }).on('click', (e) => {
       if (props.disabled) return
       const { lng: gl, lat: la } = lngLatNums(e.lnglat)
       ;(marker as { setPosition: (p: number[]) => void }).setPosition([gl, la])
-      emitPos(gl, la)
+      void applyMapPoint(gl, la)
     })
     mapReady.value = true
     void nextTick(() => setTimeout(() => (map as { resize?: () => void })?.resize?.(), 200))
@@ -257,7 +312,7 @@ watch(
 <template>
   <div class="map-latlng-wrap">
     <p class="hint" style="margin: 0 0 8px">
-      使用<strong>高德地图</strong>（GCJ-02）。可<strong>搜索地点</strong>后从列表选择，或在地图上点击 / 拖动标记；结果同步到上方纬度 / 经度。
+      使用<strong>高德地图</strong>（GCJ-02）。可<strong>搜索地点</strong>后从列表选择，或在地图上点击 / 拖动标记；将同步<strong>详细地址</strong>、经纬度，并尝试匹配<strong>所属区域</strong>（与小程序选点一致）。
     </p>
     <p v-if="loadError" class="map-latlng-err">{{ loadError }}</p>
     <div v-else class="map-search-row">

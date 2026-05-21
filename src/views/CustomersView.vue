@@ -12,9 +12,11 @@ import {
   putCustomerApi,
 } from '@/api/admin'
 import type { CodeMasterRow, CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
-import { resolveApiErrorMessage } from '@/lib/apiError'
 import { isListOnMini } from '@/lib/listOnMini'
+import { timelineLinesFromDetail } from '@/lib/customerTimeline'
+import { datetimeLocalToApi, formatBeijingDisplay, nowBeijingDatetimeLocal } from '@/lib/beijingTime'
 import { isPhone11Cn, normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 
 const CUSTOMER_POOL_TYPE = 'customer_pool'
@@ -116,7 +118,9 @@ onMounted(() => {
   void Promise.all([loadStaff(), loadPoolOptions()]).then(() => load())
 })
 
-const pendingFollowCount = computed(() => list.value.filter((r) => r.nextReminder !== '—').length)
+const detailTimelineLines = computed(() =>
+  detail.value ? timelineLinesFromDetail(detail.value) : [],
+)
 
 /** 客户池为「私有」时须指定负责人 */
 const isPrivateScope = computed(() => {
@@ -139,7 +143,7 @@ function drawerTitle() {
 
 function resetFollowFields() {
   followNote.value = ''
-  followOccurredAt.value = new Date().toISOString().slice(0, 16)
+  followOccurredAt.value = nowBeijingDatetimeLocal()
   followGrade.value = ''
   followNextAt.value = ''
 }
@@ -238,7 +242,7 @@ async function onSaveCustomer() {
     drawer.value = false
     await load()
   } catch (e) {
-    ElMessage.error(resolveApiErrorMessage(e, '保存失败'))
+    /* http interceptor shows API error; keep drawer open */
   }
 }
 
@@ -250,10 +254,14 @@ async function onDelete(row: CustomerRow) {
   } catch {
     return
   }
-  await deleteCustomerBySlug(slug)
-  ElMessage.success('已删除')
-  if (activeSlug.value === slug) drawer.value = false
-  await load()
+  try {
+    await deleteCustomerBySlug(slug)
+    ElMessage.success('已删除')
+    if (activeSlug.value === slug) drawer.value = false
+    await load()
+  } catch {
+    /* http interceptor shows API error */
+  }
 }
 
 async function onSaveFollow() {
@@ -266,12 +274,12 @@ async function onSaveFollow() {
   const payload: Record<string, string> = {
     slug,
     note: followNote.value.trim(),
-    occurredAt: followOccurredAt.value.replace('T', ' '),
+    occurredAt: datetimeLocalToApi(followOccurredAt.value),
   }
   if (followGrade.value) payload.grade = followGrade.value
   if (followNextAt.value) {
-    payload.nextReminderAt = followNextAt.value.replace('T', ' ')
-    payload.nextReminder = followNextAt.value.replace('T', ' ')
+    payload.nextReminderAt = datetimeLocalToApi(followNextAt.value)
+    payload.nextReminder = datetimeLocalToApi(followNextAt.value)
   }
   await postCustomerFollowUp(payload)
   ElMessage.success('跟进已保存')
@@ -280,8 +288,21 @@ async function onSaveFollow() {
   await load()
 }
 
+const pendingFollowOnly = ref(false)
+
+const displayedList = computed(() => {
+  if (!pendingFollowOnly.value) return list.value
+  return list.value.filter((r) => r.nextReminder !== '—')
+})
+
 function onRemind() {
-  ElMessage.success(`今日待跟进相关客户约 ${pendingFollowCount.value} 条`)
+  pendingFollowOnly.value = true
+  scopeFilter.value = 'all'
+  gradeFilter.value = 'all'
+  dealFilter.value = 'all'
+  searchQ.value = ''
+  const n = displayedList.value.length
+  ElMessage.success(n > 0 ? `已筛选今日待跟进 ${n} 条` : '当前列表无待跟进客户')
 }
 </script>
 
@@ -306,7 +327,7 @@ function onRemind() {
         <option value="搁置">搁置</option>
       </select>
       <input v-model="searchQ" type="search" placeholder="电话尾号 / 公司 / 需求关键词…" style="min-width: 240px" @keyup.enter="load" />
-      <button type="button" class="btn btn-primary" @click="() => loadStaff().then(() => load())">查询</button>
+      <button type="button" class="btn btn-primary" @click="pendingFollowOnly = false; loadStaff().then(() => load())">查询</button>
       <button type="button" class="btn btn-primary" @click="openNew">＋ 新增客户</button>
       <button type="button" class="btn" @click="onRemind">今日待跟进</button>
     </div>
@@ -329,7 +350,7 @@ function onRemind() {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in list" :key="r.slug || r.id">
+          <tr v-for="r in displayedList" :key="r.slug || r.id">
             <td>{{ r.phoneMasked }}</td>
             <td>
               <span class="crm-cell-strong">{{ r.company || '—' }}</span>
@@ -346,22 +367,16 @@ function onRemind() {
                 isListOnMini(r.listOnMini) ? '展示' : '隐藏'
               }}</span>
             </td>
-            <td>{{ r.lastFollowAt }}</td>
+            <td>{{ formatBeijingDisplay(r.lastFollowAt) || '—' }}</td>
             <td>
               <template v-if="r.nextReminder === '—'">—</template>
               <span v-else class="tag" :class="r.hasNextReminderTag === 'amber' ? 'amber' : 'mint'">{{ r.nextReminder }}</span>
             </td>
             <td>{{ r.ownerName }}</td>
             <td class="table-actions">
-              <el-tooltip content="详情" placement="top">
-                <el-button type="primary" :icon="View" circle plain size="small" @click="openDetail(r)" />
-              </el-tooltip>
-              <el-tooltip content="编辑" placement="top">
-                <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
-              </el-tooltip>
-              <el-tooltip content="删除" placement="top">
-                <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
-              </el-tooltip>
+              <TableActionBtn title="详情" :icon="View" @click="openDetail(r)" />
+              <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
+              <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(r)" />
             </td>
           </tr>
         </tbody>
@@ -394,7 +409,9 @@ function onRemind() {
 
         <div class="crm-card">
           <div class="crm-card-title">跟进时间轴</div>
-          <div v-if="detail.timelineHtml" class="crm-timeline cell-wrap" v-html="detail.timelineHtml" />
+          <ul v-if="detailTimelineLines.length" class="crm-timeline">
+            <li v-for="(line, idx) in detailTimelineLines" :key="idx">{{ line }}</li>
+          </ul>
           <p v-else class="crm-card-muted">（暂无记录）</p>
         </div>
 
@@ -623,10 +640,12 @@ function onRemind() {
   line-height: 1.5;
 }
 .crm-timeline {
+  margin: 0;
+  padding: 10px 12px 10px 28px;
+  list-style: disc;
   font-size: 13px;
   line-height: 1.65;
   color: #334155;
-  padding: 10px 12px;
   border-radius: 8px;
   background: #f8fafc;
   border: 1px dashed rgba(100, 116, 139, 0.35);

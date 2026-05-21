@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TableActionBtn from '@/components/TableActionBtn.vue'
+import { formatBeijingDisplay, toDatetimeLocalValue } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import {
   createDealApi,
   createViewingApi,
-  deleteDealApi,
   deleteViewingApi,
   fetchCustomers,
   fetchProperties,
@@ -47,6 +48,7 @@ const orphanPropertyOption = computed(() => {
 const dModal = ref(false)
 const dEditingId = ref<number | null>(null)
 const dForm = reactive({
+  staffId: '' as string,
   contractType: '租赁合同',
   amount: '¥0',
   commission: '¥0',
@@ -55,6 +57,29 @@ const dForm = reactive({
 })
 
 const ARCHIVE_OPTIONS = ['待归档', '已归档', '处理中', '已驳回'] as const
+
+/** Align with miniapp slot format (YYYY-MM-DD HH:mm). */
+const VIEWING_SLOT_FORMAT = 'YYYY-MM-DD HH:mm'
+
+function formatViewingSlotDisplay(s: string) {
+  return formatBeijingDisplay(s) || '—'
+}
+
+function propertyLine(r: ViewingRow) {
+  const code = String(r.propertyRef || r.miniPropCode || '').trim()
+  const title = String(r.propertyTitle || '').trim()
+  if (code && title) return `${code} · ${title}`
+  return code || title || '—'
+}
+
+function staffLine(r: ViewingRow) {
+  const reg = String(r.miniStaff || '').trim()
+  const comp = String(r.companions || '').trim()
+  const parts: string[] = []
+  if (reg) parts.push(`登记：${reg}`)
+  if (comp) parts.push(`陪同：${comp}`)
+  return parts.length ? parts.join(' · ') : '—'
+}
 
 async function loadRefs() {
   const [{ list: cust }, { list: staff }, { list: props }] = await Promise.all([
@@ -99,8 +124,8 @@ function openNewViewing() {
 function openEditViewing(row: ViewingRow) {
   if (row.id == null) return
   vEditingId.value = row.id
-  vForm.start = row.start
-  vForm.end = row.end
+  vForm.start = toDatetimeLocalValue(row.start)
+  vForm.end = toDatetimeLocalValue(row.end)
   vForm.propertyId = row.propertyId || ''
   vForm.propertyRef = row.propertyRef
   vForm.customerSlug = row.customerSlug || ''
@@ -161,6 +186,7 @@ async function removeViewing(row: ViewingRow) {
 
 function openNewDeal() {
   dEditingId.value = null
+  dForm.staffId = ''
   dForm.contractType = '租赁合同'
   dForm.amount = '¥0'
   dForm.commission = '¥0'
@@ -172,6 +198,7 @@ function openNewDeal() {
 function openEditDeal(row: DealRow) {
   if (row.id == null) return
   dEditingId.value = row.id
+  dForm.staffId = row.staffId || ''
   dForm.contractType = row.contractType
   dForm.amount = row.amount
   dForm.commission = row.commission
@@ -181,6 +208,10 @@ function openEditDeal(row: DealRow) {
 }
 
 async function saveDeal() {
+  if (!String(dForm.staffId || '').trim()) {
+    ElMessage.warning('请选择成交员工')
+    return
+  }
   const payload = { ...dForm }
   if (dEditingId.value != null) {
     await updateDealApi(dEditingId.value, payload)
@@ -190,18 +221,6 @@ async function saveDeal() {
     ElMessage.success('成交已新增')
   }
   dModal.value = false
-  await load()
-}
-
-async function removeDeal(row: DealRow) {
-  if (row.id == null) return
-  try {
-    await ElMessageBox.confirm('删除该成交备案？', '确认', { type: 'warning' })
-  } catch {
-    return
-  }
-  await deleteDealApi(row.id)
-  ElMessage.success('已删除')
   await load()
 }
 
@@ -226,11 +245,10 @@ onMounted(async () => {
           <thead>
             <tr>
               <th>ID</th>
-              <th>开始</th>
-              <th>结束</th>
+              <th>带看时段</th>
               <th>房源</th>
               <th>客户</th>
-              <th>陪同员工</th>
+              <th>员工</th>
               <th>评分</th>
               <th>操作</th>
             </tr>
@@ -238,35 +256,17 @@ onMounted(async () => {
           <tbody>
             <tr v-for="r in viewings" :key="r.id ?? r.start + r.propertyRef">
               <td>{{ r.id ?? '—' }}</td>
-              <td>{{ r.start }}</td>
-              <td>{{ r.end }}</td>
-              <td>{{ r.propertyRef }}</td>
-              <td>{{ r.customerName }}</td>
-              <td>{{ r.companions }}</td>
+              <td>
+                <span v-if="r.active" class="tag mint" style="margin-right: 6px">进行中</span>
+                {{ formatViewingSlotDisplay(r.start) }} 至 {{ formatViewingSlotDisplay(r.end) }}
+              </td>
+              <td>{{ propertyLine(r) }}</td>
+              <td>{{ r.customerName || '—' }}</td>
+              <td>{{ staffLine(r) }}</td>
               <td>{{ r.score }}</td>
               <td class="table-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button
-                    type="primary"
-                    :icon="Edit"
-                    circle
-                    plain
-                    size="small"
-                    :disabled="r.id == null"
-                    @click="openEditViewing(r)"
-                  />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button
-                    type="danger"
-                    :icon="Delete"
-                    circle
-                    plain
-                    size="small"
-                    :disabled="r.id == null"
-                    @click="removeViewing(r)"
-                  />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" :disabled="r.id == null" @click="openEditViewing(r)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" :disabled="r.id == null" @click="removeViewing(r)" />
               </td>
             </tr>
           </tbody>
@@ -285,6 +285,7 @@ onMounted(async () => {
               <th>成交额</th>
               <th>佣金</th>
               <th>开票</th>
+              <th>成交员工</th>
               <th>归档</th>
               <th>操作</th>
             </tr>
@@ -296,30 +297,10 @@ onMounted(async () => {
               <td>{{ r.amount }}</td>
               <td>{{ r.commission }}</td>
               <td>{{ r.invoiceType }}</td>
+              <td>{{ r.staffName || '—' }}</td>
               <td><span class="tag mint">{{ r.archiveStatus }}</span></td>
               <td class="table-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button
-                    type="primary"
-                    :icon="Edit"
-                    circle
-                    plain
-                    size="small"
-                    :disabled="r.id == null"
-                    @click="openEditDeal(r)"
-                  />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button
-                    type="danger"
-                    :icon="Delete"
-                    circle
-                    plain
-                    size="small"
-                    :disabled="r.id == null"
-                    @click="removeDeal(r)"
-                  />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" :disabled="r.id == null" @click="openEditDeal(r)" />
               </td>
             </tr>
           </tbody>
@@ -337,7 +318,8 @@ onMounted(async () => {
               <el-date-picker
                 v-model="vForm.start"
                 type="datetime"
-                value-format="YYYY-MM-DD HH:mm:ss"
+                :value-format="VIEWING_SLOT_FORMAT"
+                format="YYYY-MM-DD HH:mm"
                 placeholder="选择开始"
                 style="width: 100%; margin-top: 4px"
               />
@@ -347,7 +329,8 @@ onMounted(async () => {
               <el-date-picker
                 v-model="vForm.end"
                 type="datetime"
-                value-format="YYYY-MM-DD HH:mm:ss"
+                :value-format="VIEWING_SLOT_FORMAT"
+                format="YYYY-MM-DD HH:mm"
                 placeholder="选择结束"
                 style="width: 100%; margin-top: 4px"
               />
@@ -428,6 +411,22 @@ onMounted(async () => {
         <div class="modal-box" style="max-width: 480px">
           <h3>{{ dEditingId == null ? '新增成交' : '编辑成交' }}</h3>
           <div class="form-grid" style="margin-top: 12px">
+            <div class="full">
+              <label>成交员工<span style="color: var(--rose)">*</span></label>
+              <el-select
+                v-model="dForm.staffId"
+                filterable
+                placeholder="从员工列表选择"
+                style="width: 100%; margin-top: 4px"
+              >
+                <el-option
+                  v-for="s in staffOptions"
+                  :key="s.id"
+                  :label="`${s.name}（${s.employeeNo}）`"
+                  :value="s.id"
+                />
+              </el-select>
+            </div>
             <div class="full"><label>合同类型</label><input v-model="dForm.contractType" type="text" maxlength="40" /></div>
             <div><label>成交额</label><input v-model="dForm.amount" type="text" maxlength="40" /></div>
             <div><label>佣金</label><input v-model="dForm.commission" type="text" maxlength="40" /></div>

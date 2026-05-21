@@ -9,6 +9,8 @@ import {
   uploadOssFile,
 } from '@/api/admin'
 import type { VideoFaqRow } from '@/types/domain'
+import TableActionBtn from '@/components/TableActionBtn.vue'
+import { formatBeijingDisplay } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<VideoFaqRow[]>([])
@@ -122,9 +124,8 @@ async function onVideoPick(ev: Event) {
     const { url } = await uploadOssFile(file, 'video-faq')
     form.videoPath = url
     ElMessage.success('视频已上传，URL 已填入')
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '上传失败')
+  } catch {
+    /* global http interceptor shows API error */
   } finally {
     uploadingVideo.value = false
     input.value = ''
@@ -165,15 +166,11 @@ onMounted(load)
               <span v-for="t in r.tags" :key="t.label" class="tag" :class="tagTone(t.tone)" style="margin-right: 4px">{{ t.label }}</span>
             </td>
             <td><span class="tag mint">{{ r.miniProgramSearch ? '是' : '否' }}</span></td>
-            <td>{{ r.updatedAt }}</td>
+            <td>{{ formatBeijingDisplay(r.updatedAt) || r.updatedAt || '—' }}</td>
             <td>
               <div class="row-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(r)" />
               </div>
             </td>
           </tr>

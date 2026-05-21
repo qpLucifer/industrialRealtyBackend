@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchCodeMasterItems, fetchPropertyDetail, fetchRegionDefs, publishPropertyApi, savePropertySnapshot, uploadOssFile } from '@/api/admin'
-import MapLatLngPicker from '@/components/MapLatLngPicker.vue'
+import MapLatLngPicker, { type MapLocationPickPayload } from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -16,6 +16,15 @@ import {
   sanitizeDigitsDecimal,
   sanitizeDigitsInt,
 } from '@/lib/inputValidators'
+import {
+  PUBLISH_STEP_NAMES,
+  PHOTO_OPTIONS,
+  STRUCTURE_OPTIONS,
+  RIGHTS_OPTIONS,
+  LAND_USE_OPTIONS,
+  CERT_OPTIONS,
+  FIRE_OPTIONS,
+} from '@/lib/propertyPublish'
 
 /** Ensure arrays / flags exist so chips and toggles never throw. */
 function ensurePropertyFormShape(f: PropertyFullForm, defaultTypeLabel = '标准厂房') {
@@ -316,6 +325,22 @@ function onCoordInput(which: 'lat' | 'lng', e: Event) {
   form[which] = v
 }
 
+/** Same as miniapp `guessDistrictFromAddress` + `applyLocationPick`. */
+function guessDistrictFromAddress(address: string) {
+  const text = String(address || '').trim()
+  if (!text) return
+  const hit = regionDefs.value.find((r) => r.name && text.includes(r.name))
+  if (hit) form.district = hit.name
+}
+
+function onMapLocationPick(payload: MapLocationPickPayload) {
+  const addr = String(payload.address || '').trim()
+  if (addr) form.address = addr.slice(0, 200)
+  form.lat = payload.lat.toFixed(6)
+  form.lng = payload.lng.toFixed(6)
+  guessDistrictFromAddress(addr || form.address)
+}
+
 function onPhone11Input(e: Event) {
   form.contactPhone = normalizeCnMobileInput((e.target as HTMLInputElement).value)
 }
@@ -328,6 +353,27 @@ const subsidyDetailDisabled = computed(() => form.subsidy !== '有')
 const mortgageNoteDisabled = computed(() => form.mortgageDispute === '无')
 /** Reason applies when acceptance is not passed */
 const fireFailReasonDisabled = computed(() => form.firePass !== '否')
+const showRentFields = computed(() => form.rentSaleType === '出租' || form.rentSaleType === '租售皆可')
+const coTenantAnnualDisabled = computed(() => !Number(form.coTenantCount))
+
+const auditState = computed(() => {
+  const s = String(form.auditState || '').trim()
+  return s || 'draft'
+})
+const showStatusAuditHint = computed(() => {
+  if (auditState.value === 'draft' || auditState.value === 'rejected') return false
+  const hint = String(form.auditHint || '').trim()
+  if (!hint) return false
+  if (hint.includes('未发布') && hint.includes('草稿')) return false
+  return true
+})
+function auditStatusStripClass() {
+  const s = auditState.value
+  if (s === 'live') return 'audit-strip audit-strip--live'
+  if (s === 'pending') return 'audit-strip audit-strip--pending'
+  if (s === 'rejected') return 'audit-strip audit-strip--rejected'
+  return 'audit-strip audit-strip--draft'
+}
 
 function openImageLightbox(i: number) {
   const urls = imagePreviewUrls.value
@@ -354,12 +400,13 @@ const FALLBACK_LISTING_STATUSES = ['待租', '已租', '待售', '已售', '意�
 
 const propertyTypeLabels = ref<string[]>([...FALLBACK_PROPERTY_TYPES])
 const listingStatusLabels = ref<string[]>([...FALLBACK_LISTING_STATUSES])
-const photoOptions = ['门口形象照', '路口进出照', '车间照片', '货梯', '厂房屋顶'] as const
-const structureOptions = ['钢构', '框架', '其他'] as const
-const rightsOptions = ['国有土地', '出让', '划拨', '集体土地', '其他'] as const
-const landUseOptions = ['工业', '仓储', '其他'] as const
-const certOptions = ['房产证', '土地证', '消防验收证', '环保批文'] as const
-const fireOptions = ['喷淋', '烟感', '消防栓', '其他'] as const
+const publishStepNames = [...PUBLISH_STEP_NAMES]
+const photoOptions = [...PHOTO_OPTIONS]
+const structureOptions = [...STRUCTURE_OPTIONS]
+const rightsOptions = [...RIGHTS_OPTIONS]
+const landUseOptions = [...LAND_USE_OPTIONS]
+const certOptions = [...CERT_OPTIONS]
+const fireOptions = [...FIRE_OPTIONS]
 
 function toggle(arr: string[], v: string) {
   const i = arr.indexOf(v)
@@ -404,6 +451,7 @@ watch(
   () => [props.visible, props.code] as const,
   async ([vis, code]) => {
     if (!vis) return
+    tab.value = 0
     detailViewTab.value = 2
     const [regions, detail, typeCm, listingCm] = await Promise.all([
       fetchRegionDefs(),
@@ -472,6 +520,8 @@ function collectPropertyRequiredMiss(): string[] {
   if (!String(form.listTitle || '').trim()) miss.push('列表标题')
   if (!Array.isArray(form.types) || !form.types.length) miss.push('房源类型')
   if (!String(form.companyName || '').trim()) miss.push('公司名称')
+  const district = String(form.district || '').trim()
+  if (!district || district === '未分区') miss.push('所属区域')
   if (!String(form.address || '').trim()) miss.push('详细地址')
   if (!String(form.lat || '').trim() || !String(form.lng || '').trim()) miss.push('地图坐标（GCJ-02 纬经度）')
   if (!Array.isArray(form.photoChecklist) || !form.photoChecklist.length) miss.push('现场必拍清单')
@@ -534,9 +584,8 @@ async function onPublish() {
     ElMessage.success('已提交发布，进入待审核')
     emit('saved')
     await reloadPropertyForm()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '发布失败')
+  } catch {
+    /* global http interceptor shows API error */
   }
 }
 
@@ -567,9 +616,8 @@ async function onPickImages(ev: Event) {
     }
     mediaImageBlock.value = lines.join('\n')
     ElMessage.success(`已上传 ${files.length} 张图片`)
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '上传失败')
+  } catch {
+    /* global http interceptor shows API error */
   } finally {
     uploadingImage.value = false
     input.value = ''
@@ -593,9 +641,8 @@ async function onPickVideos(ev: Event) {
     }
     mediaVideoBlock.value = lines.join('\n')
     ElMessage.success(`已上传 ${files.length} 个视频`)
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '上传失败')
+  } catch {
+    /* global http interceptor shows API error */
   } finally {
     uploadingVideo.value = false
     input.value = ''
@@ -618,20 +665,22 @@ async function onPickVideos(ev: Event) {
             <button type="button" class="modal-close-icon" aria-label="关闭" @click="close">×</button>
           </div>
           <div v-if="mode === 'edit'" class="admin-modal-tabs" data-skip-tap>
-            <button type="button" :class="{ active: tab === 0 }" @click="setTab(0)">分类 · 基础 · 清单</button>
-            <button type="button" :class="{ active: tab === 1 }" @click="setTab(1)">地图定位</button>
-            <button type="button" :class="{ active: tab === 2 }" @click="setTab(2)">图片</button>
-            <button type="button" :class="{ active: tab === 3 }" @click="setTab(3)">视频</button>
-            <button type="button" :class="{ active: tab === 4 }" @click="setTab(4)">土地 · 配套 · 使用</button>
-            <button type="button" :class="{ active: tab === 5 }" @click="setTab(5)">产权 · 合规</button>
-            <button type="button" :class="{ active: tab === 6 }" @click="setTab(6)">内部跟进</button>
+            <button
+              v-for="(name, i) in publishStepNames"
+              :key="name"
+              type="button"
+              :class="{ active: tab === i }"
+              @click="setTab(i)"
+            >
+              {{ name }}
+            </button>
           </div>
         </div>
         <div class="modal-prop-scroll">
           <template v-if="mode === 'edit'">
           <div class="prop-admin-panel" :class="{ active: tab === 0 }">
             <div class="form-grid" style="margin-top: 0">
-              <div class="form-section-h">列表与状态</div>
+              <div class="form-section-h">状态</div>
               <div class="full">
                 <label>当前状态（列表「状态」列）</label>
                 <template v-if="canChangeListingStatus">
@@ -653,22 +702,14 @@ async function onPickVideos(ev: Event) {
                 <label>驳回原因</label>
                 <textarea :value="String(form.auditHint || '')" class="ro-input-readonly" rows="3" readonly tabindex="-1" />
               </div>
+              <div v-else-if="showStatusAuditHint" class="full">
+                <div :class="auditStatusStripClass()">{{ form.auditHint }}</div>
+              </div>
+              <div class="form-section-h" style="margin-top: 8px">分类 · 主体（管理端可随时编辑）</div>
               <div class="full">
                 <label>列表标题（房源列）<span style="color: var(--rose)">*</span></label>
                 <input v-model="form.listTitle" type="text" maxlength="120" placeholder="例：黄埔科学城 · 单层厂房" />
                 <span class="hint" style="font-size: 11px">{{ String(form.listTitle || '').length }}/120</span>
-              </div>
-              <div class="full">
-                <label>所属区域（与员工负责区域一致）</label>
-                <el-select
-                  v-model="form.district"
-                  clearable
-                  placeholder="请选择区县"
-                  style="width: 100%; margin-top: 6px"
-                >
-                  <el-option v-for="d in regionDefs" :key="d.id" :label="d.name" :value="d.name" />
-                </el-select>
-                <p class="hint" style="margin-top: 6px">选项来自「区域名称」页维护的名称，与员工负责区域、列表筛选一致。</p>
               </div>
               <div>
                 <label>提交人（列表）</label>
@@ -678,7 +719,6 @@ async function onPickVideos(ev: Event) {
                 <label>风险标签</label>
                 <input v-model="form.riskTag" type="text" maxlength="64" placeholder="如：资料待核、无、首次发布" />
               </div>
-              <div class="form-section-h" style="margin-top: 8px">分类 · 基础 · 清单</div>
               <div class="full">
                 <label>房源类型（多选）<span style="color: var(--rose)">*</span></label>
                 <div class="chip-toggle" data-multi style="margin-top: 6px">
@@ -696,11 +736,6 @@ async function onPickVideos(ev: Event) {
                 <input v-model="form.companyName" type="text" maxlength="120" />
               </div>
               <div class="full">
-                <label>详细地址<span style="color: var(--rose)">*</span></label>
-                <input v-model="form.address" type="text" maxlength="200" />
-                <span class="hint" style="font-size: 11px">{{ String(form.address || '').length }}/200</span>
-              </div>
-              <div class="full">
                 <label>业主联系人</label>
                 <input v-model="form.ownerContact" type="text" maxlength="40" />
               </div>
@@ -709,7 +744,24 @@ async function onPickVideos(ev: Event) {
 
           <div class="prop-admin-panel" :class="{ active: tab === 1 }">
             <div class="form-grid" style="margin-top: 0">
-              <div class="form-section-h">地图定位（小程序房源详情底部展示）</div>
+              <div class="form-section-h">位置 · 地图（GCJ-02）</div>
+              <div class="full">
+                <label>所属区域<span style="color: var(--rose)">*</span></label>
+                <el-select
+                  v-model="form.district"
+                  clearable
+                  placeholder="请选择区县"
+                  style="width: 100%; margin-top: 6px"
+                >
+                  <el-option v-for="d in regionDefs" :key="d.id" :label="d.name" :value="d.name" />
+                </el-select>
+                <p class="hint" style="margin-top: 6px">与小程序发布页一致；选项来自「区域名称」维护。</p>
+              </div>
+              <div class="full">
+                <label>详细地址<span style="color: var(--rose)">*</span></label>
+                <input v-model="form.address" type="text" maxlength="200" />
+                <span class="hint" style="font-size: 11px">{{ String(form.address || '').length }}/200</span>
+              </div>
               <div>
                 <label>纬度（GCJ-02）<span style="color: var(--rose)">*</span></label>
                 <input
@@ -739,6 +791,7 @@ async function onPickVideos(ev: Event) {
                   v-model:lat="form.lat"
                   v-model:lng="form.lng"
                   :disabled="false"
+                  @location-pick="onMapLocationPick"
                 />
               </div>
             </div>
@@ -746,7 +799,7 @@ async function onPickVideos(ev: Event) {
 
           <div class="prop-admin-panel" :class="{ active: tab === 2 }">
             <div class="form-grid" style="margin-top: 0">
-              <div class="form-section-h">图片 · 现场必拍</div>
+              <div class="form-section-h">现场必拍清单</div>
               <div class="full">
                 <label>现场必拍清单（多选）<span style="color: var(--rose)">*</span></label>
                 <div class="chip-toggle" data-multi style="margin-top: 6px">
@@ -786,12 +839,7 @@ async function onPickVideos(ev: Event) {
                 </div>
               </div>
               <p v-else class="hint full" style="margin: 0">填写 URL 或上传后将在此显示缩略图。</p>
-            </div>
-          </div>
-
-          <div class="prop-admin-panel" :class="{ active: tab === 3 }">
-            <div class="form-grid" style="margin-top: 0">
-              <div class="form-section-h">视频 URL 与上传</div>
+              <div class="form-section-h" style="margin-top: 16px">视频上传</div>
               <div class="full">
                 <label>视频 URL（每行一条）</label>
                 <textarea v-model="mediaVideoBlock" rows="4" placeholder="https://…mp4 / mov（可与图片同时存在）" />
@@ -812,9 +860,9 @@ async function onPickVideos(ev: Event) {
             </div>
           </div>
 
-          <div class="prop-admin-panel" :class="{ active: tab === 4 }">
+          <div class="prop-admin-panel" :class="{ active: tab === 3 }">
             <div class="form-grid" style="margin-top: 0">
-              <div class="form-section-h">2. 土地与建筑规格</div>
+              <div class="form-section-h">土地 · 建筑规格</div>
               <div>
                 <label>土地（亩）<span style="color: var(--rose)">*</span></label>
                 <input :value="numStr(form.landMu)" type="text" inputmode="decimal" maxlength="14" @input="setDec('landMu', $event)" />
@@ -875,8 +923,12 @@ async function onPickVideos(ev: Event) {
                 <label>结构 · 其他说明</label>
                 <input v-model="form.structureOther" type="text" placeholder="选其他时填写" :disabled="structureOtherDisabled" />
               </div>
+            </div>
+          </div>
 
-              <div class="form-section-h">3. 电力与货运设施</div>
+          <div class="prop-admin-panel" :class="{ active: tab === 4 }">
+            <div class="form-grid" style="margin-top: 0">
+              <div class="form-section-h">电力 · 货梯 · 货运</div>
               <div>
                 <label>电力总容量（kVA）<span style="color: var(--rose)">*</span></label>
                 <input :value="numStr(form.powerKva)" type="text" inputmode="numeric" maxlength="10" @input="setInt('powerKva', $event)" />
@@ -912,7 +964,7 @@ async function onPickVideos(ev: Event) {
                 <input :value="numStr(form.turnRadiusM)" type="text" inputmode="decimal" maxlength="10" @input="setDec('turnRadiusM', $event)" />
               </div>
 
-              <div class="form-section-h">4. 周边配套<span style="color: var(--rose)">*</span></div>
+              <div class="form-section-h">周边配套</div>
               <div>
                 <label>宿舍 · 园区内租金（元/房）</label>
                 <input :value="numStr(form.dormRent)" type="text" inputmode="numeric" maxlength="10" placeholder="可选" @input="setInt('dormRent', $event)" />
@@ -951,7 +1003,7 @@ async function onPickVideos(ev: Event) {
                 />
               </div>
 
-              <div class="form-section-h">5. 使用情况<span style="color: var(--rose)">*</span></div>
+              <div class="form-section-h">使用情况</div>
               <div>
                 <label>自用（㎡）</label>
                 <input :value="numStr(form.selfUseSqm)" type="text" inputmode="numeric" maxlength="12" @input="setInt('selfUseSqm', $event)" />
@@ -977,13 +1029,19 @@ async function onPickVideos(ev: Event) {
                   type="text"
                   inputmode="numeric"
                   maxlength="14"
-                  placeholder="共租时"
+                  placeholder="共租时填写"
+                  :disabled="coTenantAnnualDisabled"
                   @input="setDecNullable('annualRent', $event)"
                 />
               </div>
               <div class="full">
                 <label>租客公司名称</label>
-                <input v-model="form.tenantCompanies" type="text" placeholder="多家顿号分隔" />
+                <input
+                  v-model="form.tenantCompanies"
+                  type="text"
+                  placeholder="多家顿号分隔"
+                  :disabled="coTenantAnnualDisabled"
+                />
               </div>
               <div>
                 <label>合同还有（年）</label>
@@ -992,6 +1050,8 @@ async function onPickVideos(ev: Event) {
                   type="text"
                   inputmode="decimal"
                   maxlength="8"
+                  placeholder="共租时填写"
+                  :disabled="coTenantAnnualDisabled"
                   @input="setDecNullable('contractYearsLeft', $event)"
                 />
               </div>
@@ -1008,7 +1068,7 @@ async function onPickVideos(ev: Event) {
 
           <div class="prop-admin-panel" :class="{ active: tab === 5 }">
             <div class="form-grid" style="margin-top: 0">
-              <div class="form-section-h">7. 产权性质<span style="color: var(--rose)">*</span></div>
+              <div class="form-section-h">产权 · 证件</div>
               <div class="full">
                 <label>产权性质（多选）</label>
                 <div class="chip-toggle" data-multi style="margin-top: 6px">
@@ -1065,7 +1125,7 @@ async function onPickVideos(ev: Event) {
                 <textarea v-model="form.mortgageNote" rows="2" :disabled="mortgageNoteDisabled" />
               </div>
 
-              <div class="form-section-h">8. 交易条款<span style="color: var(--rose)">*</span> · 税费</div>
+              <div class="form-section-h">交易 · 行业限制</div>
               <div>
                 <label>房东心里价位（万）</label>
                 <input
@@ -1085,7 +1145,6 @@ async function onPickVideos(ev: Event) {
                 <input v-model="form.taxFeeNote" type="text" placeholder="金额或区间" />
               </div>
 
-              <div class="form-section-h">9. 行业限制</div>
               <div class="full">
                 <label>允许产业类型</label>
                 <input v-model="form.allowedIndustries" type="text" />
@@ -1095,7 +1154,7 @@ async function onPickVideos(ev: Event) {
                 <textarea v-model="form.specialLimits" rows="2" />
               </div>
 
-              <div class="form-section-h">10. 消防与安全</div>
+              <div class="form-section-h">消防 · 物流</div>
               <div class="full">
                 <label>消防系统（多选）</label>
                 <div class="chip-toggle" data-multi style="margin-top: 6px">
@@ -1131,7 +1190,6 @@ async function onPickVideos(ev: Event) {
                 <input v-model="form.fireFailReason" type="text" :disabled="fireFailReasonDisabled" />
               </div>
 
-              <div class="form-section-h">11. 物流便捷度</div>
               <div>
                 <label>最近高速口（km）</label>
                 <input :value="numStr(form.highwayKm)" type="text" inputmode="decimal" maxlength="10" @input="setDec('highwayKm', $event)" />
@@ -1152,8 +1210,12 @@ async function onPickVideos(ev: Event) {
                   <option>严重</option>
                 </select>
               </div>
+            </div>
+          </div>
 
-              <div class="form-section-h">12. 政策支持</div>
+          <div class="prop-admin-panel" :class="{ active: tab === 6 }">
+            <div class="form-grid" style="margin-top: 0">
+              <div class="form-section-h">政策 · 环保 · 能源</div>
               <div>
                 <label>地方产业补贴</label>
                 <select v-model="form.subsidy" style="margin-top: 5px">
@@ -1170,7 +1232,6 @@ async function onPickVideos(ev: Event) {
                 <input v-model="form.taxBenefit" type="text" />
               </div>
 
-              <div class="form-section-h">13. 环保与能源</div>
               <div class="full">
                 <label>环评等级</label>
                 <input v-model="form.envLevel" type="text" />
@@ -1183,14 +1244,14 @@ async function onPickVideos(ev: Event) {
                 </select>
               </div>
               <div>
-                <label>光伏安装</label>
+                <label>光伏接入</label>
                 <select v-model="form.solar" style="margin-top: 5px">
                   <option>可接入</option>
                   <option>不可接入</option>
                 </select>
               </div>
 
-              <div class="form-section-h">备注栏</div>
+              <div class="form-section-h">亮点 · 风险 · 评估</div>
               <div class="full">
                 <label>厂房亮点</label>
                 <textarea v-model="form.highlights" rows="2" />
@@ -1206,9 +1267,9 @@ async function onPickVideos(ev: Event) {
             </div>
           </div>
 
-          <div class="prop-admin-panel" :class="{ active: tab === 6 }">
+          <div class="prop-admin-panel" :class="{ active: tab === 7 }">
             <div class="form-grid" style="margin-top: 0">
-              <div class="form-section-h">内部跟进</div>
+              <div class="form-section-h">挂牌联系</div>
               <div>
                 <label>租售类型<span style="color: var(--rose)">*</span></label>
                 <select v-model="form.rentSaleType">
@@ -1217,14 +1278,16 @@ async function onPickVideos(ev: Event) {
                   <option>租售皆可</option>
                 </select>
               </div>
-              <div>
-                <label>租金挂牌（元/㎡·月）</label>
-                <input :value="numStr(form.rentListSqm)" type="text" inputmode="decimal" maxlength="12" @input="setDec('rentListSqm', $event)" />
-              </div>
-              <div>
-                <label>物业费（元/㎡·月）</label>
-                <input :value="numStr(form.propertyFee)" type="text" inputmode="decimal" maxlength="12" @input="setDec('propertyFee', $event)" />
-              </div>
+              <template v-if="showRentFields">
+                <div>
+                  <label>租金挂牌（元/㎡·月）</label>
+                  <input :value="numStr(form.rentListSqm)" type="text" inputmode="decimal" maxlength="12" @input="setDec('rentListSqm', $event)" />
+                </div>
+                <div>
+                  <label>物业费（元/㎡·月）</label>
+                  <input :value="numStr(form.propertyFee)" type="text" inputmode="decimal" maxlength="12" @input="setDec('propertyFee', $event)" />
+                </div>
+              </template>
               <div>
                 <label>联系人姓名<span style="color: var(--rose)">*</span></label>
                 <input v-model="form.contactName" type="text" />
@@ -1252,7 +1315,7 @@ async function onPickVideos(ev: Event) {
                 <textarea v-model="form.viewingNote" rows="2" />
               </div>
               <div class="full">
-                <label>内部备注（不对客户）</label>
+                <label>内部备注（管理端专用，不对客户展示）</label>
                 <textarea v-model="form.internalNote" rows="4" placeholder="团队内部记录、谈判进展等" />
               </div>
             </div>
@@ -1363,6 +1426,26 @@ async function onPickVideos(ev: Event) {
 </template>
 
 <style scoped>
+.audit-strip {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  background: #f1f5f9;
+  color: #334155;
+}
+.audit-strip--pending {
+  background: #fff7ed;
+  color: #9a3412;
+}
+.audit-strip--live {
+  background: #ecfdf5;
+  color: #047857;
+}
+.audit-strip--rejected {
+  background: #fef2f2;
+  color: #b91c1c;
+}
 .property-full-modal-host {
   display: contents;
 }
@@ -1501,6 +1584,6 @@ textarea.ro-input-readonly {
 }
 .media-video-link {
   font-size: 12px;
-  color: var(--mint, #0d9488);
+  color: var(--brand, #1a3a6c);
 }
 </style>

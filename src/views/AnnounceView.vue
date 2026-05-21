@@ -8,8 +8,9 @@ import {
   updateAnnouncementApi,
 } from '@/api/admin'
 import type { AnnouncementRow } from '@/types/domain'
+import TableActionBtn from '@/components/TableActionBtn.vue'
+import { datetimeLocalToApi, formatBeijingDisplay, parseBeijingNaiveToInstant, toDatetimeLocalValue } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
-import { resolveApiErrorMessage } from '@/lib/apiError'
 
 const list = ref<AnnouncementRow[]>([])
 const modal = ref(false)
@@ -38,15 +39,9 @@ function statusClass(t: AnnouncementRow['statusTone']) {
   return t === 'mint' ? 'mint' : 'amber'
 }
 
-/** List column: show popup window range without ISO "T" (e.g. 2026-05-14 19:36). */
+/** List column: Beijing `YYYY-MM-DD HH:mm`. */
 function formatAnnouncementListDateTime(raw: string): string {
-  let s = String(raw || '').trim()
-  if (!s) return ''
-  s = s.replace('T', ' ')
-  s = s.replace(/Z$/i, '')
-  s = s.replace(/\.\d+$/, '')
-  s = s.replace(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}):00$/, '$1')
-  return s
+  return formatBeijingDisplay(raw)
 }
 
 function popupWindowLabel(row: AnnouncementRow): string {
@@ -75,8 +70,8 @@ function openEdit(row: AnnouncementRow) {
   form.body = row.body || ''
   form.scope = row.scope
   form.popup = row.popup
-  form.popupStart = String(row.popupStart || '').trim()
-  form.popupEnd = String(row.popupEnd || '').trim()
+  form.popupStart = toDatetimeLocalValue(row.popupStart)
+  form.popupEnd = toDatetimeLocalValue(row.popupEnd)
   form.statusToneCn = toneDbToCn(row.statusTone)
   modal.value = true
 }
@@ -101,8 +96,8 @@ async function onPublish() {
     body: form.body.trim(),
     scope: form.scope,
     popup: form.popup,
-    popupStart: form.popup === '是' ? form.popupStart.trim() : '',
-    popupEnd: form.popup === '是' ? form.popupEnd.trim() : '',
+    popupStart: form.popup === '是' ? datetimeLocalToApi(form.popupStart) : '',
+    popupEnd: form.popup === '是' ? datetimeLocalToApi(form.popupEnd) : '',
     statusToneCn: form.statusToneCn,
   }
   try {
@@ -113,21 +108,39 @@ async function onPublish() {
       await updateAnnouncementApi(editingId.value, payload)
       ElMessage.success('公告已更新')
     }
-  } catch (e) {
-    ElMessage.error(resolveApiErrorMessage(e, '保存失败'))
+  } catch {
     return
   }
   modal.value = false
   await load()
 }
 
+function isRowPopupActive(row: AnnouncementRow): boolean {
+  const p = String(row.popup || '').trim()
+  if (p !== '是' && p.toLowerCase() !== 'yes') return false
+  const now = Date.now()
+  const startMs = row.popupStart ? parseBeijingNaiveToInstant(row.popupStart)?.getTime() : undefined
+  const endMs = row.popupEnd ? parseBeijingNaiveToInstant(row.popupEnd)?.getTime() : undefined
+  if (startMs != null && !Number.isNaN(startMs) && now < startMs) return false
+  if (endMs != null && !Number.isNaN(endMs) && now > endMs) return false
+  return true
+}
+
 async function onDelete(row: AnnouncementRow) {
+  if (isRowPopupActive(row)) {
+    ElMessage.warning('该公告正在弹窗展示期内，请先在编辑中关闭弹窗或调整展示时间后再删除')
+    return
+  }
   try {
     await ElMessageBox.confirm(`删除公告「${row.title}」？`, '确认', { type: 'warning' })
   } catch {
     return
   }
-  await deleteAnnouncementApi(row.id)
+  try {
+    await deleteAnnouncementApi(row.id)
+  } catch {
+    return
+  }
   ElMessage.success('已删除')
   await load()
 }
@@ -164,12 +177,8 @@ onMounted(load)
             </td>
             <td>
               <div class="row-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(r)" />
               </div>
             </td>
           </tr>

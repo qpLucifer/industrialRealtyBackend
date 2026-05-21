@@ -12,11 +12,14 @@ export interface ViewingRow {
 }
 
 export interface DealRow {
+  id?: number
   contractType: string
   amount: string
   commission: string
   invoiceType: string
   archiveStatus: string
+  staffId?: string | null
+  staffName?: string | null
 }
 
 export const mockViewingRows: ViewingRow[] = [
@@ -34,10 +37,13 @@ export const mockViewingRows: ViewingRow[] = [
 
 export const mockDealRows: DealRow[] = [
   {
+    id: 1,
     contractType: '租赁合同',
     amount: '¥1,280,000',
     commission: '¥64,000',
     invoiceType: '专票',
     archiveStatus: '已归档',
+    staffId: 's1',
+    staffName: '陈思远',
   },
 ]

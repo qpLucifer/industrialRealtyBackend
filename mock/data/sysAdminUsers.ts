@@ -67,7 +67,7 @@ export function mockSysAdminUserCreate(body: Record<string, unknown>) {
     avatarUrl: (body.avatarUrl as string) || null,
     userKind: 'admin',
     hasLoginPassword: true,
-    createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    createdAt: '2026-01-01 10:00',
   })
   mockPlainPasswordByUserId.set(id, String(body.password || ''))
   return { id }

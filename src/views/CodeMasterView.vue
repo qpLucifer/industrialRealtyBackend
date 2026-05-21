@@ -9,6 +9,7 @@ import {
   updateCodeMasterItem,
 } from '@/api/admin'
 import type { CodeMasterRow, CodeMasterTypeInfo } from '@/types/domain'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const types = ref<CodeMasterTypeInfo[]>([])
@@ -106,9 +107,8 @@ async function onSaveModal() {
     }
     modal.value = false
     await loadRows()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '保存失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 
@@ -122,9 +122,8 @@ async function onDelete(row: CodeMasterRow) {
     await deleteCodeMasterItem(row.id)
     ElMessage.success('已删除')
     await loadRows()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '删除失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 </script>
@@ -168,12 +167,8 @@ async function onDelete(row: CodeMasterRow) {
             <td class="cell-wrap hint-sm">{{ r.remark || '—' }}</td>
             <td>
               <div class="row-actions">
-                <el-tooltip content="编辑" placement="top">
-                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="openEdit(r)" />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDelete(r)" />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDelete(r)" />
               </div>
             </td>
           </tr>

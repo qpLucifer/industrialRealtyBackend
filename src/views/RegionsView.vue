@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteRegionDef, fetchRegionDefs, postRegionDef, putRegionDef } from '@/api/admin'
 import type { RegionDefRow } from '@/types/domain'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { Check, Close, Delete, Edit } from '@element-plus/icons-vue'
 
 const defs = ref<RegionDefRow[]>([])
@@ -31,9 +32,8 @@ async function onAddRegion() {
     ElMessage.success('已新增')
     newName.value = ''
     await loadDefs()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '新增失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 
@@ -59,9 +59,8 @@ async function onSaveEdit() {
     ElMessage.success('已保存')
     cancelEdit()
     await loadDefs()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '保存失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 
@@ -75,9 +74,8 @@ async function onDeleteRegion(row: RegionDefRow) {
     await deleteRegionDef(row.id)
     ElMessage.success('已删除')
     await loadDefs()
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    ElMessage.error(err?.message || '删除失败')
+  } catch {
+    /* http interceptor shows API error */
   }
 }
 
@@ -110,20 +108,12 @@ onMounted(loadDefs)
             </td>
             <td>
               <template v-if="editId === row.id">
-                <el-tooltip content="保存" placement="top">
-                  <el-button type="success" :icon="Check" circle plain size="small" @click="onSaveEdit" />
-                </el-tooltip>
-                <el-tooltip content="取消" placement="top">
-                  <el-button :icon="Close" circle plain size="small" @click="cancelEdit" />
-                </el-tooltip>
+                <TableActionBtn title="保存" :icon="Check" variant="success" @click="onSaveEdit" />
+                <TableActionBtn title="取消" :icon="Close" variant="neutral" @click="cancelEdit" />
               </template>
               <template v-else>
-                <el-tooltip content="编辑" placement="top">
-                  <el-button type="primary" :icon="Edit" circle plain size="small" @click="startEdit(row)" />
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top">
-                  <el-button type="danger" :icon="Delete" circle plain size="small" @click="onDeleteRegion(row)" />
-                </el-tooltip>
+                <TableActionBtn title="编辑" :icon="Edit" @click="startEdit(row)" />
+                <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDeleteRegion(row)" />
               </template>
             </td>
           </tr>

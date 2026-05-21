@@ -3,16 +3,28 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { auditPassApi, auditRejectApi, fetchAuditQueue } from '@/api/admin'
 import type { AuditQueueRow } from '@/types/domain'
+import { formatBeijingDisplay } from '@/lib/beijingTime'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
+import TableActionBtn from '@/components/TableActionBtn.vue'
 import { CircleCheck, CloseBold, View } from '@element-plus/icons-vue'
 
 const list = ref<AuditQueueRow[]>([])
 const modalVisible = ref(false)
 const modalCode = ref('')
+const loading = ref(false)
+const loadError = ref('')
 
 async function load() {
-  const { list: rows } = await fetchAuditQueue()
-  list.value = rows
+  loading.value = true
+  loadError.value = ''
+  try {
+    const { list: rows } = await fetchAuditQueue()
+    list.value = rows
+  } catch {
+    loadError.value = '加载失败'
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(load)
@@ -23,9 +35,13 @@ function openDetail(row: AuditQueueRow) {
 }
 
 async function onPass(row: AuditQueueRow) {
-  await auditPassApi({ code: row.code })
-  ElMessage.success('已通过审核')
-  await load()
+  try {
+    await auditPassApi({ code: row.code })
+    ElMessage.success('已通过审核')
+    await load()
+  } catch {
+    /* global http interceptor */
+  }
 }
 
 async function onReject(row: AuditQueueRow) {
@@ -56,6 +72,8 @@ async function onReject(row: AuditQueueRow) {
   <section class="panel active">
     <div class="toolbar">
       <button type="button" class="btn" @click="load">刷新队列</button>
+      <span v-if="loading" class="hint">加载中…</span>
+      <span v-else-if="loadError" class="hint" style="color: var(--rose)">{{ loadError }}</span>
     </div>
     <div class="card">
       <h3>待审核队列</h3>
@@ -84,7 +102,7 @@ async function onReject(row: AuditQueueRow) {
               <td>{{ r.district || '—' }}</td>
               <td>{{ r.type || '—' }}</td>
               <td>{{ r.submitter }}</td>
-              <td class="nowrap">{{ r.submittedAt }}</td>
+              <td class="nowrap">{{ formatBeijingDisplay(r.submittedAt) || r.submittedAt || '—' }}</td>
               <!-- <td class="cell-wrap hint-sm">
                 <div>{{ r.listingLine1 || '—' }}</div>
                 <div>{{ r.listingLine2 || '—' }}</div>
@@ -97,15 +115,9 @@ async function onReject(row: AuditQueueRow) {
               <td class="cell-wrap hint-sm">{{ r.auditHint || '—' }}</td>
               <td><span class="tag cyan">{{ r.riskTag || '—' }}</span></td>
               <td class="table-actions">
-                <el-tooltip content="详情" placement="top">
-                  <el-button type="primary" :icon="View" circle plain size="small" @click="openDetail(r)" />
-                </el-tooltip>
-                <el-tooltip content="通过" placement="top">
-                  <el-button type="success" :icon="CircleCheck" circle plain size="small" @click="onPass(r)" />
-                </el-tooltip>
-                <el-tooltip content="驳回" placement="top">
-                  <el-button type="warning" :icon="CloseBold" circle plain size="small" @click="onReject(r)" />
-                </el-tooltip>
+                <TableActionBtn title="详情" :icon="View" @click="openDetail(r)" />
+                <TableActionBtn title="通过" :icon="CircleCheck" variant="success" @click="onPass(r)" />
+                <TableActionBtn title="驳回" :icon="CloseBold" variant="warning" @click="onReject(r)" />
               </td>
             </tr>
           </tbody>
