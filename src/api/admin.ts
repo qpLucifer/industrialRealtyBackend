@@ -162,14 +162,12 @@ export async function deletePropertyApi(code: string) {
   return unwrap(res) as { success: boolean }
 }
 
+/** @deprecated Use uploadImageFile / uploadImagesBatch / uploadVideoMultipart from @/lib/mediaUpload */
 export async function uploadOssFile(file: File, folder?: string) {
+  const { uploadImageFile } = await import('@/lib/mediaUpload')
   pushUploadLoading()
   try {
-    const fd = new FormData()
-    fd.append('file', file)
-    if (folder) fd.append('folder', folder)
-    const res = await http.post('/upload/oss', fd)
-    return unwrap(res) as { url: string; key: string }
+    return await uploadImageFile(file, folder)
   } finally {
     popUploadLoading()
   }

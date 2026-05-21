@@ -439,6 +439,33 @@ export default [
     response: () => ok({ url: 'https://example.com/mock-oss/object.jpg', key: 'mock/object.jpg' }),
   },
   {
+    url: '/api/upload/limits',
+    method: 'get',
+    response: () =>
+      ok({
+        maxImageBytes: 50 * 1024 * 1024,
+        maxVideoBytes: 500 * 1024 * 1024,
+        maxImagesPerPick: 5,
+        maxVideosPerPick: 1,
+        multipartChunkBytes: 5 * 1024 * 1024,
+      }),
+  },
+  {
+    url: '/api/upload/oss/multipart/init',
+    method: 'post',
+    response: () => ok({ sessionId: 'mock', chunkSize: 5242880, totalParts: 1 }),
+  },
+  {
+    url: '/api/upload/oss/multipart/part',
+    method: 'post',
+    response: () => ok({ partNumber: 1, receivedParts: 1, uploadedBytes: 1, totalBytes: 1 }),
+  },
+  {
+    url: '/api/upload/oss/multipart/complete',
+    method: 'post',
+    response: () => ok({ url: 'https://example.com/mock-oss/video.mp4', key: 'mock/video.mp4' }),
+  },
+  {
     url: '/api/staff/import-csv',
     method: 'post',
     response: () => ok({ created: 0, updated: 0, errors: [] }),

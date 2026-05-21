@@ -6,11 +6,11 @@ import {
   deleteVideoFaqRow,
   fetchVideoFaq,
   updateVideoFaqRow,
-  uploadOssFile,
 } from '@/api/admin'
 import type { VideoFaqRow } from '@/types/domain'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { formatBeijingDisplay } from '@/lib/beijingTime'
+import { uploadVideoMultipart } from '@/lib/mediaUpload'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<VideoFaqRow[]>([])
@@ -27,6 +27,7 @@ const form = reactive({
   summary: '',
 })
 const uploadingVideo = ref(false)
+const videoUploadPercent = ref(0)
 
 const filtered = computed(() => {
   const s = q.value.trim().toLowerCase()
@@ -120,14 +121,18 @@ async function onVideoPick(ev: Event) {
   const file = input.files?.[0]
   if (!file) return
   uploadingVideo.value = true
+  videoUploadPercent.value = 0
   try {
-    const { url } = await uploadOssFile(file, 'video-faq')
+    const { url } = await uploadVideoMultipart(file, 'video-faq', (pct) => {
+      videoUploadPercent.value = pct
+    })
     form.videoPath = url
     ElMessage.success('视频已上传，URL 已填入')
-  } catch {
-    /* global http interceptor shows API error */
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '视频上传失败')
   } finally {
     uploadingVideo.value = false
+    videoUploadPercent.value = 0
     input.value = ''
   }
 }
@@ -198,7 +203,11 @@ onMounted(load)
         </div>
         <div class="full">
           <label>上传到 OSS（视频）</label>
-          <input type="file" accept="video/*" :disabled="uploadingVideo" @change="onVideoPick" />
+          <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" :disabled="uploadingVideo" @change="onVideoPick" />
+          <div v-if="uploadingVideo" class="upload-progress-row">
+            <div class="upload-progress-bar"><div class="upload-progress-fill" :style="{ width: videoUploadPercent + '%' }" /></div>
+            <span class="hint">视频上传中 {{ videoUploadPercent }}%</span>
+          </div>
         </div>
         <div v-if="form.videoPath.trim()" class="full">
           <label>视频预览</label>

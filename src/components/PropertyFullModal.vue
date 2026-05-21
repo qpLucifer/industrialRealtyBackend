@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { fetchCodeMasterItems, fetchPropertyDetail, fetchRegionDefs, publishPropertyApi, savePropertySnapshot, uploadOssFile } from '@/api/admin'
+import { fetchCodeMasterItems, fetchPropertyDetail, fetchRegionDefs, publishPropertyApi, savePropertySnapshot } from '@/api/admin'
+import {
+  formatBatchUploadDetail,
+  formatBatchUploadToast,
+  uploadImagesBatch,
+  uploadVideoMultipart,
+} from '@/lib/mediaUpload'
+import { MAX_IMAGES_PER_PICK } from '@/lib/mediaUploadPolicy'
 import MapLatLngPicker, { type MapLocationPickPayload } from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
 import { useAuthStore } from '@/stores/auth'
@@ -265,6 +272,8 @@ const tab = ref(0)
 const detailViewTab = ref(2)
 const uploadingImage = ref(false)
 const uploadingVideo = ref(false)
+const imageBatchProgress = ref(0)
+const videoUploadPercent = ref(0)
 const mediaImageBlock = ref('')
 const mediaVideoBlock = ref('')
 const regionDefs = ref<RegionDefRow[]>([])
@@ -603,48 +612,67 @@ async function onPickImages(ev: Event) {
   const input = ev.target as HTMLInputElement
   const files = input.files
   if (!files?.length) return
+  const picked = Array.from(files)
+  if (picked.length > MAX_IMAGES_PER_PICK) {
+    ElMessage.warning(`一次最多上传 ${MAX_IMAGES_PER_PICK} 张图片，已只保留前 ${MAX_IMAGES_PER_PICK} 张`)
+  }
+  const batch = picked.slice(0, MAX_IMAGES_PER_PICK)
   uploadingImage.value = true
+  imageBatchProgress.value = 0
   try {
     const folder = `properties/${encodeURIComponent(props.code)}/images`
     const lines = mediaImageBlock.value
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter(Boolean)
-    for (const file of Array.from(files)) {
-      const { url } = await uploadOssFile(file, folder)
-      lines.push(url)
+    const summary = await uploadImagesBatch(batch, folder, (done, total) => {
+      imageBatchProgress.value = total ? Math.round((done / total) * 100) : 0
+    })
+    for (const item of summary.succeeded) {
+      if (item.url) lines.push(item.url)
     }
     mediaImageBlock.value = lines.join('\n')
-    ElMessage.success(`已上传 ${files.length} 张图片`)
-  } catch {
-    /* global http interceptor shows API error */
+    const toast = formatBatchUploadToast(summary)
+    if (summary.failed.length) {
+      ElMessage.warning({ message: toast, duration: 5000 })
+      if (summary.failed.length <= 3) {
+        ElMessage.error(formatBatchUploadDetail(summary))
+      }
+    } else {
+      ElMessage.success(toast)
+    }
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '图片上传失败')
   } finally {
     uploadingImage.value = false
+    imageBatchProgress.value = 0
     input.value = ''
   }
 }
 
 async function onPickVideos(ev: Event) {
   const input = ev.target as HTMLInputElement
-  const files = input.files
-  if (!files?.length) return
+  const file = input.files?.[0]
+  if (!file) return
   uploadingVideo.value = true
+  videoUploadPercent.value = 0
   try {
     const folder = `properties/${encodeURIComponent(props.code)}/videos`
     const lines = mediaVideoBlock.value
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter(Boolean)
-    for (const file of Array.from(files)) {
-      const { url } = await uploadOssFile(file, folder)
-      lines.push(url)
-    }
+    const { url } = await uploadVideoMultipart(file, folder, (pct) => {
+      videoUploadPercent.value = pct
+    })
+    lines.push(url)
     mediaVideoBlock.value = lines.join('\n')
-    ElMessage.success(`已上传 ${files.length} 个视频`)
-  } catch {
-    /* global http interceptor shows API error */
+    ElMessage.success('视频已上传')
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '视频上传失败')
   } finally {
     uploadingVideo.value = false
+    videoUploadPercent.value = 0
     input.value = ''
   }
 }
@@ -817,7 +845,20 @@ async function onPickVideos(ev: Event) {
                 <textarea v-model="mediaImageBlock" rows="5" placeholder="https://…jpg / png / webp" />
               </div>
               <div class="full">
-                <input type="file" accept="image/*" multiple :disabled="uploadingImage" @change="onPickImages" />
+                <label class="hint" style="display: block; margin-bottom: 8px">
+                  本地上传：一次最多 {{ MAX_IMAGES_PER_PICK }} 张，单张不超过 50MB（jpeg/png/webp/gif）
+                </label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  :disabled="uploadingImage"
+                  @change="onPickImages"
+                />
+                <div v-if="uploadingImage" class="upload-progress-row">
+                  <div class="upload-progress-bar"><div class="upload-progress-fill" :style="{ width: imageBatchProgress + '%' }" /></div>
+                  <span class="hint">图片上传中 {{ imageBatchProgress }}%</span>
+                </div>
               </div>
               <div v-if="imagePreviewUrls.length" class="full media-preview-block">
                 <label>预览（点击放大）</label>
@@ -845,7 +886,14 @@ async function onPickVideos(ev: Event) {
                 <textarea v-model="mediaVideoBlock" rows="4" placeholder="https://…mp4 / mov（可与图片同时存在）" />
               </div>
               <div class="full">
-                <input type="file" accept="video/*" multiple :disabled="uploadingVideo" @change="onPickVideos" />
+                <label class="hint" style="display: block; margin-bottom: 8px">
+                  本地上传：单次 1 个视频，最大 500MB（mp4/mov），分片上传
+                </label>
+                <input type="file" accept="video/mp4,video/quicktime,.mp4,.mov" :disabled="uploadingVideo" @change="onPickVideos" />
+                <div v-if="uploadingVideo" class="upload-progress-row">
+                  <div class="upload-progress-bar"><div class="upload-progress-fill" :style="{ width: videoUploadPercent + '%' }" /></div>
+                  <span class="hint">视频上传中 {{ videoUploadPercent }}%</span>
+                </div>
               </div>
               <div v-if="videoPreviewUrls.length" class="full media-preview-block">
                 <label>预览</label>
@@ -1575,6 +1623,20 @@ textarea.ro-input-readonly {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.upload-progress-row {
+  margin-top: 10px;
+}
+.upload-progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+.upload-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
+  transition: width 0.2s ease;
 }
 .media-video {
   width: 100%;
