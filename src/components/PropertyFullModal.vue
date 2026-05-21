@@ -528,7 +528,6 @@ function collectPropertyRequiredMiss(): string[] {
   const miss: string[] = []
   if (!String(form.listTitle || '').trim()) miss.push('列表标题')
   if (!Array.isArray(form.types) || !form.types.length) miss.push('房源类型')
-  if (!String(form.companyName || '').trim()) miss.push('公司名称')
   const district = String(form.district || '').trim()
   if (!district || district === '未分区') miss.push('所属区域')
   if (!String(form.address || '').trim()) miss.push('详细地址')
@@ -542,7 +541,7 @@ function collectPropertyRequiredMiss(): string[] {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean).length
-  if (!hasImg && !hasVid) miss.push('图片或视频 URL（至少一类）')
+  if (!hasImg && !hasVid) miss.push('图片或视频（至少一类）')
   if (form.landMu == null || Number(form.landMu) <= 0) miss.push('土地（亩）')
   if (form.powerKva == null || Number(form.powerKva) <= 0) miss.push('电力总容量')
   if (!String(form.rentSaleType || '').trim()) miss.push('租售类型')
@@ -621,10 +620,7 @@ async function onPickImages(ev: Event) {
   imageBatchProgress.value = 0
   try {
     const folder = `properties/${encodeURIComponent(props.code)}/images`
-    const lines = mediaImageBlock.value
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean)
+    const lines = splitMediaLines(mediaImageBlock.value)
     const summary = await uploadImagesBatch(batch, folder, (done, total) => {
       imageBatchProgress.value = total ? Math.round((done / total) * 100) : 0
     })
@@ -658,10 +654,7 @@ async function onPickVideos(ev: Event) {
   videoUploadPercent.value = 0
   try {
     const folder = `properties/${encodeURIComponent(props.code)}/videos`
-    const lines = mediaVideoBlock.value
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean)
+    const lines = splitMediaLines(mediaVideoBlock.value)
     const { url } = await uploadVideoMultipart(file, folder, (pct) => {
       videoUploadPercent.value = pct
     })
@@ -675,6 +668,20 @@ async function onPickVideos(ev: Event) {
     videoUploadPercent.value = 0
     input.value = ''
   }
+}
+
+function removeMediaImage(i: number) {
+  if (props.mode === 'view') return
+  const lines = splitMediaLines(mediaImageBlock.value)
+  lines.splice(i, 1)
+  mediaImageBlock.value = lines.join('\n')
+}
+
+function removeMediaVideo(i: number) {
+  if (props.mode === 'view') return
+  const lines = splitMediaLines(mediaVideoBlock.value)
+  lines.splice(i, 1)
+  mediaVideoBlock.value = lines.join('\n')
 }
 </script>
 
@@ -760,7 +767,7 @@ async function onPickVideos(ev: Event) {
                 </div>
               </div>
               <div class="full">
-                <label>公司名称<span style="color: var(--rose)">*</span></label>
+                <label>公司名称</label>
                 <input v-model="form.companyName" type="text" maxlength="120" />
               </div>
               <div class="full">
@@ -840,12 +847,10 @@ async function onPickVideos(ev: Event) {
                   >
                 </div>
               </div>
+              <div class="form-section-h">图片</div>
               <div class="full">
-                <label>图片 URL（每行一条）<span style="color: var(--rose)">*</span></label>
-                <textarea v-model="mediaImageBlock" rows="5" placeholder="https://…jpg / png / webp" />
-              </div>
-              <div class="full">
-                <label class="hint" style="display: block; margin-bottom: 8px">
+                <label>图片<span style="color: var(--rose)">*</span>（至少上传一张，或与视频二选一）</label>
+                <label class="hint" style="display: block; margin: 8px 0">
                   本地上传：一次最多 {{ MAX_IMAGES_PER_PICK }} 张，单张不超过 50MB（jpeg/png/webp/gif）
                 </label>
                 <input
@@ -861,30 +866,27 @@ async function onPickVideos(ev: Event) {
                 </div>
               </div>
               <div v-if="imagePreviewUrls.length" class="full media-preview-block">
-                <label>预览（点击放大）</label>
+                <label>已上传图片（点击放大，× 移除）</label>
                 <div class="media-preview-grid">
-                  <img
-                    v-for="(url, i) in imagePreviewUrls"
-                    :key="`${url}-${i}`"
-                    :src="url"
-                    referrerpolicy="no-referrer"
-                    loading="lazy"
-                    decoding="async"
-                    alt=""
-                    class="media-thumb media-thumb-native"
-                    role="button"
-                    tabindex="0"
-                    @click="openImageLightbox(i)"
-                    @keyup.enter="openImageLightbox(i)"
-                  />
+                  <div v-for="(url, i) in imagePreviewUrls" :key="`${url}-${i}`" class="media-thumb-wrap">
+                    <img
+                      :src="url"
+                      referrerpolicy="no-referrer"
+                      loading="lazy"
+                      decoding="async"
+                      alt=""
+                      class="media-thumb media-thumb-native"
+                      role="button"
+                      tabindex="0"
+                      @click="openImageLightbox(i)"
+                      @keyup.enter="openImageLightbox(i)"
+                    />
+                    <button type="button" class="media-remove-btn" aria-label="删除图片" @click.stop="removeMediaImage(i)">×</button>
+                  </div>
                 </div>
               </div>
-              <p v-else class="hint full" style="margin: 0">填写 URL 或上传后将在此显示缩略图。</p>
-              <div class="form-section-h" style="margin-top: 16px">视频上传</div>
-              <div class="full">
-                <label>视频 URL（每行一条）</label>
-                <textarea v-model="mediaVideoBlock" rows="4" placeholder="https://…mp4 / mov（可与图片同时存在）" />
-              </div>
+              <p v-else class="hint full" style="margin: 0">上传后将在此显示缩略图。</p>
+              <div class="form-section-h" style="margin-top: 16px">视频</div>
               <div class="full">
                 <label class="hint" style="display: block; margin-bottom: 8px">
                   本地上传：单次 1 个视频，最大 500MB（mp4/mov），分片上传
@@ -896,15 +898,17 @@ async function onPickVideos(ev: Event) {
                 </div>
               </div>
               <div v-if="videoPreviewUrls.length" class="full media-preview-block">
-                <label>预览</label>
+                <label>已上传视频（× 移除）</label>
                 <div class="media-video-list">
                   <div v-for="(url, i) in videoPreviewUrls" :key="`${url}-${i}`" class="media-video-item">
-                    <video :src="url" controls preload="metadata" class="media-video" referrerpolicy="no-referrer" />
-                    <a class="media-video-link" :href="url" target="_blank" rel="noopener noreferrer">新窗口打开</a>
+                    <div class="media-video-item-head">
+                      <video :src="url" controls preload="metadata" class="media-video" referrerpolicy="no-referrer" />
+                      <button type="button" class="media-remove-btn media-remove-btn--video" aria-label="删除视频" @click="removeMediaVideo(i)">×</button>
+                    </div>
                   </div>
                 </div>
               </div>
-              <p v-else class="hint full" style="margin: 0">填写 URL 或上传后将在此显示播放器。</p>
+              <p v-else class="hint full" style="margin: 0">上传后将在此显示播放器。</p>
             </div>
           </div>
 
@@ -1406,7 +1410,6 @@ async function onPickVideos(ev: Event) {
                 <div class="media-video-list">
                   <div v-for="(url, i) in videoPreviewUrls" :key="`vv-${url}-${i}`" class="media-video-item">
                     <video :src="url" controls preload="metadata" class="media-video" referrerpolicy="no-referrer" />
-                    <a class="media-video-link" :href="url" target="_blank" rel="noopener noreferrer">新窗口打开</a>
                   </div>
                 </div>
               </div>
@@ -1576,6 +1579,35 @@ textarea.ro-input-readonly {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 10px;
+}
+.media-thumb-wrap {
+  position: relative;
+}
+.media-remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+.media-remove-btn:hover {
+  background: #be123c;
+}
+.media-video-item-head {
+  position: relative;
+}
+.media-remove-btn--video {
+  top: 8px;
+  right: 8px;
 }
 .media-thumb {
   width: 100%;

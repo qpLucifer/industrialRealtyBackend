@@ -12,7 +12,7 @@ export const PUBLISH_STEP_NAMES = [
 ] as const
 
 export const PHOTO_OPTIONS = ['门口形象照', '路口进出照', '车间照片', '货梯', '厂房屋顶'] as const
-export const STRUCTURE_OPTIONS = ['钢构', '框架', '其他'] as const
+export const STRUCTURE_OPTIONS = ['钢构', '混凝土', '其他'] as const
 export const RIGHTS_OPTIONS = ['国有土地', '出让', '划拨', '集体土地', '其他'] as const
 export const LAND_USE_OPTIONS = ['工业', '仓储', '其他'] as const
 export const CERT_OPTIONS = ['房产证', '土地证', '消防验收证', '环保批文'] as const
