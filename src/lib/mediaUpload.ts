@@ -147,7 +147,7 @@ export async function uploadVideoMultipart(
   const pre = validateVideoFile(file)
   if (pre) throw new Error(pre)
 
-  const { sessionId, chunkSize, totalParts } = await initVideoMultipart(file, folder)
+  const { sessionId, chunkSize } = await initVideoMultipart(file, folder)
   const chunk = chunkSize > 0 ? chunkSize : MULTIPART_CHUNK_BYTES
   let offset = 0
   let partNumber = 1
