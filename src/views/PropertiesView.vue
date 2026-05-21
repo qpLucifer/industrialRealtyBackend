@@ -4,7 +4,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createPropertyDraft, deletePropertyApi, fetchCodeMasterItems, fetchProperties, fetchRegionDefs } from '@/api/admin'
 import type { PropertyRow, RegionDefRow } from '@/types/domain'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
+import { useAuthStore } from '@/stores/auth'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
+
+const auth = useAuthStore()
 
 const list = ref<PropertyRow[]>([])
 const regionDefs = ref<RegionDefRow[]>([])
@@ -79,7 +82,8 @@ function openProp(mode: 'edit' | 'view', code: string) {
 }
 
 async function onNewDraft() {
-  const { code } = await createPropertyDraft({})
+  const submitterName = auth.user?.displayName?.trim() || undefined
+  const { code } = await createPropertyDraft(submitterName ? { submitterName } : {})
   ElMessage.success(`已创建草稿 ${code}`)
   await loadList()
   openProp('edit', code)

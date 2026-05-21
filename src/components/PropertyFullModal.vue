@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchCodeMasterItems, fetchPropertyDetail, fetchRegionDefs, publishPropertyApi, savePropertySnapshot, uploadOssFile } from '@/api/admin'
 import MapLatLngPicker from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
+import { useAuthStore } from '@/stores/auth'
 import {
   isPhone11Cn,
   normalizeCnMobileInput,
@@ -237,6 +238,8 @@ function roFieldRows(fields: { key: RoKey; label: string }[]) {
   return rows
 }
 
+const auth = useAuthStore()
+
 const props = defineProps<{
   visible: boolean
   code: string
@@ -417,6 +420,10 @@ watch(
     regionDefs.value = list
     Object.assign(form, d)
     ensurePropertyFormShape(form, propertyTypeLabels.value[0] || '标准厂房')
+    if (props.mode === 'edit' && !String(form.submitterName || '').trim()) {
+      const name = auth.user?.displayName?.trim()
+      if (name) form.submitterName = name
+    }
     syncMediaBlocksFromForm()
   },
 )
