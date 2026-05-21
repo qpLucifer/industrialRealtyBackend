@@ -111,6 +111,7 @@ export type PropertyStatusTag =
   | '已租'
   | '待售'
   | '已售'
+  | '待租售'
   | '意向中'
   | '下架封存'
 

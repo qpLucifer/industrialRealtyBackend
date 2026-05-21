@@ -57,6 +57,7 @@ const SEED: Omit<CodeMasterRow, 'id'>[] = [
   { typeCode: 'property_listing_status', itemCode: 'rented', label: '已租', sortOrder: 20, isActive: 1, remark: null },
   { typeCode: 'property_listing_status', itemCode: 'for_sale', label: '待售', sortOrder: 30, isActive: 1, remark: null },
   { typeCode: 'property_listing_status', itemCode: 'sold', label: '已售', sortOrder: 40, isActive: 1, remark: null },
+  { typeCode: 'property_listing_status', itemCode: 'for_rent_sale', label: '待租售', sortOrder: 45, isActive: 1, remark: null },
   { typeCode: 'property_listing_status', itemCode: 'intent', label: '意向中', sortOrder: 50, isActive: 1, remark: null },
   { typeCode: 'property_listing_status', itemCode: 'archived', label: '下架封存', sortOrder: 60, isActive: 1, remark: null },
 ]

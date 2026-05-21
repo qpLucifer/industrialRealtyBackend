@@ -396,7 +396,7 @@ watch(imagePreviewUrls, (urls) => {
 })
 
 const FALLBACK_PROPERTY_TYPES = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺']
-const FALLBACK_LISTING_STATUSES = ['待租', '已租', '待售', '已售', '意向中', '下架封存']
+const FALLBACK_LISTING_STATUSES = ['待租', '已租', '待售', '已售', '待租售', '意向中', '下架封存']
 
 const propertyTypeLabels = ref<string[]>([...FALLBACK_PROPERTY_TYPES])
 const listingStatusLabels = ref<string[]>([...FALLBACK_LISTING_STATUSES])
