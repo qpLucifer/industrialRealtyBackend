@@ -6,6 +6,7 @@ import {
   fetchCodeMasterItems,
   fetchCustomerDetail,
   fetchCustomers,
+  fetchRegionDefs,
   fetchStaffList,
   postCustomer,
   postCustomerFollowUp,
@@ -30,6 +31,8 @@ const scopeFilter = ref<'all' | 'private' | 'public'>('all')
 const gradeFilter = ref<string>('all')
 const dealFilter = ref<string>('all')
 const searchQ = ref('')
+const regionFilter = ref<number | ''>('')
+const regionDefs = ref<{ id: number; name: string }[]>([])
 
 const drawer = ref(false)
 const drawerMode = ref<'detail' | 'edit' | 'new'>('detail')
@@ -48,6 +51,8 @@ const editForm = reactive({
   dealStatus: '洽谈中',
   demandSummary: '',
   addressHint: '',
+  district: '',
+  districtRegionId: null as number | null,
   /** Staff ids for multi-select — serialized as owner names on save */
   ownerStaffIds: [] as string[],
   /** Code dict customer_pool label (私有 / 公有) */
@@ -61,12 +66,22 @@ const followOccurredAt = ref('')
 const followGrade = ref<'' | CustomerGrade>('')
 const followNextAt = ref('')
 
+async function loadRegions() {
+  try {
+    const { list } = await fetchRegionDefs()
+    regionDefs.value = (list ?? []).map((r) => ({ id: r.id, name: r.name }))
+  } catch {
+    regionDefs.value = []
+  }
+}
+
 async function load() {
   const { list: rows } = await fetchCustomers({
     scope: scopeFilter.value,
     grade: gradeFilter.value,
     deal: dealFilter.value,
     q: searchQ.value,
+    districtRegionId: regionFilter.value === '' ? null : Number(regionFilter.value),
   })
   list.value = rows
 }
@@ -103,6 +118,12 @@ function onEditPhoneInput(e: Event) {
   editForm.phone = normalizeCnMobileInput((e.target as HTMLInputElement).value)
 }
 
+function onEditDistrictPick() {
+  const id = editForm.districtRegionId
+  const row = regionDefs.value.find((r) => r.id === id)
+  editForm.district = row?.name || ''
+}
+
 function staffIdsFromOwnerName(ownerName: string) {
   if (!ownerName.trim()) return []
   const parts = ownerName.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
@@ -115,7 +136,7 @@ function staffIdsFromOwnerName(ownerName: string) {
 }
 
 onMounted(() => {
-  void Promise.all([loadStaff(), loadPoolOptions()]).then(() => load())
+  void Promise.all([loadStaff(), loadPoolOptions(), loadRegions()]).then(() => load())
 })
 
 const detailTimelineLines = computed(() =>
@@ -174,6 +195,8 @@ function openNew() {
   editForm.dealStatus = '洽谈中'
   editForm.demandSummary = ''
   editForm.addressHint = ''
+  editForm.district = ''
+  editForm.districtRegionId = null
   editForm.ownerStaffIds = []
   editForm.scope = privatePoolLabel()
   editForm.listOnMini = true
@@ -197,6 +220,8 @@ async function openEdit(row: CustomerRow) {
   editForm.dealStatus = d.dealStatus || '洽谈中'
   editForm.demandSummary = d.demandSummary
   editForm.addressHint = d.addressHint
+  editForm.district = d.district || ''
+  editForm.districtRegionId = d.districtRegionId ?? null
   editForm.ownerStaffIds =
     d.ownerStaffIds?.length ? [...d.ownerStaffIds] : staffIdsFromOwnerName(d.ownerName || '')
   editForm.scope = d.badgesHtml?.includes('公有') ? '公有' : '私有'
@@ -227,6 +252,8 @@ async function onSaveCustomer() {
     dealStatus: editForm.dealStatus,
     demandSummary: editForm.demandSummary.trim(),
     addressHint: editForm.addressHint.trim(),
+    district: editForm.district.trim(),
+    districtRegionId: editForm.districtRegionId,
     ownerStaffIds: [...editForm.ownerStaffIds],
     scope: editForm.scope,
     listOnMini: editForm.listOnMini,
@@ -326,6 +353,10 @@ function onRemind() {
         <option value="已成交">已成交</option>
         <option value="搁置">搁置</option>
       </select>
+      <select v-model="regionFilter" @change="load">
+        <option value="">全部区域</option>
+        <option v-for="r in regionDefs" :key="r.id" :value="r.id">{{ r.name }}</option>
+      </select>
       <input v-model="searchQ" type="search" placeholder="电话尾号 / 公司 / 需求关键词…" style="min-width: 240px" @keyup.enter="load" />
       <button type="button" class="btn btn-primary" @click="pendingFollowOnly = false; loadStaff().then(() => load())">查询</button>
       <button type="button" class="btn btn-primary" @click="openNew">＋ 新增客户</button>
@@ -338,7 +369,8 @@ function onRemind() {
             <th style="min-width: 110px">联系电话</th>
             <th style="min-width: 200px">公司 / 主体</th>
             <th style="min-width: 160px">客户名称</th>
-            <th style="min-width: 160px">地址 / 区域</th>
+            <th style="min-width: 100px">所属区域</th>
+            <th style="min-width: 140px">地址提示</th>
             <th style="min-width: 200px">需求摘要</th>
             <th style="min-width: 100px">等级</th>
             <th style="min-width: 100px">成交状态</th>
@@ -358,6 +390,7 @@ function onRemind() {
             <td>
               <span class="crm-cell-strong">{{ r.contactName || r.name }}</span>
             </td>
+            <td>{{ r.district || '—' }}</td>
             <td class="cell-wrap hint-sm">{{ r.addressHint || '—' }}</td>
             <td class="cell-wrap">{{ r.demandSummary }}</td>
             <td><span class="tag" :class="gradeClass(r.grade)">{{ r.grade }}</span></td>
@@ -404,6 +437,7 @@ function onRemind() {
         <div class="crm-card">
           <div class="crm-card-title">需求与地址</div>
           <p class="crm-card-body">{{ detail.demandSummary || '—' }}</p>
+          <p v-if="detail.district" class="crm-card-muted">所属区域 {{ detail.district }}</p>
           <p class="crm-card-muted">{{ detail.addressHint || '—' }}</p>
         </div>
 
@@ -530,8 +564,15 @@ function onRemind() {
             </p>
           </div>
           <div class="full">
-            <label>地址 / 区域提示</label>
-            <input v-model="editForm.addressHint" type="text" maxlength="255" />
+            <label>所属区域</label>
+            <select v-model="editForm.districtRegionId" @change="onEditDistrictPick">
+              <option :value="null">未选择</option>
+              <option v-for="r in regionDefs" :key="r.id" :value="r.id">{{ r.name }}</option>
+            </select>
+          </div>
+          <div class="full">
+            <label>地址提示</label>
+            <input v-model="editForm.addressHint" type="text" maxlength="255" placeholder="意向地段、路口等补充说明" />
           </div>
           <div class="full">
             <label>需求摘要</label>

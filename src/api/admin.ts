@@ -227,13 +227,22 @@ export async function auditRejectApi(payload: { code: string; reason: string }) 
   return unwrap(res) as { success: boolean }
 }
 
-export async function fetchCustomers(params?: { grade?: string; scope?: string; deal?: string; q?: string }) {
+export async function fetchCustomers(params?: {
+  grade?: string
+  scope?: string
+  deal?: string
+  q?: string
+  districtRegionId?: number | null
+}) {
   const res = await http.get('/customers', {
     params: {
       ...(params?.grade && params.grade !== 'all' ? { grade: params.grade } : {}),
       ...(params?.scope && params.scope !== 'all' ? { scope: params.scope } : {}),
       ...(params?.deal && params.deal !== 'all' ? { deal: params.deal } : {}),
       ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
+      ...(params?.districtRegionId != null && params.districtRegionId > 0
+        ? { districtRegionId: params.districtRegionId }
+        : {}),
     },
   })
   return unwrap(res) as { list: CustomerRow[] }

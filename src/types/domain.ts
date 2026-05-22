@@ -178,6 +178,8 @@ export interface CustomerRow {
   phoneMasked: string
   name: string
   addressHint: string
+  district?: string
+  districtRegionId?: number | null
   demandSummary: string
   grade: CustomerGrade
   /** Pipeline status, e.g. 洽谈中 / 已成交 / 搁置 */
