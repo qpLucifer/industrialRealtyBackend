@@ -1099,6 +1099,13 @@ select {
   color: #1e293b !important;
 }
 
+/* Filterable el-select: show selected label while dropdown is still open (EP uses is-transparent + z-index:-1) */
+.el-select .el-select__wrapper.is-focused .el-select__placeholder.is-transparent {
+  z-index: 1;
+  color: var(--text) !important;
+  pointer-events: none;
+}
+
 .el-date-editor.is-disabled,
 .el-date-editor.is-disabled .el-input__wrapper {
   background-color: #e2e8f0 !important;

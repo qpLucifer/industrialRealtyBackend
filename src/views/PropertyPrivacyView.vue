@@ -144,7 +144,7 @@ onMounted(async () => {
       <h3 style="margin: 0 0 8px">房源隐私授权</h3>
       <p class="hint" style="margin: 0 0 12px">
         控制员工在小程序查看某套房源时，是否可见<strong>公司名称、业主联系人</strong>。
-        <strong>未新增授权记录时默认不可见</strong>；新增时默认为「禁止」，需改为「允许」后方可查看。房源提交人始终可见本人提交的房源隐私。
+        <strong>未新增授权记录时默认不可见</strong>；新增时默认为「禁止」，需改为「允许」后方可查看（含房源提交人，也须在后台单独授权）。
       </p>
       <table class="data">
         <thead>
