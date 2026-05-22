@@ -12,6 +12,7 @@ import type {
   KpiItem,
   LogRow,
   PropertyFullForm,
+  PropertyPrivacyGrantRow,
   PropertyRow,
   RegionBar,
   RegionBindingRow,
@@ -82,6 +83,44 @@ export async function updateWhitelistRow(id: number, payload: Partial<WhitelistR
 
 export async function deleteWhitelistRow(id: number) {
   const res = await http.delete(`/whitelist/${id}`)
+  return unwrap(res) as { success: boolean }
+}
+
+export async function fetchPropertyPrivacyGrants(params?: {
+  q?: string
+  staffId?: string
+  propertyId?: string
+}) {
+  const res = await http.get('/property-privacy/grants', {
+    params: {
+      ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
+      ...(params?.staffId ? { staffId: params.staffId } : {}),
+      ...(params?.propertyId ? { propertyId: params.propertyId } : {}),
+    },
+  })
+  return unwrap(res) as { list: PropertyPrivacyGrantRow[] }
+}
+
+export async function savePropertyPrivacyGrant(payload: {
+  staffId: string
+  propertyId: string
+  canViewPrivacy: boolean
+  remark?: string
+}) {
+  const res = await http.post('/property-privacy/grants', payload)
+  return unwrap(res) as { success: boolean; id: number; created: boolean }
+}
+
+export async function patchPropertyPrivacyGrant(
+  id: number,
+  payload: Partial<Pick<PropertyPrivacyGrantRow, 'canViewPrivacy' | 'remark'>>,
+) {
+  const res = await http.put(`/property-privacy/grants/${id}`, payload)
+  return unwrap(res) as { success: boolean }
+}
+
+export async function deletePropertyPrivacyGrant(id: number) {
+  const res = await http.delete(`/property-privacy/grants/${id}`)
   return unwrap(res) as { success: boolean }
 }
 

@@ -47,6 +47,7 @@ const navGroups: { section: string; items: { to: string; name: string; label: st
     section: '业务',
     items: [
       { to: '/app/properties', name: 'properties', label: '房源管理' },
+      { to: '/app/property-privacy', name: 'property-privacy', label: '房源隐私' },
       { to: '/app/audit', name: 'audit', label: '审核中心' },
       { to: '/app/customers', name: 'customers', label: '客户统筹' },
       { to: '/app/video-faq', name: 'video-faq', label: '视频 FAQ' },
@@ -161,6 +162,18 @@ function isActive(name: string) {
             aria-hidden="true"
           >
             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+          </svg>
+          <svg
+            v-else-if="item.name === 'property-privacy'"
+            width="18"
+            height="18"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              d="M18 8h-1V6a5 5 0 00-10 0v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
+            />
           </svg>
           <svg
             v-else-if="item.name === 'audit'"

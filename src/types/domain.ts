@@ -75,6 +75,21 @@ export interface StaffForm {
   remark: string
 }
 
+/** Staff × property grant for mini property privacy fields */
+export interface PropertyPrivacyGrantRow {
+  id: number
+  staffId: string
+  staffName: string
+  employeeNo: string
+  propertyId: string
+  propertyCode: string
+  propertyTitle: string
+  canViewPrivacy: boolean
+  remark: string
+  updatedBy?: string | null
+  updatedAt?: string | null
+}
+
 export interface WhitelistRow {
   id: number
   phone: string
