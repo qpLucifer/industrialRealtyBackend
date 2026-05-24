@@ -27,6 +27,9 @@ const DEFAULT_POOL_OPTIONS: { itemCode: string; label: string }[] = [
 ]
 
 const list = ref<CustomerRow[]>([])
+const listTotal = ref(0)
+const listPage = ref(1)
+const listPageSize = ref(20)
 const scopeFilter = ref<'all' | 'private' | 'public'>('all')
 const gradeFilter = ref<string>('all')
 const dealFilter = ref<string>('all')
@@ -76,14 +79,33 @@ async function loadRegions() {
 }
 
 async function load() {
-  const { list: rows } = await fetchCustomers({
+  const { list: rows, total } = await fetchCustomers({
     scope: scopeFilter.value,
     grade: gradeFilter.value,
     deal: dealFilter.value,
     q: searchQ.value,
     districtRegionId: regionFilter.value === '' ? null : Number(regionFilter.value),
+    page: listPage.value,
+    pageSize: listPageSize.value,
   })
   list.value = rows
+  listTotal.value = total ?? rows.length
+}
+
+function onListPageChange(page: number) {
+  listPage.value = page
+  void load()
+}
+
+function onListPageSizeChange(size: number) {
+  listPageSize.value = size
+  listPage.value = 1
+  void load()
+}
+
+function onFilterChange() {
+  listPage.value = 1
+  void load()
 }
 
 async function loadStaff() {
@@ -336,29 +358,29 @@ function onRemind() {
 <template>
   <section class="panel active">
     <div class="toolbar">
-      <select v-model="scopeFilter" @change="load">
+      <select v-model="scopeFilter" @change="onFilterChange">
         <option value="all">全部范围</option>
         <option value="private">仅私有</option>
         <option value="public">仅公有</option>
       </select>
-      <select v-model="gradeFilter" @change="load">
+      <select v-model="gradeFilter" @change="onFilterChange">
         <option value="all">全部等级</option>
         <option value="A 类">A 类</option>
         <option value="B 类">B 类</option>
         <option value="C 类">C 类</option>
       </select>
-      <select v-model="dealFilter" @change="load">
+      <select v-model="dealFilter" @change="onFilterChange">
         <option value="all">全部成交状态</option>
         <option value="洽谈中">洽谈中</option>
         <option value="已成交">已成交</option>
         <option value="搁置">搁置</option>
       </select>
-      <select v-model="regionFilter" @change="load">
+      <select v-model="regionFilter" @change="onFilterChange">
         <option value="">全部区域</option>
         <option v-for="r in regionDefs" :key="r.id" :value="r.id">{{ r.name }}</option>
       </select>
       <input v-model="searchQ" type="search" placeholder="电话尾号 / 公司 / 需求关键词…" style="min-width: 240px" @keyup.enter="load" />
-      <button type="button" class="btn btn-primary" @click="pendingFollowOnly = false; loadStaff().then(() => load())">查询</button>
+      <button type="button" class="btn btn-primary" @click="pendingFollowOnly = false; loadStaff().then(() => onFilterChange())">查询</button>
       <button type="button" class="btn btn-primary" @click="openNew">＋ 新增客户</button>
       <button type="button" class="btn" @click="onRemind">今日待跟进</button>
     </div>
@@ -414,6 +436,19 @@ function onRemind() {
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="list-pagination">
+      <el-pagination
+        v-model:current-page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        @current-change="onListPageChange"
+        @size-change="onListPageSizeChange"
+      />
     </div>
 
     <el-drawer v-model="drawer" :title="drawerTitle()" size="min(560px, 92vw)" destroy-on-close class="crm-drawer">
@@ -605,6 +640,11 @@ function onRemind() {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+.list-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 .hint-sm {
   font-size: 12px;

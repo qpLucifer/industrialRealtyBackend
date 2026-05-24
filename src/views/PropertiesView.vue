@@ -11,6 +11,9 @@ import { Delete, Edit, View } from '@element-plus/icons-vue'
 const auth = useAuthStore()
 
 const list = ref<PropertyRow[]>([])
+const listTotal = ref(0)
+const listPage = ref(1)
+const listPageSize = ref(20)
 const regionDefs = ref<RegionDefRow[]>([])
 
 const modalVisible = ref(false)
@@ -28,13 +31,32 @@ async function loadRegionDefs() {
 }
 
 async function loadList() {
-  const { list: rows } = await fetchProperties({
+  const { list: rows, total } = await fetchProperties({
     type: filterType.value,
     status: filterStatus.value,
     district: filterDistrict.value,
     q: searchQ.value,
+    page: listPage.value,
+    pageSize: listPageSize.value,
   })
   list.value = rows
+  listTotal.value = total ?? rows.length
+}
+
+function onListPageChange(page: number) {
+  listPage.value = page
+  void loadList()
+}
+
+function onListPageSizeChange(size: number) {
+  listPageSize.value = size
+  listPage.value = 1
+  void loadList()
+}
+
+function onFilterChange() {
+  listPage.value = 1
+  void loadList()
 }
 
 const FALLBACK_PROPERTY_TYPES = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺']
@@ -123,7 +145,7 @@ async function onDeleteRow(row: PropertyRow) {
       </select>
       <input v-model="searchQ" type="search" placeholder="地址 / 编号 / 提交人…" style="min-width: 200px" @keyup.enter="loadList" />
       <button type="button" class="btn btn-primary" @click="onNewDraft">＋ 新建草稿</button>
-      <button type="button" class="btn btn-primary" @click="loadList">查询</button>
+      <button type="button" class="btn btn-primary" @click="onFilterChange">查询</button>
     </div>
     <div class="card" style="padding: 0; overflow: hidden">
       <table class="data">
@@ -159,6 +181,19 @@ async function onDeleteRow(row: PropertyRow) {
       </table>
     </div>
 
+    <div class="list-pagination">
+      <el-pagination
+        v-model:current-page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        @current-change="onListPageChange"
+        @size-change="onListPageSizeChange"
+      />
+    </div>
+
     <PropertyFullModal v-model:visible="modalVisible" :code="modalCode" :mode="modalMode" @saved="loadList" />
   </section>
 </template>
@@ -170,5 +205,10 @@ async function onDeleteRow(row: PropertyRow) {
   gap: 6px;
   align-items: center;
   white-space: nowrap;
+}
+.list-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>

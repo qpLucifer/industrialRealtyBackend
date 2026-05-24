@@ -164,16 +164,25 @@ export async function saveRegionBindings(list: RegionBindingRow[]) {
   return unwrap(res) as { success: boolean }
 }
 
-export async function fetchProperties(params?: { type?: string; status?: string; district?: string; q?: string }) {
+export async function fetchProperties(params?: {
+  type?: string
+  status?: string
+  district?: string
+  q?: string
+  page?: number
+  pageSize?: number
+}) {
   const res = await http.get('/properties', {
     params: {
       ...(params?.type && params.type !== 'all' ? { type: params.type } : {}),
       ...(params?.district && params.district !== 'all' ? { district: params.district } : {}),
       ...(params?.status && params.status !== 'all' ? { status: params.status } : {}),
       ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
+      page: params?.page ?? 1,
+      pageSize: params?.pageSize ?? 20,
     },
   })
-  return unwrap(res) as { list: PropertyRow[] }
+  return unwrap(res) as { list: PropertyRow[]; total: number; page: number; pageSize: number; hasMore: boolean }
 }
 
 export async function fetchPropertyDetail(code: string) {
@@ -233,6 +242,8 @@ export async function fetchCustomers(params?: {
   deal?: string
   q?: string
   districtRegionId?: number | null
+  page?: number
+  pageSize?: number
 }) {
   const res = await http.get('/customers', {
     params: {
@@ -243,9 +254,17 @@ export async function fetchCustomers(params?: {
       ...(params?.districtRegionId != null && params.districtRegionId > 0
         ? { districtRegionId: params.districtRegionId }
         : {}),
+      page: params?.page ?? 1,
+      pageSize: params?.pageSize ?? 20,
     },
   })
-  return unwrap(res) as { list: CustomerRow[] }
+  return unwrap(res) as {
+    list: CustomerRow[]
+    total: number
+    page: number
+    pageSize: number
+    hasMore: boolean
+  }
 }
 
 export async function fetchCustomerDetail(slug: string) {

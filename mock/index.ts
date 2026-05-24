@@ -278,7 +278,20 @@ export default [
       if (d && d !== 'all') {
         list = list.filter((row) => String(row.district || '').includes(String(d)))
       }
-      return ok({ list })
+      const page = Math.max(1, Number(Array.isArray(query?.page) ? query.page[0] : query?.page) || 1)
+      const pageSize = Math.min(
+        100,
+        Math.max(1, Number(Array.isArray(query?.pageSize) ? query.pageSize[0] : query?.pageSize) || 20),
+      )
+      const total = list.length
+      const start = (page - 1) * pageSize
+      return ok({
+        list: list.slice(start, start + pageSize),
+        total,
+        page,
+        pageSize,
+        hasMore: page * pageSize < total,
+      })
     },
   },
   {
@@ -298,7 +311,23 @@ export default [
   {
     url: '/api/customers',
     method: 'get',
-    response: () => ok({ list: mockCustomerRows.map((r) => ({ ...r })) }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) => {
+      const list = mockCustomerRows.map((r) => ({ ...r }))
+      const page = Math.max(1, Number(Array.isArray(query?.page) ? query.page[0] : query?.page) || 1)
+      const pageSize = Math.min(
+        100,
+        Math.max(1, Number(Array.isArray(query?.pageSize) ? query.pageSize[0] : query?.pageSize) || 20),
+      )
+      const total = list.length
+      const start = (page - 1) * pageSize
+      return ok({
+        list: list.slice(start, start + pageSize),
+        total,
+        page,
+        pageSize,
+        hasMore: page * pageSize < total,
+      })
+    },
   },
   {
     url: '/api/customers/:slug',
