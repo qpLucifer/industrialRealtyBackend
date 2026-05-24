@@ -8,6 +8,7 @@ import TableActionBtn from '@/components/TableActionBtn.vue'
 import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { Check, Close, Delete, Edit } from '@element-plus/icons-vue'
 
+const { listPage, listPageSize, listTotal, applyPagedResult, listQueryParams } = useAdminListPagination()
 const defs = ref<RegionDefRow[]>([])
 
 const newName = ref('')

@@ -258,9 +258,9 @@ function onDownloadStaffTemplate() {
         type="search"
         placeholder="搜索：姓名 / 手机 / 工号 / 部门 / 职位"
         style="min-width: 240px"
-        @keyup.enter="loadList"
+        @keyup.enter="onFilterChange"
       />
-      <button type="button" class="btn btn-primary" @click="loadList">查询</button>
+      <button type="button" class="btn btn-primary" @click="onFilterChange">查询</button>
     </div>
     <div class="card" style="padding: 0; overflow: hidden">
       <table class="data">

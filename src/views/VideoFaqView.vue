@@ -16,8 +16,7 @@ import { uploadVideoMultipart } from '@/lib/mediaUpload'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<VideoFaqRow[]>([])
-const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
-  useAdminListPagination()
+const { listPage, listPageSize, listTotal, applyPagedResult, listQueryParams } = useAdminListPagination()
 const q = ref('')
 const drawer = ref(false)
 const editingId = ref<string | null>(null)
@@ -62,11 +61,6 @@ async function load() {
   const result = await fetchVideoFaq(listQueryParams())
   list.value = result.list
   applyPagedResult(result)
-}
-
-function onFilterChange() {
-  resetListPage()
-  void load()
 }
 
 function openNew() {
