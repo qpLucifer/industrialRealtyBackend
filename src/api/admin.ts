@@ -37,13 +37,27 @@ export async function fetchDashboard() {
   }
 }
 
-export async function fetchStaffList(params?: { q?: string }) {
+export type PagedList<T> = {
+  list: T[]
+  total: number
+  page: number
+  pageSize: number
+  hasMore: boolean
+}
+
+function listPageParams(params?: { page?: number; pageSize?: number; all?: boolean }) {
+  if (params?.all) return { all: '1' as const }
+  return { page: params?.page ?? 1, pageSize: params?.pageSize ?? 10 }
+}
+
+export async function fetchStaffList(params?: { q?: string; page?: number; pageSize?: number; all?: boolean }) {
   const res = await http.get('/staff/list', {
     params: {
       ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
+      ...listPageParams(params),
     },
   })
-  return unwrap(res) as { list: StaffRow[] }
+  return unwrap(res) as PagedList<StaffRow>
 }
 
 export async function fetchStaffForm(staffId?: string) {
@@ -66,9 +80,9 @@ export async function patchStaffStatusApi(id: string, status: string) {
   return unwrap(res) as { success: boolean }
 }
 
-export async function fetchWhitelist() {
-  const res = await http.get('/whitelist')
-  return unwrap(res) as { list: WhitelistRow[] }
+export async function fetchWhitelist(params?: { page?: number; pageSize?: number }) {
+  const res = await http.get('/whitelist', { params: listPageParams(params) })
+  return unwrap(res) as PagedList<WhitelistRow>
 }
 
 export async function createWhitelistRow(payload: Omit<WhitelistRow, 'id'>) {
@@ -90,15 +104,18 @@ export async function fetchPropertyPrivacyGrants(params?: {
   q?: string
   staffId?: string
   propertyId?: string
+  page?: number
+  pageSize?: number
 }) {
   const res = await http.get('/property-privacy/grants', {
     params: {
       ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
       ...(params?.staffId ? { staffId: params.staffId } : {}),
       ...(params?.propertyId ? { propertyId: params.propertyId } : {}),
+      ...listPageParams(params),
     },
   })
-  return unwrap(res) as { list: PropertyPrivacyGrantRow[] }
+  return unwrap(res) as PagedList<PropertyPrivacyGrantRow>
 }
 
 export async function savePropertyPrivacyGrant(payload: {
@@ -124,9 +141,11 @@ export async function deletePropertyPrivacyGrant(id: number) {
   return unwrap(res) as { success: boolean }
 }
 
-export async function fetchRegionDefs() {
-  const res = await http.get('/regions/defs')
-  return unwrap(res) as { list: RegionDefRow[] }
+export async function fetchRegionDefs(params?: { page?: number; pageSize?: number; all?: boolean }) {
+  const res = await http.get('/regions/defs', {
+    params: params?.all ? { all: '1' } : listPageParams(params),
+  })
+  return unwrap(res) as PagedList<RegionDefRow>
 }
 
 export async function postRegionDef(name: string) {
@@ -171,6 +190,7 @@ export async function fetchProperties(params?: {
   q?: string
   page?: number
   pageSize?: number
+  all?: boolean
 }) {
   const res = await http.get('/properties', {
     params: {
@@ -178,11 +198,10 @@ export async function fetchProperties(params?: {
       ...(params?.district && params.district !== 'all' ? { district: params.district } : {}),
       ...(params?.status && params.status !== 'all' ? { status: params.status } : {}),
       ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
-      page: params?.page ?? 1,
-      pageSize: params?.pageSize ?? 20,
+      ...listPageParams(params),
     },
   })
-  return unwrap(res) as { list: PropertyRow[]; total: number; page: number; pageSize: number; hasMore: boolean }
+  return unwrap(res) as PagedList<PropertyRow>
 }
 
 export async function fetchPropertyDetail(code: string) {
@@ -221,9 +240,9 @@ export async function uploadOssFile(file: File, folder?: string) {
   }
 }
 
-export async function fetchAuditQueue() {
-  const res = await http.get('/audit/queue')
-  return unwrap(res) as { list: AuditQueueRow[] }
+export async function fetchAuditQueue(params?: { page?: number; pageSize?: number }) {
+  const res = await http.get('/audit/queue', { params: listPageParams(params) })
+  return unwrap(res) as PagedList<AuditQueueRow>
 }
 
 export async function auditPassApi(payload: { code: string }) {
@@ -244,6 +263,7 @@ export async function fetchCustomers(params?: {
   districtRegionId?: number | null
   page?: number
   pageSize?: number
+  all?: boolean
 }) {
   const res = await http.get('/customers', {
     params: {
@@ -254,17 +274,10 @@ export async function fetchCustomers(params?: {
       ...(params?.districtRegionId != null && params.districtRegionId > 0
         ? { districtRegionId: params.districtRegionId }
         : {}),
-      page: params?.page ?? 1,
-      pageSize: params?.pageSize ?? 20,
+      ...listPageParams(params),
     },
   })
-  return unwrap(res) as {
-    list: CustomerRow[]
-    total: number
-    page: number
-    pageSize: number
-    hasMore: boolean
-  }
+  return unwrap(res) as PagedList<CustomerRow>
 }
 
 export async function fetchCustomerDetail(slug: string) {
@@ -292,9 +305,9 @@ export async function putCustomerApi(slug: string, payload: Record<string, unkno
   return unwrap(res) as { success: boolean }
 }
 
-export async function fetchVideoFaq() {
-  const res = await http.get('/video-faq')
-  return unwrap(res) as { list: VideoFaqRow[] }
+export async function fetchVideoFaq(params?: { page?: number; pageSize?: number }) {
+  const res = await http.get('/video-faq', { params: listPageParams(params) })
+  return unwrap(res) as PagedList<VideoFaqRow>
 }
 
 export async function createVideoFaqRow(payload: Partial<VideoFaqRow> & { summary?: string }) {
@@ -312,9 +325,32 @@ export async function deleteVideoFaqRow(id: string) {
   return unwrap(res) as { success: boolean }
 }
 
-export async function fetchViewingsSummary() {
-  const res = await http.get('/viewings/summary')
-  return unwrap(res) as { viewings: ViewingRow[]; deals: DealRow[] }
+export async function fetchViewingsSummary(params?: {
+  viewingPage?: number
+  viewingPageSize?: number
+  dealPage?: number
+  dealPageSize?: number
+}) {
+  const res = await http.get('/viewings/summary', {
+    params: {
+      viewingPage: params?.viewingPage ?? 1,
+      viewingPageSize: params?.viewingPageSize ?? 10,
+      dealPage: params?.dealPage ?? 1,
+      dealPageSize: params?.dealPageSize ?? 10,
+    },
+  })
+  return unwrap(res) as {
+    viewings: ViewingRow[]
+    viewingsTotal: number
+    viewingsPage: number
+    viewingsPageSize: number
+    viewingsHasMore: boolean
+    deals: DealRow[]
+    dealsTotal: number
+    dealsPage: number
+    dealsPageSize: number
+    dealsHasMore: boolean
+  }
 }
 
 export async function createViewingApi(payload: Record<string, unknown>) {
@@ -347,9 +383,9 @@ export async function deleteDealApi(id: number) {
   return unwrap(res) as { success: boolean }
 }
 
-export async function fetchAnnouncements() {
-  const res = await http.get('/announcements')
-  return unwrap(res) as { list: AnnouncementRow[] }
+export async function fetchAnnouncements(params?: { page?: number; pageSize?: number }) {
+  const res = await http.get('/announcements', { params: listPageParams(params) })
+  return unwrap(res) as PagedList<AnnouncementRow>
 }
 
 export async function publishAnnouncement(_payload: Record<string, unknown>) {
@@ -372,14 +408,18 @@ export async function fetchCodeMasterTypes() {
   return unwrap(res) as { list: CodeMasterTypeInfo[] }
 }
 
-export async function fetchCodeMasterItems(type: string, opts?: { includeInactive?: boolean }) {
+export async function fetchCodeMasterItems(
+  type: string,
+  opts?: { includeInactive?: boolean; page?: number; pageSize?: number },
+) {
   const res = await http.get('/code-master', {
     params: {
       type,
       ...(opts?.includeInactive ? { includeInactive: '1' } : {}),
+      ...listPageParams(opts),
     },
   })
-  return unwrap(res) as { list: CodeMasterRow[] }
+  return unwrap(res) as PagedList<CodeMasterRow>
 }
 
 export async function createCodeMasterItem(payload: {
@@ -414,9 +454,26 @@ export async function deleteCodeMasterItem(id: number) {
   return unwrap(res) as { success: boolean }
 }
 
-export async function fetchLogs(params?: { kind?: string; action?: string; q?: string; dateFrom?: string; dateTo?: string }) {
-  const res = await http.get('/logs', { params })
-  return unwrap(res) as { list: LogRow[] }
+export async function fetchLogs(params?: {
+  kind?: string
+  action?: string
+  q?: string
+  dateFrom?: string
+  dateTo?: string
+  page?: number
+  pageSize?: number
+}) {
+  const res = await http.get('/logs', {
+    params: {
+      ...(params?.kind ? { kind: params.kind } : {}),
+      ...(params?.action ? { action: params.action } : {}),
+      ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
+      ...(params?.dateFrom ? { dateFrom: params.dateFrom } : {}),
+      ...(params?.dateTo ? { dateTo: params.dateTo } : {}),
+      ...listPageParams(params),
+    },
+  })
+  return unwrap(res) as PagedList<LogRow>
 }
 
 export async function fetchLogsCount(params?: {
@@ -451,9 +508,9 @@ export async function putSecuritySettings(switches: SecuritySwitch[]) {
   return unwrap(res) as { switches: SecuritySwitch[] }
 }
 
-export async function fetchSysAdminUsers() {
-  const res = await http.get('/sys-admin-users')
-  return unwrap(res) as { list: SysAdminUserRow[] }
+export async function fetchSysAdminUsers(params?: { page?: number; pageSize?: number }) {
+  const res = await http.get('/sys-admin-users', { params: listPageParams(params) })
+  return unwrap(res) as PagedList<SysAdminUserRow>
 }
 
 export async function createSysAdminUser(payload: {

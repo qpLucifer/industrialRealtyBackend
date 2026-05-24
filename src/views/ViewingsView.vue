@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { formatBeijingDisplay, toDatetimeLocalValue } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import {
@@ -19,6 +21,16 @@ import type { CustomerRow, DealRow, PropertyRow, StaffRow, ViewingRow } from '@/
 
 const viewings = ref<ViewingRow[]>([])
 const deals = ref<DealRow[]>([])
+const {
+  listPage: viewingPage,
+  listPageSize: viewingPageSize,
+  listTotal: viewingsTotal,
+} = useAdminListPagination()
+const {
+  listPage: dealPage,
+  listPageSize: dealPageSize,
+  listTotal: dealsTotal,
+} = useAdminListPagination()
 const customerOptions = ref<CustomerRow[]>([])
 const staffOptions = ref<StaffRow[]>([])
 const propertyOptions = ref<PropertyRow[]>([])
@@ -83,9 +95,9 @@ function staffLine(r: ViewingRow) {
 
 async function loadRefs() {
   const [{ list: cust }, { list: staff }, { list: props }] = await Promise.all([
-    fetchCustomers({}),
-    fetchStaffList({}),
-    fetchProperties({}),
+    fetchCustomers({ all: true }),
+    fetchStaffList({ all: true }),
+    fetchProperties({ all: true }),
   ])
   customerOptions.value = cust
   staffOptions.value = staff
@@ -93,9 +105,16 @@ async function loadRefs() {
 }
 
 async function load() {
-  const d = await fetchViewingsSummary()
+  const d = await fetchViewingsSummary({
+    viewingPage: viewingPage.value,
+    viewingPageSize: viewingPageSize.value,
+    dealPage: dealPage.value,
+    dealPageSize: dealPageSize.value,
+  })
   viewings.value = d.viewings
   deals.value = d.deals
+  viewingsTotal.value = d.viewingsTotal ?? d.viewings.length
+  dealsTotal.value = d.dealsTotal ?? d.deals.length
 }
 
 function parseCompanionIds(names: string) {
@@ -271,6 +290,12 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
+        <AdminListPagination
+          v-model:page="viewingPage"
+          v-model:page-size="viewingPageSize"
+          :total="viewingsTotal"
+          @change="load"
+        />
       </div>
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
@@ -305,6 +330,12 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
+        <AdminListPagination
+          v-model:page="dealPage"
+          v-model:page-size="dealPageSize"
+          :total="dealsTotal"
+          @change="load"
+        />
       </div>
     </div>
 

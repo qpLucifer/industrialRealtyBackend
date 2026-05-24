@@ -463,7 +463,7 @@ watch(
     tab.value = 0
     detailViewTab.value = 2
     const [regions, detail, typeCm, listingCm] = await Promise.all([
-      fetchRegionDefs(),
+      fetchRegionDefs({ all: true }),
       fetchPropertyDetail(code),
       fetchCodeMasterItems('property_type').catch(() => ({ list: [] as { label: string }[] })),
       fetchCodeMasterItems('property_listing_status').catch(() => ({ list: [] as { label: string }[] })),

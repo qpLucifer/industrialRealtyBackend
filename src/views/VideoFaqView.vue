@@ -8,12 +8,16 @@ import {
   updateVideoFaqRow,
 } from '@/api/admin'
 import type { VideoFaqRow } from '@/types/domain'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { formatBeijingDisplay } from '@/lib/beijingTime'
 import { uploadVideoMultipart } from '@/lib/mediaUpload'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<VideoFaqRow[]>([])
+const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
+  useAdminListPagination()
 const q = ref('')
 const drawer = ref(false)
 const editingId = ref<string | null>(null)
@@ -55,8 +59,14 @@ function tagTone(t: VideoFaqRow['tags'][0]['tone']) {
 }
 
 async function load() {
-  const { list: rows } = await fetchVideoFaq()
-  list.value = rows
+  const result = await fetchVideoFaq(listQueryParams())
+  list.value = result.list
+  applyPagedResult(result)
+}
+
+function onFilterChange() {
+  resetListPage()
+  void load()
 }
 
 function openNew() {
@@ -181,6 +191,12 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="load"
+      />
     </div>
 
     <el-drawer v-model="drawer" :title="editingId ? '编辑视频 FAQ' : '新建视频 FAQ'" direction="rtl" size="min(480px, 100%)">

@@ -40,6 +40,36 @@ import { encodeMockAdminToken, decodeMockAdminToken } from './lib/mockAdminToken
 
 const ok = <T,>(result: T) => ({ code: 200, message: 'success', result })
 
+function queryScalar(query: Record<string, string | string[] | undefined> | undefined, key: string) {
+  const raw = query?.[key]
+  return Array.isArray(raw) ? raw[0] : raw
+}
+
+function paginateMockRows<T>(rows: T[], query?: Record<string, string | string[] | undefined>) {
+  const all = queryScalar(query, 'all') === '1' || queryScalar(query, 'all') === 'true'
+  if (all) {
+    return { list: rows, total: rows.length, page: 1, pageSize: rows.length || 1, hasMore: false }
+  }
+  const page = Math.max(1, Number(queryScalar(query, 'page')) || 1)
+  const pageSize = Math.min(100, Math.max(1, Number(queryScalar(query, 'pageSize')) || 10))
+  const total = rows.length
+  const start = (page - 1) * pageSize
+  const list = rows.slice(start, start + pageSize)
+  return { list, total, page, pageSize, hasMore: page * pageSize < total }
+}
+
+function paginateMockRowsByKeys<T>(
+  rows: T[],
+  query: Record<string, string | string[] | undefined> | undefined,
+  pageKey: string,
+  pageSizeKey: string,
+) {
+  return paginateMockRows(rows, {
+    page: queryScalar(query, pageKey),
+    pageSize: queryScalar(query, pageSizeKey),
+  })
+}
+
 export default [
   {
     url: '/api/auth/login',
@@ -96,7 +126,19 @@ export default [
   {
     url: '/api/staff/list',
     method: 'get',
-    response: () => ok({ list: mockStaffRows }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) => {
+      const q = String(queryScalar(query, 'q') || '')
+        .trim()
+        .toLowerCase()
+      let rows = [...mockStaffRows]
+      if (q) {
+        rows = rows.filter((r) => {
+          const hay = `${r.name || ''} ${r.phoneMasked || ''} ${r.id || ''} ${r.employeeNo || ''}`.toLowerCase()
+          return hay.includes(q)
+        })
+      }
+      return ok(paginateMockRows(rows, query))
+    },
   },
   {
     url: '/api/staff/form',
@@ -106,12 +148,14 @@ export default [
   {
     url: '/api/whitelist',
     method: 'get',
-    response: () => ok({ list: mockWhitelistRows }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) =>
+      ok(paginateMockRows(mockWhitelistRows, query)),
   },
   {
     url: '/api/sys-admin-users',
     method: 'get',
-    response: () => ok({ list: mockSysAdminUsers.map((r) => ({ ...r })) }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) =>
+      ok(paginateMockRows(mockSysAdminUsers.map((r) => ({ ...r })), query)),
   },
   {
     url: '/api/sys-admin-users',
@@ -177,7 +221,7 @@ export default [
       const includeInactive = String(Array.isArray(inc) ? inc[0] : inc || '') === '1'
       try {
         const list = mockListCodeMaster(String(type), Boolean(includeInactive))
-        return ok({ list })
+        return ok(paginateMockRows(list, query))
       } catch (e: unknown) {
         return { code: 400, message: e instanceof Error ? e.message : 'bad request', result: null }
       }
@@ -228,7 +272,8 @@ export default [
   {
     url: '/api/regions/defs',
     method: 'get',
-    response: () => ok({ list: mockRegionDefs.map((r) => ({ ...r })) }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) =>
+      ok(paginateMockRows(mockRegionDefs.map((r) => ({ ...r })), query)),
   },
   {
     url: '/api/regions/defs',
@@ -278,20 +323,7 @@ export default [
       if (d && d !== 'all') {
         list = list.filter((row) => String(row.district || '').includes(String(d)))
       }
-      const page = Math.max(1, Number(Array.isArray(query?.page) ? query.page[0] : query?.page) || 1)
-      const pageSize = Math.min(
-        100,
-        Math.max(1, Number(Array.isArray(query?.pageSize) ? query.pageSize[0] : query?.pageSize) || 20),
-      )
-      const total = list.length
-      const start = (page - 1) * pageSize
-      return ok({
-        list: list.slice(start, start + pageSize),
-        total,
-        page,
-        pageSize,
-        hasMore: page * pageSize < total,
-      })
+      return ok(paginateMockRows(list, query))
     },
   },
   {
@@ -306,27 +338,15 @@ export default [
   {
     url: '/api/audit/queue',
     method: 'get',
-    response: () => ok({ list: mockAuditQueue }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) =>
+      ok(paginateMockRows(mockAuditQueue, query)),
   },
   {
     url: '/api/customers',
     method: 'get',
     response: ({ query }: { query: Record<string, string | string[] | undefined> }) => {
       const list = mockCustomerRows.map((r) => ({ ...r }))
-      const page = Math.max(1, Number(Array.isArray(query?.page) ? query.page[0] : query?.page) || 1)
-      const pageSize = Math.min(
-        100,
-        Math.max(1, Number(Array.isArray(query?.pageSize) ? query.pageSize[0] : query?.pageSize) || 20),
-      )
-      const total = list.length
-      const start = (page - 1) * pageSize
-      return ok({
-        list: list.slice(start, start + pageSize),
-        total,
-        page,
-        pageSize,
-        hasMore: page * pageSize < total,
-      })
+      return ok(paginateMockRows(list, query))
     },
   },
   {
@@ -376,22 +396,56 @@ export default [
   {
     url: '/api/video-faq',
     method: 'get',
-    response: () => ok({ list: mockVideoFaqRows }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) =>
+      ok(paginateMockRows(mockVideoFaqRows, query)),
   },
   {
     url: '/api/viewings/summary',
     method: 'get',
-    response: () => ok({ viewings: mockViewingRows, deals: mockDealRows }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) => {
+      const vp = paginateMockRowsByKeys(mockViewingRows, query, 'viewingPage', 'viewingPageSize')
+      const dp = paginateMockRowsByKeys(mockDealRows, query, 'dealPage', 'dealPageSize')
+      return ok({
+        viewings: vp.list,
+        viewingsTotal: vp.total,
+        viewingsPage: vp.page,
+        viewingsPageSize: vp.pageSize,
+        viewingsHasMore: vp.hasMore,
+        deals: dp.list,
+        dealsTotal: dp.total,
+        dealsPage: dp.page,
+        dealsPageSize: dp.pageSize,
+        dealsHasMore: dp.hasMore,
+      })
+    },
   },
   {
     url: '/api/announcements',
     method: 'get',
-    response: () => ok({ list: mockAnnouncements }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) =>
+      ok(paginateMockRows(mockAnnouncements, query)),
   },
   {
     url: '/api/logs',
     method: 'get',
-    response: () => ok({ list: mockLogs }),
+    response: ({ query }: { query: Record<string, string | string[] | undefined> }) => {
+      let rows = mockLogs.filter(() => true)
+      const k = queryScalar(query, 'kind')
+      const a = queryScalar(query, 'action')
+      if (k && k !== 'all') rows = rows.filter((r) => r.kind === k)
+      if (a && a !== 'all') rows = rows.filter((r) => r.action === a)
+      const q = String(queryScalar(query, 'q') || '')
+        .trim()
+        .toLowerCase()
+      if (q) {
+        rows = rows.filter((r) =>
+          `${r.actor || ''} ${r.objectLabel || ''} ${r.detail || ''} ${r.actionLabel || ''}`
+            .toLowerCase()
+            .includes(q),
+        )
+      }
+      return ok(paginateMockRows(rows, query))
+    },
   },
   {
     url: '/api/logs/count',

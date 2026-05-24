@@ -13,7 +13,9 @@ import {
   putCustomerApi,
 } from '@/api/admin'
 import type { CodeMasterRow, CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 import { isListOnMini } from '@/lib/listOnMini'
 import { timelineLinesFromDetail } from '@/lib/customerTimeline'
@@ -27,9 +29,8 @@ const DEFAULT_POOL_OPTIONS: { itemCode: string; label: string }[] = [
 ]
 
 const list = ref<CustomerRow[]>([])
-const listTotal = ref(0)
-const listPage = ref(1)
-const listPageSize = ref(20)
+const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
+  useAdminListPagination()
 const scopeFilter = ref<'all' | 'private' | 'public'>('all')
 const gradeFilter = ref<string>('all')
 const dealFilter = ref<string>('all')
@@ -71,7 +72,7 @@ const followNextAt = ref('')
 
 async function loadRegions() {
   try {
-    const { list } = await fetchRegionDefs()
+    const { list } = await fetchRegionDefs({ all: true })
     regionDefs.value = (list ?? []).map((r) => ({ id: r.id, name: r.name }))
   } catch {
     regionDefs.value = []
@@ -79,37 +80,25 @@ async function loadRegions() {
 }
 
 async function load() {
-  const { list: rows, total } = await fetchCustomers({
+  const result = await fetchCustomers({
     scope: scopeFilter.value,
     grade: gradeFilter.value,
     deal: dealFilter.value,
     q: searchQ.value,
     districtRegionId: regionFilter.value === '' ? null : Number(regionFilter.value),
-    page: listPage.value,
-    pageSize: listPageSize.value,
+    ...listQueryParams(),
   })
-  list.value = rows
-  listTotal.value = total ?? rows.length
-}
-
-function onListPageChange(page: number) {
-  listPage.value = page
-  void load()
-}
-
-function onListPageSizeChange(size: number) {
-  listPageSize.value = size
-  listPage.value = 1
-  void load()
+  list.value = result.list
+  applyPagedResult(result)
 }
 
 function onFilterChange() {
-  listPage.value = 1
+  resetListPage()
   void load()
 }
 
 async function loadStaff() {
-  const { list } = await fetchStaffList({})
+  const { list } = await fetchStaffList({ all: true })
   staffOptions.value = list
 }
 
@@ -438,18 +427,12 @@ function onRemind() {
       </table>
     </div>
 
-    <div class="list-pagination">
-      <el-pagination
-        v-model:current-page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        background
-        @current-change="onListPageChange"
-        @size-change="onListPageSizeChange"
-      />
-    </div>
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="load"
+    />
 
     <el-drawer v-model="drawer" :title="drawerTitle()" size="min(560px, 92vw)" destroy-on-close class="crm-drawer">
       <template v-if="drawerMode === 'detail' && detail">
@@ -640,11 +623,6 @@ function onRemind() {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-}
-.list-pagination {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
 }
 .hint-sm {
   font-size: 12px;

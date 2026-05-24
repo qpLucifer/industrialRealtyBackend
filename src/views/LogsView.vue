@@ -3,9 +3,13 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchLogs, fetchLogsCount, purgeLogs } from '@/api/admin'
 import type { LogAction, LogKind, LogRow } from '@/types/domain'
+import AdminListPagination from '@/components/AdminListPagination.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { formatBeijingDisplay } from '@/lib/beijingTime'
 
 const list = ref<LogRow[]>([])
+const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
+  useAdminListPagination()
 const obj = ref<LogKind | 'all'>('all')
 const act = ref<LogAction | 'all'>('all')
 const kw = ref('')
@@ -28,11 +32,13 @@ function hasSqlNarrowFilter() {
 
 async function load() {
   const { kind, action, q, dateFrom: df, dateTo: dt } = filterParams()
-  const { list: rows } = await fetchLogs({ kind, action, q, dateFrom: df, dateTo: dt })
-  list.value = rows
+  const result = await fetchLogs({ kind, action, q, dateFrom: df, dateTo: dt, ...listQueryParams() })
+  list.value = result.list
+  applyPagedResult(result)
 }
 
 function filter() {
+  resetListPage()
   load().catch(() => {
     /* global http interceptor shows API error */
   })
@@ -183,7 +189,13 @@ onMounted(() => {
           </tr>
         </tbody>
       </table>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="load"
+      />
     </div>
-    <p class="hint" style="margin-top: 12px; padding: 0 4px">对象、动作与日期区间由服务端 SQL 过滤；关键词在后端对结果集再匹配（最多 500 条）。执行 <code>npm run db:reset</code> 后含 <code>logged_at</code> 列。</p>
+    <p class="hint" style="margin-top: 12px; padding: 0 4px">对象、动作与日期区间由服务端 SQL 过滤；关键词在后端 SQL 匹配。默认每页 10 条。</p>
   </section>
 </template>

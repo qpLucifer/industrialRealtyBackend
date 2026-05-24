@@ -4,7 +4,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteStaffApi, fetchCodeMasterItems, fetchRegionDefs, fetchStaffForm, fetchStaffList, patchStaffStatusApi, postStaffImportCsv, saveStaffForm } from '@/api/admin'
 import type { CodeMasterRow, RegionDefRow, StaffForm, StaffRow } from '@/types/domain'
 import { csvEscape } from '@/lib/csv'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { Delete, Edit, Lock } from '@element-plus/icons-vue'
 import {
   emailFormatErrorMessage,
@@ -16,6 +18,8 @@ import {
 } from '@/lib/inputValidators'
 
 const list = ref<StaffRow[]>([])
+const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
+  useAdminListPagination()
 const regionDefs = ref<RegionDefRow[]>([])
 const accountStatusMaster = ref<CodeMasterRow[]>([])
 const departmentMaster = ref<CodeMasterRow[]>([])
@@ -39,9 +43,9 @@ function labelsWithOrphan(rows: CodeMasterRow[], fallback: string[], current: st
 async function loadCodeMaster() {
   try {
     const [b, c, d] = await Promise.all([
-      fetchCodeMasterItems('staff_account_status'),
-      fetchCodeMasterItems('staff_department'),
-      fetchCodeMasterItems('staff_job_title'),
+      fetchCodeMasterItems('staff_account_status', { pageSize: 100 }),
+      fetchCodeMasterItems('staff_department', { pageSize: 100 }),
+      fetchCodeMasterItems('staff_job_title', { pageSize: 100 }),
     ])
     accountStatusMaster.value = b.list
     departmentMaster.value = c.list
@@ -74,7 +78,7 @@ function onStaffEmailBlur() {
 }
 
 async function loadRegionDefs() {
-  const { list: rows } = await fetchRegionDefs()
+  const { list: rows } = await fetchRegionDefs({ all: true })
   regionDefs.value = rows
 }
 
@@ -91,8 +95,14 @@ function clearRegions() {
 }
 
 async function loadList() {
-  const { list: rows } = await fetchStaffList({ q: staffQ.value })
-  list.value = rows
+  const result = await fetchStaffList({ q: staffQ.value, ...listQueryParams() })
+  list.value = result.list
+  applyPagedResult(result)
+}
+
+function onFilterChange() {
+  resetListPage()
+  void loadList()
 }
 
 async function openDrawerForNew() {
@@ -285,6 +295,12 @@ function onDownloadStaffTemplate() {
           </tr>
         </tbody>
       </table>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="loadList"
+      />
     </div>
     <p class="hint" style="margin-top: 12px">
       一人一号 · 小程序登录须<strong>白名单 + 本表手机号一致</strong>且状态正常；<strong>负责区域</strong>决定小程序房源可见范围；离职「禁用」后无法登录小程序。

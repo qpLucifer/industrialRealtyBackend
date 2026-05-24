@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import {
   deletePropertyPrivacyGrant,
@@ -14,6 +16,8 @@ import {
 import type { PropertyPrivacyGrantRow, PropertyRow, StaffRow } from '@/types/domain'
 
 const list = ref<PropertyPrivacyGrantRow[]>([])
+const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
+  useAdminListPagination()
 const staffOptions = ref<StaffRow[]>([])
 const propertyOptions = ref<PropertyRow[]>([])
 
@@ -31,18 +35,25 @@ const drawerTitle = computed(() => (editingId.value == null ? '新增隐私授�
 
 async function loadRefs() {
   const [{ list: staff }, { list: props }] = await Promise.all([
-    fetchStaffList({}),
-    fetchProperties({}),
+    fetchStaffList({ all: true }),
+    fetchProperties({ all: true }),
   ])
   staffOptions.value = staff
   propertyOptions.value = props
 }
 
 async function load() {
-  const { list: rows } = await fetchPropertyPrivacyGrants({
+  const result = await fetchPropertyPrivacyGrants({
     q: filterQ.value,
+    ...listQueryParams(),
   })
-  list.value = rows
+  list.value = result.list
+  applyPagedResult(result)
+}
+
+function onFilterChange() {
+  resetListPage()
+  void load()
 }
 
 function openNew() {
@@ -136,7 +147,7 @@ onMounted(async () => {
         style="min-width: 200px"
         @keyup.enter="load"
       />
-      <button type="button" class="btn btn-primary" @click="load">查询</button>
+      <button type="button" class="btn btn-primary" @click="onFilterChange">查询</button>
       <button type="button" class="btn btn-primary" @click="openNew">＋ 新增授权</button>
     </div>
 
@@ -178,6 +189,12 @@ onMounted(async () => {
           </tr>
         </tbody>
       </table>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="load"
+      />
     </div>
 
     <el-drawer v-model="drawerOpen" :title="drawerTitle" direction="rtl" size="min(420px, 100%)">

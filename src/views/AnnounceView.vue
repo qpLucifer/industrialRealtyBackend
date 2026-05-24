@@ -8,11 +8,14 @@ import {
   updateAnnouncementApi,
 } from '@/api/admin'
 import type { AnnouncementRow } from '@/types/domain'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { datetimeLocalToApi, formatBeijingDisplay, parseBeijingNaiveToInstant, toDatetimeLocalValue } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<AnnouncementRow[]>([])
+const { listPage, listPageSize, listTotal, applyPagedResult, listQueryParams } = useAdminListPagination()
 const modal = ref(false)
 const editingId = ref<number | null>(null)
 const form = reactive({
@@ -31,8 +34,9 @@ function toneDbToCn(t: string): '青绿色' | '琥珀色' {
 }
 
 async function load() {
-  const { list: rows } = await fetchAnnouncements()
-  list.value = rows
+  const result = await fetchAnnouncements(listQueryParams())
+  list.value = result.list
+  applyPagedResult(result)
 }
 
 function statusClass(t: AnnouncementRow['statusTone']) {
@@ -184,6 +188,12 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="load"
+      />
     </div>
 
     <Teleport to="body">

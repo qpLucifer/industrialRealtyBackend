@@ -3,11 +3,14 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createSysAdminUser, deleteSysAdminUser, fetchSysAdminUsers, updateSysAdminUser, uploadOssFile } from '@/api/admin'
 import type { SysAdminUserRow } from '@/types/domain'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { formatBeijingDisplay } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const list = ref<SysAdminUserRow[]>([])
+const { listPage, listPageSize, listTotal, applyPagedResult, listQueryParams } = useAdminListPagination()
 const drawer = ref(false)
 const editingId = ref<number | null>(null)
 const uploadingAvatar = ref(false)
@@ -21,11 +24,12 @@ const form = reactive({
 })
 
 async function load() {
-  const { list: rows } = await fetchSysAdminUsers()
-  list.value = rows.map((r) => ({
+  const result = await fetchSysAdminUsers(listQueryParams())
+  list.value = result.list.map((r) => ({
     ...r,
     hasLoginPassword: Boolean(r.hasLoginPassword),
   }))
+  applyPagedResult(result)
 }
 
 onMounted(load)
@@ -155,6 +159,12 @@ async function onDelete(row: SysAdminUserRow) {
           </tr>
         </tbody>
       </table>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="load"
+      />
     </div>
 
     <el-drawer v-model="drawer" :title="editingId == null ? '新增后台用户' : '编辑后台用户'" size="min(480px, 92vw)" destroy-on-close>

@@ -9,12 +9,16 @@ import {
   updateCodeMasterItem,
 } from '@/api/admin'
 import type { CodeMasterRow, CodeMasterTypeInfo } from '@/types/domain'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
 const types = ref<CodeMasterTypeInfo[]>([])
 const selectedType = ref('staff_department')
 const rows = ref<CodeMasterRow[]>([])
+const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
+  useAdminListPagination()
 const loading = ref(false)
 
 const modal = ref(false)
@@ -44,14 +48,19 @@ async function loadTypes() {
 async function loadRows() {
   loading.value = true
   try {
-    const { list } = await fetchCodeMasterItems(selectedType.value, { includeInactive: true })
-    rows.value = list
+    const result = await fetchCodeMasterItems(selectedType.value, {
+      includeInactive: true,
+      ...listQueryParams(),
+    })
+    rows.value = result.list
+    applyPagedResult(result)
   } finally {
     loading.value = false
   }
 }
 
 watch(selectedType, () => {
+  resetListPage()
   void loadRows()
 })
 
@@ -174,6 +183,12 @@ async function onDelete(row: CodeMasterRow) {
           </tr>
         </tbody>
       </table>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="loadRows"
+      />
     </div>
 
     <Teleport to="body">

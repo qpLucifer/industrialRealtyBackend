@@ -4,16 +4,17 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createPropertyDraft, deletePropertyApi, fetchCodeMasterItems, fetchProperties, fetchRegionDefs } from '@/api/admin'
 import type { PropertyRow, RegionDefRow } from '@/types/domain'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { useAuthStore } from '@/stores/auth'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 
 const auth = useAuthStore()
 
 const list = ref<PropertyRow[]>([])
-const listTotal = ref(0)
-const listPage = ref(1)
-const listPageSize = ref(20)
+const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
+  useAdminListPagination()
 const regionDefs = ref<RegionDefRow[]>([])
 
 const modalVisible = ref(false)
@@ -26,36 +27,24 @@ const filterDistrict = ref<string>('all')
 const searchQ = ref('')
 
 async function loadRegionDefs() {
-  const { list: rows } = await fetchRegionDefs()
+  const { list: rows } = await fetchRegionDefs({ all: true })
   regionDefs.value = rows
 }
 
 async function loadList() {
-  const { list: rows, total } = await fetchProperties({
+  const result = await fetchProperties({
     type: filterType.value,
     status: filterStatus.value,
     district: filterDistrict.value,
     q: searchQ.value,
-    page: listPage.value,
-    pageSize: listPageSize.value,
+    ...listQueryParams(),
   })
-  list.value = rows
-  listTotal.value = total ?? rows.length
-}
-
-function onListPageChange(page: number) {
-  listPage.value = page
-  void loadList()
-}
-
-function onListPageSizeChange(size: number) {
-  listPageSize.value = size
-  listPage.value = 1
-  void loadList()
+  list.value = result.list
+  applyPagedResult(result)
 }
 
 function onFilterChange() {
-  listPage.value = 1
+  resetListPage()
   void loadList()
 }
 
@@ -181,18 +170,12 @@ async function onDeleteRow(row: PropertyRow) {
       </table>
     </div>
 
-    <div class="list-pagination">
-      <el-pagination
-        v-model:current-page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        background
-        @current-change="onListPageChange"
-        @size-change="onListPageSizeChange"
-      />
-    </div>
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="loadList"
+    />
 
     <PropertyFullModal v-model:visible="modalVisible" :code="modalCode" :mode="modalMode" @saved="loadList" />
   </section>
@@ -205,10 +188,5 @@ async function onDeleteRow(row: PropertyRow) {
   gap: 6px;
   align-items: center;
   white-space: nowrap;
-}
-.list-pagination {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
 }
 </style>

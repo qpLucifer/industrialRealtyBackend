@@ -5,10 +5,13 @@ import { auditPassApi, auditRejectApi, fetchAuditQueue } from '@/api/admin'
 import type { AuditQueueRow } from '@/types/domain'
 import { formatBeijingDisplay } from '@/lib/beijingTime'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { CircleCheck, CloseBold, View } from '@element-plus/icons-vue'
 
 const list = ref<AuditQueueRow[]>([])
+const { listPage, listPageSize, listTotal, applyPagedResult, listQueryParams } = useAdminListPagination()
 const modalVisible = ref(false)
 const modalCode = ref('')
 const loading = ref(false)
@@ -18,8 +21,9 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const { list: rows } = await fetchAuditQueue()
-    list.value = rows
+    const result = await fetchAuditQueue(listQueryParams())
+    list.value = result.list
+    applyPagedResult(result)
   } catch {
     loadError.value = '加载失败'
   } finally {
@@ -123,6 +127,12 @@ async function onReject(row: AuditQueueRow) {
           </tbody>
         </table>
       </div>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="load"
+      />
       <p v-if="list.length === 0" class="hint" style="margin-top: 14px">当前无待审核项。</p>
       <p v-else class="hint" style="margin-top: 14px">请先点「详情」核对完整资料（与房源编辑表单字段一致），再执行通过或驳回。</p>
     </div>

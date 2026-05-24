@@ -4,19 +4,23 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createWhitelistRow, deleteWhitelistRow, fetchWhitelist, updateWhitelistRow } from '@/api/admin'
 import type { WhitelistRow } from '@/types/domain'
 import { csvEscape, headerIndex, parseCsvWithHeader } from '@/lib/csv'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import { normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 import { beijingTodayYmd, formatBeijingDisplay } from '@/lib/beijingTime'
 
 const list = ref<WhitelistRow[]>([])
+const { listPage, listPageSize, listTotal, applyPagedResult, listQueryParams } = useAdminListPagination()
 const drawer = ref(false)
 const editingId = ref<number | null>(null)
 const form = reactive({ phone: '', name: '', remark: '' })
 
 async function load() {
-  const { list: rows } = await fetchWhitelist()
-  list.value = rows
+  const result = await fetchWhitelist(listQueryParams())
+  list.value = result.list
+  applyPagedResult(result)
 }
 
 function openNew() {
@@ -182,6 +186,12 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="load"
+      />
     </div>
 
     <el-drawer v-model="drawer" title="白名单" direction="rtl" size="min(420px, 100%)">

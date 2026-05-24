@@ -3,7 +3,9 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteRegionDef, fetchRegionDefs, postRegionDef, putRegionDef } from '@/api/admin'
 import type { RegionDefRow } from '@/types/domain'
+import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
+import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { Check, Close, Delete, Edit } from '@element-plus/icons-vue'
 
 const defs = ref<RegionDefRow[]>([])
@@ -13,8 +15,9 @@ const editId = ref<number | null>(null)
 const editName = ref('')
 
 async function loadDefs() {
-  const { list } = await fetchRegionDefs()
-  defs.value = list
+  const result = await fetchRegionDefs(listQueryParams())
+  defs.value = result.list
+  applyPagedResult(result)
 }
 
 async function onAddRegion() {
@@ -119,6 +122,12 @@ onMounted(loadDefs)
           </tr>
         </tbody>
       </table>
+      <AdminListPagination
+        v-model:page="listPage"
+        v-model:page-size="listPageSize"
+        :total="listTotal"
+        @change="loadDefs"
+      />
       <p v-if="defs.length === 0" class="empty">暂无区域，请先新增。</p>
     </div>
   </section>
