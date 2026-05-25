@@ -283,6 +283,34 @@ export interface AnnouncementRow {
   body?: string | null
 }
 
+export type LandAuctionStatus = 'upcoming' | 'auctioning' | 'completed'
+
+export interface LandAuctionRow {
+  id: number
+  title: string
+  districtRegionId: number | null
+  region: string
+  areaMu: number | null
+  startPriceWan: number | null
+  dealPriceWan: number | null
+  auctionStatus: LandAuctionStatus
+  listingDate: string
+  auctionStartAt: string
+  auctionEndAt: string
+  completedAt: string
+  remark: string
+  published: boolean
+  sortOrder: number
+  updatedAt?: string
+}
+
+export interface LandAuctionStats {
+  upcoming: number
+  auctioning: number
+  completed: number
+  total: number
+}
+
 export type LogKind = 'prop' | 'cust' | 'acct'
 export type LogAction = 'login' | 'view' | 'edit' | 'share' | 'export'
 

@@ -53,6 +53,7 @@ const navGroups: { section: string; items: { to: string; name: string; label: st
       { to: '/app/video-faq', name: 'video-faq', label: '视频 FAQ' },
       { to: '/app/viewings', name: 'viewings', label: '带看 / 成交' },
       { to: '/app/announce', name: 'announce', label: '公告通知' },
+      { to: '/app/land-auction', name: 'land-auction', label: '工业土地出售' },
     ],
   },
   {

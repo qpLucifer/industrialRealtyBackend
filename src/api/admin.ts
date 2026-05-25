@@ -10,6 +10,8 @@ import type {
   CustomerRow,
   DealRow,
   KpiItem,
+  LandAuctionRow,
+  LandAuctionStats,
   LogRow,
   PropertyFullForm,
   PropertyPrivacyGrantRow,
@@ -400,6 +402,51 @@ export async function updateAnnouncementApi(id: number, payload: Record<string, 
 
 export async function deleteAnnouncementApi(id: number) {
   const res = await http.delete(`/announcements/${id}`)
+  return unwrap(res) as { success: boolean }
+}
+
+export async function fetchLandAuctionStats(params?: { districtRegionId?: number | null }) {
+  const res = await http.get('/land-auctions/stats', {
+    params:
+      params?.districtRegionId != null && params.districtRegionId > 0
+        ? { districtRegionId: params.districtRegionId }
+        : undefined,
+  })
+  return unwrap(res) as { stats: LandAuctionStats }
+}
+
+export async function fetchLandAuctions(params?: {
+  page?: number
+  pageSize?: number
+  status?: string
+  q?: string
+  districtRegionId?: number | null
+}) {
+  const res = await http.get('/land-auctions', {
+    params: {
+      ...listPageParams(params),
+      ...(params?.status?.trim() ? { status: params.status.trim() } : {}),
+      ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
+      ...(params?.districtRegionId != null && params.districtRegionId > 0
+        ? { districtRegionId: params.districtRegionId }
+        : {}),
+    },
+  })
+  return unwrap(res) as PagedList<LandAuctionRow>
+}
+
+export async function createLandAuctionApi(payload: Record<string, unknown>) {
+  const res = await http.post('/land-auctions', payload)
+  return unwrap(res) as { success: boolean; id?: number }
+}
+
+export async function updateLandAuctionApi(id: number, payload: Record<string, unknown>) {
+  const res = await http.put(`/land-auctions/${id}`, payload)
+  return unwrap(res) as { success: boolean }
+}
+
+export async function deleteLandAuctionApi(id: number) {
+  const res = await http.delete(`/land-auctions/${id}`)
   return unwrap(res) as { success: boolean }
 }
 
