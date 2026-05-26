@@ -188,13 +188,14 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
-      <AdminListPagination
-        v-model:page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        @change="load"
-      />
     </div>
+
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="load"
+    />
 
     <Teleport to="body">
       <div class="modal-center" :class="{ show: modal }" @click.self="modal = false">

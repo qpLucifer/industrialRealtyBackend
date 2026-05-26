@@ -127,15 +127,16 @@ async function onReject(row: AuditQueueRow) {
           </tbody>
         </table>
       </div>
-      <AdminListPagination
-        v-model:page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        @change="load"
-      />
-      <p v-if="list.length === 0" class="hint" style="margin-top: 14px">当前无待审核项。</p>
-      <p v-else class="hint" style="margin-top: 14px">请先点「详情」核对完整资料（与房源编辑表单字段一致），再执行通过或驳回。</p>
     </div>
+
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="load"
+    />
+    <p v-if="list.length === 0" class="hint" style="margin-top: 14px">当前无待审核项。</p>
+    <p v-else class="hint" style="margin-top: 14px">请先点「详情」核对完整资料（与房源编辑表单字段一致），再执行通过或驳回。</p>
 
     <PropertyFullModal v-model:visible="modalVisible" :code="modalCode" mode="view" />
   </section>

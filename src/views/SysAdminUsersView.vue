@@ -159,13 +159,14 @@ async function onDelete(row: SysAdminUserRow) {
           </tr>
         </tbody>
       </table>
-      <AdminListPagination
-        v-model:page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        @change="load"
-      />
     </div>
+
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="load"
+    />
 
     <el-drawer v-model="drawer" :title="editingId == null ? '新增后台用户' : '编辑后台用户'" size="min(480px, 92vw)" destroy-on-close>
       <div class="form-grid">

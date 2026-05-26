@@ -185,13 +185,14 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
-      <AdminListPagination
-        v-model:page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        @change="load"
-      />
     </div>
+
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="load"
+    />
 
     <el-drawer v-model="drawer" :title="editingId ? '编辑视频 FAQ' : '新建视频 FAQ'" direction="rtl" size="min(480px, 100%)">
       <div class="form-grid">

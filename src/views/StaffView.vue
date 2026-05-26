@@ -295,13 +295,15 @@ function onDownloadStaffTemplate() {
           </tr>
         </tbody>
       </table>
-      <AdminListPagination
-        v-model:page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        @change="loadList"
-      />
     </div>
+
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="loadList"
+    />
+
     <p class="hint" style="margin-top: 12px">
       一人一号 · 小程序登录须<strong>白名单 + 本表手机号一致</strong>且状态正常；<strong>负责区域</strong>决定小程序房源可见范围；离职「禁用」后无法登录小程序。
     </p>

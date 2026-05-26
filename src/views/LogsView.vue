@@ -189,13 +189,14 @@ onMounted(() => {
           </tr>
         </tbody>
       </table>
-      <AdminListPagination
-        v-model:page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        @change="load"
-      />
     </div>
+
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="load"
+    />
     <p class="hint" style="margin-top: 12px; padding: 0 4px">对象、动作与日期区间由服务端 SQL 过滤；关键词在后端 SQL 匹配。默认每页 10 条。</p>
   </section>
 </template>

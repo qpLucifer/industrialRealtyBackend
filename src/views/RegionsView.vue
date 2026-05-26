@@ -123,14 +123,15 @@ onMounted(loadDefs)
           </tr>
         </tbody>
       </table>
-      <AdminListPagination
-        v-model:page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        @change="loadDefs"
-      />
-      <p v-if="defs.length === 0" class="empty">暂无区域，请先新增。</p>
     </div>
+
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="loadDefs"
+    />
+    <p v-if="defs.length === 0" class="empty">暂无区域，请先新增。</p>
   </section>
 </template>
 

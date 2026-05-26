@@ -189,13 +189,14 @@ onMounted(async () => {
           </tr>
         </tbody>
       </table>
-      <AdminListPagination
-        v-model:page="listPage"
-        v-model:page-size="listPageSize"
-        :total="listTotal"
-        @change="load"
-      />
     </div>
+
+    <AdminListPagination
+      v-model:page="listPage"
+      v-model:page-size="listPageSize"
+      :total="listTotal"
+      @change="load"
+    />
 
     <el-drawer v-model="drawerOpen" :title="drawerTitle" direction="rtl" size="min(420px, 100%)">
       <div class="form-grid">

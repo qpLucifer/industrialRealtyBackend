@@ -255,6 +255,7 @@ onMounted(async () => {
       <button type="button" class="btn" @click="loadRefs().then(() => load())">刷新</button>
     </div>
     <div class="grid-2">
+      <div>
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
           <h3 style="margin: 0">带看台账</h3>
@@ -290,13 +291,15 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
-        <AdminListPagination
-          v-model:page="viewingPage"
-          v-model:page-size="viewingPageSize"
-          :total="viewingsTotal"
-          @change="load"
-        />
       </div>
+      <AdminListPagination
+        v-model:page="viewingPage"
+        v-model:page-size="viewingPageSize"
+        :total="viewingsTotal"
+        @change="load"
+      />
+      </div>
+      <div>
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
           <h3 style="margin: 0">成交备案</h3>
@@ -330,12 +333,13 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
-        <AdminListPagination
-          v-model:page="dealPage"
-          v-model:page-size="dealPageSize"
-          :total="dealsTotal"
-          @change="load"
-        />
+      </div>
+      <AdminListPagination
+        v-model:page="dealPage"
+        v-model:page-size="dealPageSize"
+        :total="dealsTotal"
+        @change="load"
+      />
       </div>
     </div>
 
