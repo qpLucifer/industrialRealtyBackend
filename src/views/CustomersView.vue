@@ -346,7 +346,7 @@ async function onRemind() {
   resetListPage()
   await load()
   const n = listTotal.value
-  ElMessage.success(n > 0 ? `今日待跟进 ${n} 条（含已到期）` : '当前无今日待跟进客户')
+  ElMessage.success(n > 0 ? `今日待跟进 ${n} 条` : '当前无今日待跟进客户')
 }
 
 function clearRemindFilter() {
@@ -388,7 +388,7 @@ function clearRemindFilter() {
       <button v-if="reminderFilter === 'today'" type="button" class="btn" @click="clearRemindFilter">显示全部</button>
     </div>
     <p v-if="reminderFilter === 'today'" class="crm-filter-hint">
-      筛选：已设置下次提醒、且提醒时间不晚于今日 23:59（北京时间，含已到期未跟进）。
+      筛选：下次提醒落在今日（北京时间 00:00–23:59），不含昨天及更早。
     </p>
     <div class="card crm-list-card">
       <table class="data data-crm data-crm-compact">
