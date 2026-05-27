@@ -31,6 +31,7 @@ const DEFAULT_POOL_OPTIONS: { itemCode: string; label: string }[] = [
 const list = ref<CustomerRow[]>([])
 const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
   useAdminListPagination()
+const reminderFilter = ref<'' | 'today'>('')
 const scopeFilter = ref<'all' | 'private' | 'public'>('all')
 const gradeFilter = ref<string>('all')
 const dealFilter = ref<string>('all')
@@ -86,6 +87,7 @@ async function load() {
     deal: dealFilter.value,
     q: searchQ.value,
     districtRegionId: regionFilter.value === '' ? null : Number(regionFilter.value),
+    reminder: reminderFilter.value,
     ...listQueryParams(),
   })
   list.value = result.list
@@ -165,6 +167,14 @@ function gradeClass(g: string) {
   if (g.startsWith('A')) return 'mint'
   if (g.startsWith('B')) return 'cyan'
   return 'rose'
+}
+
+function poolScopeLabel(r: CustomerRow) {
+  return String(r.badgesHtml || '').includes('公有') ? '公有' : '私有'
+}
+
+function poolScopeTagClass(r: CustomerRow) {
+  return poolScopeLabel(r) === '公有' ? 'cyan' : 'slate'
 }
 
 function drawerTitle() {
@@ -326,26 +336,29 @@ async function onSaveFollow() {
   await load()
 }
 
-const pendingFollowOnly = ref(false)
-
-const displayedList = computed(() => {
-  if (!pendingFollowOnly.value) return list.value
-  return list.value.filter((r) => r.nextReminder !== '—')
-})
-
-function onRemind() {
-  pendingFollowOnly.value = true
+async function onRemind() {
+  reminderFilter.value = 'today'
   scopeFilter.value = 'all'
   gradeFilter.value = 'all'
   dealFilter.value = 'all'
+  regionFilter.value = ''
   searchQ.value = ''
-  const n = displayedList.value.length
-  ElMessage.success(n > 0 ? `已筛选今日待跟进 ${n} 条` : '当前列表无待跟进客户')
+  resetListPage()
+  await load()
+  const n = listTotal.value
+  ElMessage.success(n > 0 ? `今日待跟进 ${n} 条（含已到期）` : '当前无今日待跟进客户')
+}
+
+function clearRemindFilter() {
+  if (!reminderFilter.value) return
+  reminderFilter.value = ''
+  resetListPage()
+  void load()
 }
 </script>
 
 <template>
-  <section class="panel active">
+  <section class="panel active customers-panel">
     <div class="toolbar">
       <select v-model="scopeFilter" @change="onFilterChange">
         <option value="all">全部范围</option>
@@ -369,54 +382,52 @@ function onRemind() {
         <option v-for="r in regionDefs" :key="r.id" :value="r.id">{{ r.name }}</option>
       </select>
       <input v-model="searchQ" type="search" placeholder="电话尾号 / 公司 / 需求关键词…" style="min-width: 240px" @keyup.enter="load" />
-      <button type="button" class="btn btn-primary" @click="pendingFollowOnly = false; loadStaff().then(() => onFilterChange())">查询</button>
+      <button type="button" class="btn btn-primary" @click="reminderFilter = ''; loadStaff().then(() => onFilterChange())">查询</button>
       <button type="button" class="btn btn-primary" @click="openNew">＋ 新增客户</button>
-      <button type="button" class="btn" @click="onRemind">今日待跟进</button>
+      <button type="button" class="btn" :class="{ 'btn-primary': reminderFilter === 'today' }" @click="onRemind">今日待跟进</button>
+      <button v-if="reminderFilter === 'today'" type="button" class="btn" @click="clearRemindFilter">显示全部</button>
     </div>
-    <div class="card crm-list-card" style="padding: 0; overflow-x: auto">
-      <table class="data data-crm">
+    <p v-if="reminderFilter === 'today'" class="crm-filter-hint">
+      筛选：已设置下次提醒、且提醒时间不晚于今日 23:59（北京时间，含已到期未跟进）。
+    </p>
+    <div class="card crm-list-card">
+      <table class="data data-crm data-crm-compact">
         <thead>
           <tr>
-            <th style="min-width: 110px">联系电话</th>
-            <th style="min-width: 200px">公司 / 主体</th>
-            <th style="min-width: 160px">客户名称</th>
-            <th style="min-width: 100px">所属区域</th>
-            <th style="min-width: 140px">地址提示</th>
-            <th style="min-width: 200px">需求摘要</th>
-            <th style="min-width: 100px">等级</th>
-            <th style="min-width: 100px">成交状态</th>
-            <th style="min-width: 88px">小程序</th>
-            <th style="min-width: 130px">最近跟进</th>
-            <th style="min-width: 130px">下次提醒</th>
-            <th style="min-width: 90px">负责人</th>
-            <th style="min-width: 200px">操作</th>
+            <th class="col-pool">客户池</th>
+            <th class="col-company">公司 / 主体</th>
+            <th class="col-name">联系人</th>
+            <th class="col-region">区域</th>
+            <th class="col-demand">需求摘要</th>
+            <th class="col-grade">等级</th>
+            <th class="col-deal">成交</th>
+            <th class="col-follow">最近跟进</th>
+            <th class="col-next">下次提醒</th>
+            <th class="col-owner">负责人</th>
+            <th class="col-actions">操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in displayedList" :key="r.slug || r.id">
-            <td>{{ r.phoneMasked }}</td>
+          <tr v-for="r in list" :key="r.slug || r.id">
             <td>
+              <span class="tag" :class="poolScopeTagClass(r)">{{ poolScopeLabel(r) }}</span>
+            </td>
+            <td class="cell-ellipsis" :title="r.company || ''">
               <span class="crm-cell-strong">{{ r.company || '—' }}</span>
             </td>
-            <td>
+            <td class="cell-ellipsis" :title="r.contactName || r.name">
               <span class="crm-cell-strong">{{ r.contactName || r.name }}</span>
             </td>
-            <td>{{ r.district || '—' }}</td>
-            <td class="cell-wrap hint-sm">{{ r.addressHint || '—' }}</td>
-            <td class="cell-wrap">{{ r.demandSummary }}</td>
+            <td class="cell-ellipsis">{{ r.district || '—' }}</td>
+            <td class="cell-ellipsis cell-wrap" :title="r.demandSummary">{{ r.demandSummary || '—' }}</td>
             <td><span class="tag" :class="gradeClass(r.grade)">{{ r.grade }}</span></td>
-            <td>{{ r.dealStatus || '—' }}</td>
-            <td>
-              <span class="tag" :class="isListOnMini(r.listOnMini) ? 'mint' : 'slate'">{{
-                isListOnMini(r.listOnMini) ? '展示' : '隐藏'
-              }}</span>
-            </td>
-            <td>{{ formatBeijingDisplay(r.lastFollowAt) || '—' }}</td>
-            <td>
+            <td class="cell-ellipsis">{{ r.dealStatus || '—' }}</td>
+            <td class="cell-ellipsis">{{ formatBeijingDisplay(r.lastFollowAt) || '—' }}</td>
+            <td class="cell-ellipsis">
               <template v-if="r.nextReminder === '—'">—</template>
               <span v-else class="tag" :class="r.hasNextReminderTag === 'amber' ? 'amber' : 'mint'">{{ r.nextReminder }}</span>
             </td>
-            <td>{{ r.ownerName }}</td>
+            <td class="cell-ellipsis">{{ r.ownerName || '—' }}</td>
             <td class="table-actions">
               <TableActionBtn title="详情" :icon="View" @click="openDetail(r)" />
               <TableActionBtn title="编辑" :icon="Edit" @click="openEdit(r)" />
@@ -447,6 +458,8 @@ function onRemind() {
             <span>负责人 {{ detail.ownerName || '—' }}</span>
             <span class="crm-dot">·</span>
             <span>成交 {{ detail.dealStatus }}</span>
+            <span class="crm-dot">·</span>
+            <span>客户池 {{ poolScopeLabel(detail) }}</span>
             <span class="crm-dot">·</span>
             <span>小程序 {{ isListOnMini(detail.listOnMini) ? '展示' : '隐藏' }}</span>
           </div>
@@ -614,8 +627,83 @@ function onRemind() {
   gap: 12px;
 }
 
+.customers-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.crm-filter-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
 .crm-list-card {
   border-radius: 10px;
+  padding: 0;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 220px);
+}
+
+.data-crm-compact {
+  table-layout: fixed;
+  width: 100%;
+  font-size: 12px;
+}
+
+.data-crm-compact th,
+.data-crm-compact td {
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.data-crm-compact .col-pool {
+  width: 64px;
+}
+.data-crm-compact .col-company {
+  width: 14%;
+}
+.data-crm-compact .col-name {
+  width: 9%;
+}
+.data-crm-compact .col-region {
+  width: 7%;
+}
+.data-crm-compact .col-demand {
+  width: 22%;
+}
+.data-crm-compact .col-grade {
+  width: 64px;
+}
+.data-crm-compact .col-deal {
+  width: 64px;
+}
+.data-crm-compact .col-follow {
+  width: 108px;
+}
+.data-crm-compact .col-next {
+  width: 108px;
+}
+.data-crm-compact .col-owner {
+  width: 72px;
+}
+.data-crm-compact .col-actions {
+  width: 118px;
+}
+
+.data-crm-compact .cell-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-crm-compact td.cell-wrap {
+  max-width: none;
 }
 .table-actions {
   white-space: nowrap;

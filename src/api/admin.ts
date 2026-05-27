@@ -263,6 +263,7 @@ export async function fetchCustomers(params?: {
   deal?: string
   q?: string
   districtRegionId?: number | null
+  reminder?: 'today' | ''
   page?: number
   pageSize?: number
   all?: boolean
@@ -276,6 +277,7 @@ export async function fetchCustomers(params?: {
       ...(params?.districtRegionId != null && params.districtRegionId > 0
         ? { districtRegionId: params.districtRegionId }
         : {}),
+      ...(params?.reminder === 'today' ? { reminder: 'today' } : {}),
       ...listPageParams(params),
     },
   })

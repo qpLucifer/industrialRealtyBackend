@@ -19,6 +19,7 @@ const baseRows: CustomerRow[] = [
     nextReminder: '明天 10:00',
     ownerName: '陈思远',
     hasNextReminderTag: 'amber',
+    badgesHtml: '私有',
   },
   {
     id: 'c2',
@@ -35,6 +36,7 @@ const baseRows: CustomerRow[] = [
     lastFollowAt: '2026-04-22 11:05',
     nextReminder: '—',
     ownerName: '王敏',
+    badgesHtml: '公有',
   },
   {
     id: 'c3',
@@ -52,6 +54,7 @@ const baseRows: CustomerRow[] = [
     nextReminder: '周五 14:00',
     ownerName: '赵琦',
     hasNextReminderTag: 'mint',
+    badgesHtml: '私有',
   },
 ]
 

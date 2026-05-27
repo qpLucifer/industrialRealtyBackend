@@ -195,6 +195,9 @@ export interface CustomerRow {
   hasNextReminderTag?: 'amber' | 'mint'
   /** Shown on mini-program customer list when true (DB list_on_mini, default true) */
   listOnMini?: boolean
+  /** 公有 / 私有 — from badges_html */
+  badgesHtml?: string
+  nextReminderAt?: string | null
 }
 
 /** Full customer row for detail drawer (includes phone) */
