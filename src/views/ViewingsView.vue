@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { useAdminListPagination } from '@/composables/useAdminListPagination'
+import { assertEndAfterStart } from '@/lib/datetimeRange'
 import { formatBeijingDisplay, toDatetimeLocalValue } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import {
@@ -159,8 +160,9 @@ function openEditViewing(row: ViewingRow) {
 }
 
 async function saveViewing() {
-  if (!vForm.start || !vForm.end) {
-    ElMessage.warning('请选择带看开始与结束时间')
+  const rangeErr = assertEndAfterStart(vForm.start, vForm.end)
+  if (rangeErr) {
+    ElMessage.warning(rangeErr)
     return
   }
   if (!vForm.customerSlug) {
