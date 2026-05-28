@@ -74,7 +74,7 @@ const RO_SECTIONS: { title: string; fields: { key: RoKey; label: string }[] }[] 
       { key: 'code', label: '编号' },
       { key: 'listTitle', label: '列表标题' },
       { key: 'district', label: '所属区域' },
-      { key: 'externalStatus', label: '当前状态（草稿 / 待审核 / 驳回 / 上架后租售状态）' },
+      { key: 'externalStatus', label: '当前状态（草稿 / 待审核 / 驳回 / 上架后对外状态）' },
       { key: 'auditHint', label: '驳回原因 / 审核说明' },
       { key: 'riskTag', label: '风险标签' },
       { key: 'submitterName', label: '提交人' },
@@ -405,7 +405,7 @@ watch(imagePreviewUrls, (urls) => {
 })
 
 const FALLBACK_PROPERTY_TYPES = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺']
-const FALLBACK_LISTING_STATUSES = ['待租', '已租', '待售', '已售', '待租售', '意向中', '下架封存']
+const FALLBACK_LISTING_STATUSES = ['待开发', '待租', '已租', '待售', '已售', '待租售', '意向中', '下架封存']
 
 const propertyTypeLabels = ref<string[]>([...FALLBACK_PROPERTY_TYPES])
 const listingStatusLabels = ref<string[]>([...FALLBACK_LISTING_STATUSES])
@@ -723,13 +723,13 @@ function removeMediaVideo(i: number) {
                     <option v-for="s in listingStatusLabels" :key="s">{{ s }}</option>
                   </select>
                   <p class="hint" style="margin-top: 6px">
-                    审核已通过，可在此切换对外租售状态；保存后写入列表「状态」列。
+                    审核已通过，可在此切换对外状态（含待开发、待租、待售等）；保存后写入列表「状态」列。
                   </p>
                 </template>
                 <template v-else>
                   <input :value="String(form.externalStatus || '草稿')" type="text" class="ro-input-readonly" readonly tabindex="-1" />
                   <p class="hint" style="margin-top: 6px">
-                    未发布为「草稿」；点底部「发布」后为「待审核」；审核通过为「待租」；驳回为「驳回」并显示原因。
+                    未发布为「草稿」；点底部「发布」后为「待审核」；审核通过后可设为待开发、待租、待售等；驳回为「驳回」并显示原因。
                   </p>
                 </template>
               </div>

@@ -122,6 +122,7 @@ export type PropertyStatusTag =
   | '草稿'
   | '待审核'
   | '驳回'
+  | '待开发'
   | '待租'
   | '已租'
   | '待售'
