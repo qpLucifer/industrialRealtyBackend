@@ -11,6 +11,7 @@ import type { AnnouncementRow } from '@/types/domain'
 import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { useAdminListPagination } from '@/composables/useAdminListPagination'
+import { assertEndAfterStart } from '@/lib/datetimeRange'
 import { datetimeLocalToApi, formatBeijingDisplay, parseBeijingNaiveToInstant, toDatetimeLocalValue } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
@@ -92,6 +93,11 @@ async function onPublish() {
   if (form.popup === '是') {
     if (!form.popupStart.trim() || !form.popupEnd.trim()) {
       ElMessage.warning('小程序弹窗为「是」时，请填写弹窗展示的开始与结束时间')
+      return
+    }
+    const rangeErr = assertEndAfterStart(form.popupStart, form.popupEnd)
+    if (rangeErr) {
+      ElMessage.warning(rangeErr)
       return
     }
   }

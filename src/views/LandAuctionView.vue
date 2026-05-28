@@ -13,6 +13,7 @@ import type { LandAuctionRow, LandAuctionStats, LandAuctionStatus, RegionDefRow 
 import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { useAdminListPagination } from '@/composables/useAdminListPagination'
+import { assertEndAfterStart } from '@/lib/datetimeRange'
 import { datetimeLocalToApi, toDatetimeLocalValue } from '@/lib/beijingTime'
 import { Delete, Edit } from '@element-plus/icons-vue'
 
@@ -159,6 +160,13 @@ async function onSave() {
   if (!form.districtRegionId || form.districtRegionId <= 0) {
     ElMessage.warning('请选择所属区域')
     return
+  }
+  if (form.auctionStatus === 'auctioning') {
+    const rangeErr = assertEndAfterStart(form.auctionStartAt, form.auctionEndAt)
+    if (rangeErr) {
+      ElMessage.warning(rangeErr)
+      return
+    }
   }
   const payload = buildPayload()
   try {

@@ -5,6 +5,7 @@ import { fetchLogs, fetchLogsCount, purgeLogs } from '@/api/admin'
 import type { LogAction, LogKind, LogRow } from '@/types/domain'
 import AdminListPagination from '@/components/AdminListPagination.vue'
 import { useAdminListPagination } from '@/composables/useAdminListPagination'
+import { assertEndAfterStartIfBoth } from '@/lib/datetimeRange'
 import { formatBeijingDisplay } from '@/lib/beijingTime'
 
 const list = ref<LogRow[]>([])
@@ -38,6 +39,11 @@ async function load() {
 }
 
 function filter() {
+  const rangeErr = assertEndAfterStartIfBoth(dateFrom.value, dateTo.value)
+  if (rangeErr) {
+    ElMessage.warning(rangeErr)
+    return
+  }
   resetListPage()
   load().catch(() => {
     /* global http interceptor shows API error */
@@ -45,6 +51,11 @@ function filter() {
 }
 
 async function onPurgeByFilters() {
+  const rangeErr = assertEndAfterStartIfBoth(dateFrom.value, dateTo.value)
+  if (rangeErr) {
+    ElMessage.warning(rangeErr)
+    return
+  }
   if (!hasSqlNarrowFilter()) {
     ElMessage.warning('请至少选择对象类型、动作之一，或填写记录时间起止，再使用「按筛选删除」')
     return
