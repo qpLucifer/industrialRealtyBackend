@@ -22,6 +22,6 @@ export const YES_NO = ['无', '有'] as const
 export const FIRE_PASS = ['是', '否'] as const
 export const DISCHARGE = ['有', '无'] as const
 export const SOLAR = ['可接入', '不可接入'] as const
-export const RENT_SALE = ['出租', '出售', '租售皆可'] as const
+export const RENT_SALE = ['出租', '出售', '租售皆可', '待开发'] as const
 export const MONITOR = ['全厂区', '部分区域'] as const
 export const RUSH_HOUR = ['无', '轻度', '严重'] as const

@@ -31,6 +31,7 @@ import {
   LAND_USE_OPTIONS,
   CERT_OPTIONS,
   FIRE_OPTIONS,
+  RENT_SALE,
 } from '@/lib/propertyPublish'
 
 /** Ensure arrays / flags exist so chips and toggles never throw. */
@@ -1325,9 +1326,7 @@ function removeMediaVideo(i: number) {
               <div>
                 <label>租售类型<span style="color: var(--rose)">*</span></label>
                 <select v-model="form.rentSaleType">
-                  <option>出租</option>
-                  <option>出售</option>
-                  <option>租售皆可</option>
+                  <option v-for="opt in RENT_SALE" :key="opt" :value="opt">{{ opt }}</option>
                 </select>
               </div>
               <template v-if="showRentFields">
