@@ -155,6 +155,11 @@ export async function postRegionDef(name: string) {
   return unwrap(res) as { success: boolean; id: number; name: string }
 }
 
+export async function repairRegionDefLabels() {
+  const res = await http.post('/regions/defs/repair-labels')
+  return unwrap(res) as { ok: boolean; rowsTouched: number; regionCount: number }
+}
+
 export async function putRegionDef(id: number, name: string) {
   const res = await http.put(`/regions/defs/${id}`, { name })
   return unwrap(res) as { success: boolean; id: number; name: string }
