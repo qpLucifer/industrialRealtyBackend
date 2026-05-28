@@ -295,8 +295,14 @@ export interface LandAuctionRow {
   districtRegionId: number | null
   region: string
   areaMu: number | null
+  transferTerm: string
+  taxPerMu: number | null
+  investmentPerMu: number | null
+  depositWan: number | null
   startPriceWan: number | null
   dealPriceWan: number | null
+  avgPricePerMu: number | null
+  buyerInfo: string
   auctionStatus: LandAuctionStatus
   listingDate: string
   auctionStartAt: string

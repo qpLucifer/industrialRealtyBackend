@@ -43,8 +43,14 @@ const form = reactive({
   title: '',
   districtRegionId: 0,
   areaMu: '' as string | number,
+  transferTerm: '',
+  taxPerMu: '' as string | number,
+  investmentPerMu: '' as string | number,
+  depositWan: '' as string | number,
   startPriceWan: '' as string | number,
   dealPriceWan: '' as string | number,
+  avgPricePerMu: '' as string | number,
+  buyerInfo: '',
   auctionStatus: 'upcoming' as LandAuctionStatus,
   listingDate: '',
   auctionStartAt: '',
@@ -98,8 +104,14 @@ function resetForm() {
   form.title = ''
   form.districtRegionId = 0
   form.areaMu = ''
+  form.transferTerm = ''
+  form.taxPerMu = ''
+  form.investmentPerMu = ''
+  form.depositWan = ''
   form.startPriceWan = ''
   form.dealPriceWan = ''
+  form.avgPricePerMu = ''
+  form.buyerInfo = ''
   form.auctionStatus = 'upcoming'
   form.listingDate = ''
   form.auctionStartAt = ''
@@ -121,8 +133,14 @@ function openEdit(row: LandAuctionRow) {
   form.title = row.title
   form.districtRegionId = row.districtRegionId ?? 0
   form.areaMu = row.areaMu ?? ''
+  form.transferTerm = row.transferTerm || ''
+  form.taxPerMu = row.taxPerMu ?? ''
+  form.investmentPerMu = row.investmentPerMu ?? ''
+  form.depositWan = row.depositWan ?? ''
   form.startPriceWan = row.startPriceWan ?? ''
   form.dealPriceWan = row.dealPriceWan ?? ''
+  form.avgPricePerMu = row.avgPricePerMu ?? ''
+  form.buyerInfo = row.buyerInfo || ''
   form.auctionStatus = row.auctionStatus
   form.listingDate = row.listingDate || ''
   form.auctionStartAt = toDatetimeLocalValue(row.auctionStartAt)
@@ -139,8 +157,14 @@ function buildPayload() {
     title: form.title.trim(),
     districtRegionId: form.districtRegionId > 0 ? form.districtRegionId : null,
     areaMu: form.areaMu === '' ? null : Number(form.areaMu),
+    transferTerm: form.transferTerm.trim() || null,
+    taxPerMu: form.taxPerMu === '' ? null : Number(form.taxPerMu),
+    investmentPerMu: form.investmentPerMu === '' ? null : Number(form.investmentPerMu),
+    depositWan: form.depositWan === '' ? null : Number(form.depositWan),
     startPriceWan: form.startPriceWan === '' ? null : Number(form.startPriceWan),
     dealPriceWan: form.dealPriceWan === '' ? null : Number(form.dealPriceWan),
+    avgPricePerMu: form.avgPricePerMu === '' ? null : Number(form.avgPricePerMu),
+    buyerInfo: form.buyerInfo.trim() || null,
     auctionStatus: form.auctionStatus,
     listingDate: form.listingDate || null,
     auctionStartAt: form.auctionStartAt ? datetimeLocalToApi(form.auctionStartAt) : '',
@@ -304,7 +328,7 @@ async function onRegionFilterChange() {
 
     <Teleport to="body">
       <div class="modal-center" :class="{ show: modal }" @click.self="modal = false">
-        <div class="modal-box" style="max-width: 620px">
+        <div class="modal-box" style="max-width: 680px">
           <h3>{{ editingId == null ? '新建工业土地' : '编辑工业土地' }}</h3>
           <div class="form-grid" style="margin-top: 14px">
             <div class="full">
@@ -331,13 +355,41 @@ async function onRegionFilterChange() {
               <input v-model="form.areaMu" type="number" step="0.01" />
             </div>
             <div>
-              <label>起拍价（万元）</label>
-              <input v-model="form.startPriceWan" type="number" step="0.01" />
+              <label>出让年限</label>
+              <input v-model="form.transferTerm" type="text" placeholder="如：50年" />
             </div>
-            <div v-if="form.auctionStatus === 'completed'">
-              <label>成交价（万元）</label>
-              <input v-model="form.dealPriceWan" type="number" step="0.01" />
+            <div>
+              <label>亩产税</label>
+              <input v-model="form.taxPerMu" type="number" step="0.0001" />
             </div>
+            <div>
+              <label>亩产投资</label>
+              <input v-model="form.investmentPerMu" type="number" step="0.0001" />
+            </div>
+            <template v-if="form.auctionStatus === 'upcoming' || form.auctionStatus === 'auctioning'">
+              <div>
+                <label>保证金（万元）</label>
+                <input v-model="form.depositWan" type="number" step="0.01" />
+              </div>
+              <div>
+                <label>起始价（万元）</label>
+                <input v-model="form.startPriceWan" type="number" step="0.01" />
+              </div>
+            </template>
+            <template v-if="form.auctionStatus === 'completed'">
+              <div>
+                <label>成交价（万元）</label>
+                <input v-model="form.dealPriceWan" type="number" step="0.01" />
+              </div>
+              <div>
+                <label>均价（万元/亩）</label>
+                <input v-model="form.avgPricePerMu" type="number" step="0.01" />
+              </div>
+              <div class="full">
+                <label>买方信息</label>
+                <input v-model="form.buyerInfo" type="text" placeholder="企业名称、联系人等" />
+              </div>
+            </template>
             <div v-if="form.auctionStatus === 'upcoming'">
               <label>预计挂拍日期</label>
               <input v-model="form.listingDate" type="date" />

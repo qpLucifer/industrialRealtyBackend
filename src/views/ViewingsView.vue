@@ -42,20 +42,27 @@ const vForm = reactive({
   start: '',
   end: '',
   propertyId: '' as string,
+  propertyIds: [] as string[],
   propertyRef: '',
   customerSlug: '' as string,
   companionStaffIds: [] as string[],
   score: 'B',
 })
 
-/** Property id on record but missing from loaded list — still show as selectable. */
-const orphanPropertyOption = computed(() => {
-  const cur = String(vForm.propertyId || '').trim()
-  if (!cur) return null
-  const hit = propertyOptions.value.find((p) => p.id === cur)
-  if (hit) return null
-  const label = String(vForm.propertyRef || cur).trim()
-  return { id: cur, label }
+/** Property ids on record but missing from loaded list — still show as selectable. */
+const orphanPropertyOptions = computed(() => {
+  const ids = vEditingId.value != null
+    ? [String(vForm.propertyId || '').trim()].filter(Boolean)
+    : vForm.propertyIds.map((id) => String(id).trim()).filter(Boolean)
+  const out: { id: string; label: string }[] = []
+  for (const cur of ids) {
+    if (propertyOptions.value.some((p) => p.id === cur)) continue
+    const label = cur === String(vForm.propertyId || '').trim()
+      ? String(vForm.propertyRef || cur).trim()
+      : cur
+    out.push({ id: cur, label })
+  }
+  return out
 })
 
 const dModal = ref(false)
@@ -134,6 +141,7 @@ function openNewViewing() {
   vForm.start = ''
   vForm.end = ''
   vForm.propertyId = ''
+  vForm.propertyIds = []
   vForm.propertyRef = ''
   vForm.customerSlug = ''
   vForm.companionStaffIds = []
@@ -147,6 +155,7 @@ function openEditViewing(row: ViewingRow) {
   vForm.start = toDatetimeLocalValue(row.start)
   vForm.end = toDatetimeLocalValue(row.end)
   vForm.propertyId = row.propertyId || ''
+  vForm.propertyIds = []
   vForm.propertyRef = row.propertyRef
   vForm.customerSlug = row.customerSlug || ''
   if (!vForm.propertyId && row.propertyRef) {
@@ -171,23 +180,34 @@ async function saveViewing() {
   }
   const cust = customerOptions.value.find((c) => (c.slug || c.id) === vForm.customerSlug)
   const customerName = cust ? cust.titleLine || [cust.contactName, cust.company].filter(Boolean).join(' · ') || cust.name : ''
-  const prop = propertyOptions.value.find((p) => p.id === vForm.propertyId)
-  const payload = {
-    start: vForm.start,
-    end: vForm.end,
-    propertyId: vForm.propertyId || undefined,
-    propertyRef: prop?.code || String(vForm.propertyRef || '').trim(),
-    customerSlug: vForm.customerSlug,
-    customerName,
-    companionStaffIds: [...vForm.companionStaffIds],
-    score: vForm.score,
-  }
   if (vEditingId.value != null) {
-    await updateViewingApi(vEditingId.value, payload)
+    const prop = propertyOptions.value.find((p) => p.id === vForm.propertyId)
+    await updateViewingApi(vEditingId.value, {
+      start: vForm.start,
+      end: vForm.end,
+      propertyId: vForm.propertyId || undefined,
+      propertyRef: prop?.code || String(vForm.propertyRef || '').trim(),
+      customerSlug: vForm.customerSlug,
+      customerName,
+      companionStaffIds: [...vForm.companionStaffIds],
+      score: vForm.score,
+    })
     ElMessage.success('带看已更新')
   } else {
-    await createViewingApi(payload)
-    ElMessage.success('带看已新增')
+    const payload: Record<string, unknown> = {
+      start: vForm.start,
+      end: vForm.end,
+      customerSlug: vForm.customerSlug,
+      customerName,
+      companionStaffIds: [...vForm.companionStaffIds],
+      score: vForm.score,
+    }
+    if (vForm.propertyIds.length) {
+      payload.propertyIds = [...vForm.propertyIds]
+    }
+    const r = await createViewingApi(payload)
+    const n = r.count && r.count > 1 ? r.count : vForm.propertyIds.length
+    ElMessage.success(n > 1 ? `已新增 ${n} 条带看` : '带看已新增')
   }
   vModal.value = false
   await load()
@@ -373,8 +393,33 @@ onMounted(async () => {
               />
             </div>
             <div class="full">
-              <label>关联房源（可选）</label>
+              <label>关联房源（{{ vEditingId == null ? '可多选' : '单选' }}，可选）</label>
               <el-select
+                v-if="vEditingId == null"
+                v-model="vForm.propertyIds"
+                multiple
+                filterable
+                clearable
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="从房源列表搜索选择，可不选；多套房源将分别登记"
+                style="width: 100%; margin-top: 4px"
+              >
+                <el-option
+                  v-for="o in orphanPropertyOptions"
+                  :key="`orphan-${o.id}`"
+                  :label="`${o.label}（当前记录）`"
+                  :value="o.id"
+                />
+                <el-option
+                  v-for="p in propertyOptions"
+                  :key="p.id"
+                  :label="`${p.title} · ${p.code}`"
+                  :value="p.id"
+                />
+              </el-select>
+              <el-select
+                v-else
                 v-model="vForm.propertyId"
                 filterable
                 clearable
@@ -382,10 +427,10 @@ onMounted(async () => {
                 style="width: 100%; margin-top: 4px"
               >
                 <el-option
-                  v-if="orphanPropertyOption"
-                  :key="`orphan-${orphanPropertyOption.id}`"
-                  :label="`${orphanPropertyOption.label}（当前记录）`"
-                  :value="orphanPropertyOption.id"
+                  v-for="o in orphanPropertyOptions"
+                  :key="`orphan-${o.id}`"
+                  :label="`${o.label}（当前记录）`"
+                  :value="o.id"
                 />
                 <el-option
                   v-for="p in propertyOptions"

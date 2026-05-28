@@ -364,7 +364,7 @@ export async function fetchViewingsSummary(params?: {
 
 export async function createViewingApi(payload: Record<string, unknown>) {
   const res = await http.post('/viewings', payload)
-  return unwrap(res) as { success: boolean; id: number }
+  return unwrap(res) as { success: boolean; id: number; ids?: number[]; count?: number }
 }
 
 export async function updateViewingApi(id: number, payload: Record<string, unknown>) {
