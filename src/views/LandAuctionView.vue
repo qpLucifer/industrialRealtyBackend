@@ -359,11 +359,11 @@ async function onRegionFilterChange() {
               <input v-model="form.transferTerm" type="text" placeholder="如：50年" />
             </div>
             <div>
-              <label>亩产税</label>
+              <label>亩产税（万元/亩）</label>
               <input v-model="form.taxPerMu" type="number" step="0.0001" />
             </div>
             <div>
-              <label>亩产投资</label>
+              <label>亩产投资（万元/亩）</label>
               <input v-model="form.investmentPerMu" type="number" step="0.0001" />
             </div>
             <template v-if="form.auctionStatus === 'upcoming' || form.auctionStatus === 'auctioning'">
