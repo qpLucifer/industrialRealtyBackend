@@ -169,12 +169,15 @@ async function onDeleteRow(row: PropertyRow) {
           <tr v-if="list.length === 0">
             <td colspan="7" class="hint" style="padding: 24px; text-align: center">暂无数据，请调整筛选或新建草稿。</td>
           </tr>
-          <tr v-for="r in list" :key="r.id">
+          <tr v-for="r in list" :key="r.id" :class="{ 'property-row--featured': r.featured }">
             <td>{{ r.code }}</td>
             <td>{{ r.title }}</td>
             <td>{{ r.district }}</td>
             <td>{{ r.type }}</td>
-            <td><span class="tag" :class="statusTagClass(r.status)">{{ r.status }}</span></td>
+            <td>
+              <span class="tag" :class="statusTagClass(r.status)">{{ r.status }}</span>
+              <span v-if="r.featured" class="tag featured">主推</span>
+            </td>
             <td>{{ r.submitter }}</td>
             <td class="table-actions">
               <TableActionBtn title="编辑" :icon="Edit" @click="openProp('edit', r.code)" />
@@ -208,5 +211,16 @@ async function onDeleteRow(row: PropertyRow) {
   gap: 6px;
   align-items: center;
   white-space: nowrap;
+}
+
+.property-row--featured {
+  background: linear-gradient(90deg, rgba(254, 243, 199, 0.55), rgba(255, 255, 255, 0));
+}
+
+.tag.featured {
+  margin-left: 6px;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  color: #fff;
+  border: none;
 }
 </style>

@@ -152,6 +152,7 @@ export interface PropertyRow {
   district: string
   type: string
   status: PropertyStatusTag
+  featured?: boolean
   listingLine1: string
   listingLine2: string
   submitter: string
@@ -452,6 +453,8 @@ export interface PropertyFullForm {
   risks: string
   assessment: string
   externalStatus: string
+  /** 主推（仅 status_tag / externalStatus 为待售时有效） */
+  featured?: boolean
   rentSaleType: string
   rentListSqm: number
   propertyFee: number
