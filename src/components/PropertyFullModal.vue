@@ -34,7 +34,11 @@ import {
   FIRE_OPTIONS,
   RENT_SALE,
 } from '@/lib/propertyPublish'
-import { isPropertyForSaleStatus, showFeaturedOption } from '@/lib/propertyFeatured'
+import {
+  isPropertyForSaleStatus,
+  isRentSaleTypeForFeatured,
+  showFeaturedOption,
+} from '@/lib/propertyFeatured'
 
 /** Ensure arrays / flags exist so chips and toggles never throw. */
 function ensurePropertyFormShape(f: PropertyFullForm, defaultTypeLabel = '标准厂房') {
@@ -285,12 +289,14 @@ const regionDefs = ref<RegionDefRow[]>([])
 
 /** Only after audit pass (live) may business listing status (待租/已租/…) be changed. */
 const canChangeListingStatus = computed(() => form.auditState === 'live')
-const showFeaturedField = computed(() => showFeaturedOption(form.externalStatus))
+const showFeaturedField = computed(() =>
+  showFeaturedOption(form.externalStatus, form.rentSaleType),
+)
 
 watch(
-  () => form.externalStatus,
-  (s) => {
-    if (!isPropertyForSaleStatus(s)) form.featured = false
+  () => [form.externalStatus, form.rentSaleType] as const,
+  ([s, rs]) => {
+    if (!isPropertyForSaleStatus(s) && !isRentSaleTypeForFeatured(rs)) form.featured = false
   },
 )
 
@@ -749,11 +755,13 @@ function removeMediaVideo(i: number) {
                 </template>
               </div>
               <div v-if="showFeaturedField" class="full">
-                <label class="featured-check">
-                  <input v-model="form.featured" type="checkbox" />
-                  <span>主推</span>
-                </label>
-                <p class="hint" style="margin-top: 6px">勾选后，后台与小程序房源列表将显示「主推」并高亮排序靠前（仅「待售」有效）。</p>
+                <div class="featured-switch-row">
+                  <span class="featured-switch-row__label">主推</span>
+                  <el-switch v-model="form.featured" />
+                </div>
+                <p class="hint" style="margin-top: 6px">
+                  勾选后，后台与小程序房源列表将显示「主推」并靠前排序（上架为「待售」或租售类型为「出售」时有效）。
+                </p>
               </div>
               <div v-if="form.auditState === 'rejected'" class="full">
                 <label>驳回原因</label>
@@ -1344,21 +1352,9 @@ function removeMediaVideo(i: number) {
           <div class="prop-admin-panel" :class="{ active: tab === 7 }">
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">挂牌联系</div>
-              <template v-if="form.auditState === 'live'">
-                <div class="full">
-                  <label>内部跟进 · 对外状态</label>
-                  <select v-model="form.externalStatus" class="status-select">
-                    <option v-for="s in listingStatusLabels" :key="s">{{ s }}</option>
-                  </select>
-                  <p class="hint" style="margin-top: 6px">与「基础分类」中的状态同步；设为「待售」时可勾选主推。</p>
-                </div>
-                <div v-if="showFeaturedField" class="full">
-                  <label class="featured-check">
-                    <input v-model="form.featured" type="checkbox" />
-                    <span>主推</span>
-                  </label>
-                </div>
-              </template>
+              <p v-if="form.auditState === 'live'" class="hint" style="margin: 0 0 10px">
+                已上架：租售状态与主推请在「基础分类」中调整；本页仅维护联系人与备注。
+              </p>
               <div v-if="form.auditState !== 'live'">
                 <label>租售类型<span style="color: var(--rose)">*</span></label>
                 <select v-model="form.rentSaleType">
@@ -1715,11 +1711,21 @@ textarea.ro-input-readonly {
   font-size: 12px;
   color: var(--brand, #1a3a6c);
 }
-.featured-check {
-  display: inline-flex;
+.featured-switch-row {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #f8fafc;
+}
+.featured-switch-row__label {
+  font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
+  color: var(--text);
+  white-space: nowrap;
+  line-height: 1.4;
 }
 </style>
