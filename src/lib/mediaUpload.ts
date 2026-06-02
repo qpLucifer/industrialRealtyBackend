@@ -7,6 +7,8 @@ import {
   VIDEO_PART_TIMEOUT_MS,
   validateImageFile,
   validateVideoFile,
+  validateAudioFile,
+  AUDIO_UPLOAD_TIMEOUT_MS,
 } from '@/lib/mediaUploadPolicy'
 
 export type BatchUploadItem = { name: string; ok: boolean; url?: string; error?: string }
@@ -176,4 +178,17 @@ export function formatBatchUploadToast(summary: BatchUploadSummary): string {
 
 export function formatBatchUploadDetail(summary: BatchUploadSummary): string {
   return summary.failed.map((f) => `${f.name}：${f.error || '失败'}`).join('\n')
+}
+
+export async function uploadAudioFile(file: File, folder?: string): Promise<{ url: string; key: string }> {
+  const pre = validateAudioFile(file)
+  if (pre) throw new Error(pre)
+  const fd = new FormData()
+  fd.append('file', file)
+  if (folder) fd.append('folder', folder)
+  const res = await uploadHttp.post<ApiResult<{ url: string; key: string }>>('/upload/oss', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: AUDIO_UPLOAD_TIMEOUT_MS,
+  })
+  return unwrap(res.data)
 }

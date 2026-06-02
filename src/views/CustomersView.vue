@@ -21,7 +21,14 @@ import { customerAvatarToneClass, customerInitials } from '@/lib/customerDisplay
 import { applyCosImageProcess } from '@/lib/mediaImageUrl'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 import { isListOnMini } from '@/lib/listOnMini'
-import { timelineLinesFromDetail } from '@/lib/customerTimeline'
+import { timelineEntriesFromDetail } from '@/lib/customerTimeline'
+import {
+  FOLLOW_UPLOAD_FOLDER,
+  MAX_FOLLOW_IMAGES,
+  MAX_FOLLOW_IMAGES_PER_PICK,
+} from '@/lib/customerFollowTimeline'
+import { uploadAudioFile, uploadImagesBatch } from '@/lib/mediaUpload'
+import { MAX_IMAGES_PER_PICK } from '@/lib/mediaUploadPolicy'
 import { datetimeLocalToApi, formatBeijingDisplay, nowBeijingDatetimeLocal } from '@/lib/beijingTime'
 import { isPhone11Cn, normalizeCnMobileInput, onCnMobileCompositionEnd, preventNonDigitPhoneBeforeInput, preventNonDigitPhoneKeys, handleCnMobilePaste } from '@/lib/inputValidators'
 
@@ -74,6 +81,10 @@ const followNote = ref('')
 const followOccurredAt = ref('')
 const followGrade = ref<'' | CustomerGrade>('')
 const followNextAt = ref('')
+const followImageUrls = ref<string[]>([])
+const followAudioUrls = ref<string[]>([])
+const uploadingFollowImages = ref(false)
+const uploadingFollowAudio = ref(false)
 const uploadingAvatar = ref(false)
 
 function customerAvatarSrc(url?: string) {
@@ -183,8 +194,8 @@ onMounted(() => {
   void Promise.all([loadStaff(), loadPoolOptions(), loadRegions()]).then(() => load())
 })
 
-const detailTimelineLines = computed(() =>
-  detail.value ? timelineLinesFromDetail(detail.value) : [],
+const detailTimelineEntries = computed(() =>
+  detail.value ? timelineEntriesFromDetail(detail.value) : [],
 )
 
 /** 客户池为「私有」时须指定负责人 */
@@ -219,6 +230,62 @@ function resetFollowFields() {
   followOccurredAt.value = nowBeijingDatetimeLocal()
   followGrade.value = ''
   followNextAt.value = ''
+  followImageUrls.value = []
+  followAudioUrls.value = []
+}
+
+function removeFollowImage(idx: number) {
+  followImageUrls.value = followImageUrls.value.filter((_, i) => i !== idx)
+}
+
+function removeFollowAudio(idx: number) {
+  followAudioUrls.value = followAudioUrls.value.filter((_, i) => i !== idx)
+}
+
+async function onFollowImagesPick(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const files = input.files ? [...input.files] : []
+  if (!files.length) return
+  const remain = MAX_FOLLOW_IMAGES - followImageUrls.value.length
+  if (remain <= 0) {
+    ElMessage.warning(`单条跟进最多 ${MAX_FOLLOW_IMAGES} 张图片`)
+    input.value = ''
+    return
+  }
+  const batch = Math.min(files.length, MAX_FOLLOW_IMAGES_PER_PICK, MAX_IMAGES_PER_PICK, remain)
+  uploadingFollowImages.value = true
+  try {
+    const summary = await uploadImagesBatch(files.slice(0, batch), FOLLOW_UPLOAD_FOLDER)
+    for (const item of summary.succeeded) {
+      if (item.url) followImageUrls.value.push(item.url)
+    }
+    if (summary.failed.length) ElMessage.warning(`部分图片上传失败（${summary.failed.length}）`)
+    else if (summary.succeeded.length) ElMessage.success('图片已上传')
+  } catch {
+    /* global http interceptor shows API error */
+  } finally {
+    uploadingFollowImages.value = false
+    input.value = ''
+  }
+}
+
+async function onFollowAudioPick(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const files = input.files ? [...input.files] : []
+  if (!files.length) return
+  uploadingFollowAudio.value = true
+  try {
+    for (const file of files) {
+      const { url } = await uploadAudioFile(file, FOLLOW_UPLOAD_FOLDER)
+      followAudioUrls.value.push(url)
+    }
+    ElMessage.success('音频已上传')
+  } catch {
+    /* global http interceptor shows API error */
+  } finally {
+    uploadingFollowAudio.value = false
+    input.value = ''
+  }
 }
 
 async function openDetail(row: CustomerRow) {
@@ -349,11 +416,13 @@ async function onDelete(row: CustomerRow) {
 async function onSaveFollow() {
   if (!detail.value) return
   const slug = activeSlug.value
-  if (!followNote.value.trim()) {
-    ElMessage.warning('请填写跟进内容')
+  const hasContent =
+    followNote.value.trim() || followImageUrls.value.length || followAudioUrls.value.length
+  if (!hasContent) {
+    ElMessage.warning('请填写跟进内容或上传图片/音频')
     return
   }
-  const payload: Record<string, string> = {
+  const payload: Record<string, unknown> = {
     slug,
     note: followNote.value.trim(),
     occurredAt: datetimeLocalToApi(followOccurredAt.value),
@@ -363,6 +432,8 @@ async function onSaveFollow() {
     payload.nextReminderAt = datetimeLocalToApi(followNextAt.value)
     payload.nextReminder = datetimeLocalToApi(followNextAt.value)
   }
+  if (followImageUrls.value.length) payload.imageUrls = [...followImageUrls.value]
+  if (followAudioUrls.value.length) payload.audioUrls = [...followAudioUrls.value]
   await postCustomerFollowUp(payload)
   ElMessage.success('跟进已保存')
   detail.value = await fetchCustomerDetail(slug)
@@ -534,8 +605,24 @@ function clearRemindFilter() {
 
         <div class="crm-card">
           <div class="crm-card-title">跟进时间轴</div>
-          <ul v-if="detailTimelineLines.length" class="crm-timeline">
-            <li v-for="(line, idx) in detailTimelineLines" :key="idx">{{ line }}</li>
+          <ul v-if="detailTimelineEntries.length" class="crm-timeline crm-timeline-rich">
+            <li v-for="(entry, idx) in detailTimelineEntries" :key="idx" class="crm-timeline-entry">
+              <div class="crm-timeline-head">{{ entry.displayLine }}</div>
+              <div v-if="entry.imageUrls.length" class="crm-follow-images">
+                <a
+                  v-for="img in entry.imageUrls"
+                  :key="img"
+                  :href="customerAvatarSrc(img)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img :src="customerAvatarSrc(img)" alt="" class="crm-follow-thumb" referrerpolicy="no-referrer" />
+                </a>
+              </div>
+              <div v-if="entry.audioUrls.length" class="crm-follow-audios">
+                <audio v-for="aud in entry.audioUrls" :key="aud" :src="aud" controls preload="none" />
+              </div>
+            </li>
           </ul>
           <p v-else class="crm-card-muted">（暂无记录）</p>
         </div>
@@ -544,8 +631,40 @@ function clearRemindFilter() {
           <div class="crm-card-title">写跟进</div>
           <div class="form-grid">
             <div class="full">
-              <label>跟进内容<span style="color: var(--rose)">*</span></label>
-              <textarea v-model="followNote" rows="3" placeholder="事实描述、客户原话摘要、下一步" />
+              <label>跟进内容</label>
+              <textarea v-model="followNote" rows="3" placeholder="事实描述、客户原话摘要、下一步（可与图片/录音组合）" />
+            </div>
+            <div class="full">
+              <label>
+                跟进图片（可选，单次最多 {{ MAX_FOLLOW_IMAGES_PER_PICK }} 张，可多次添加）
+              </label>
+              <div class="crm-follow-images crm-follow-images--edit">
+                <div v-for="(url, idx) in followImageUrls" :key="url" class="crm-follow-thumb-wrap">
+                  <img :src="customerAvatarSrc(url)" alt="" class="crm-follow-thumb" referrerpolicy="no-referrer" />
+                  <button type="button" class="crm-follow-remove" @click="removeFollowImage(idx)">×</button>
+                </div>
+                <label
+                  v-if="followImageUrls.length < MAX_FOLLOW_IMAGES"
+                  class="crm-follow-add"
+                  :class="{ disabled: uploadingFollowImages }"
+                >
+                  {{ uploadingFollowImages ? '上传中…' : '＋ 图片' }}
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden @change="onFollowImagesPick" />
+                </label>
+              </div>
+            </div>
+            <div class="full">
+              <label>跟进音频（可选，上传 mp3/m4a 等文件，可多次添加）</label>
+              <div class="crm-follow-audio-edit">
+                <label class="btn btn-sm" :class="{ disabled: uploadingFollowAudio }">
+                  {{ uploadingFollowAudio ? '上传中…' : '选择音频文件' }}
+                  <input type="file" accept="audio/*,.mp3,.m4a,.wav,.aac" multiple hidden @change="onFollowAudioPick" />
+                </label>
+                <div v-for="(url, idx) in followAudioUrls" :key="url" class="crm-follow-audio-row">
+                  <audio :src="url" controls preload="none" />
+                  <button type="button" class="btn btn-sm" @click="removeFollowAudio(idx)">删除</button>
+                </div>
+              </div>
             </div>
             <div>
               <label>跟进时间<span style="color: var(--rose)">*</span></label>
@@ -939,6 +1058,91 @@ function clearRemindFilter() {
   border-radius: 8px;
   background: #f8fafc;
   border: 1px dashed rgba(100, 116, 139, 0.35);
+}
+.crm-timeline-rich {
+  padding-left: 16px;
+  list-style: none;
+}
+.crm-timeline-entry + .crm-timeline-entry {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+.crm-timeline-head {
+  font-weight: 600;
+  color: #1e293b;
+}
+.crm-timeline-note {
+  margin: 8px 0 0;
+  color: #475569;
+  white-space: pre-wrap;
+}
+.crm-follow-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.crm-follow-images--edit {
+  margin-top: 6px;
+}
+.crm-follow-thumb-wrap {
+  position: relative;
+}
+.crm-follow-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  display: block;
+}
+.crm-follow-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #fff;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 14px;
+}
+.crm-follow-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+}
+.crm-follow-add.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.crm-follow-audios,
+.crm-follow-audio-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.crm-follow-audio-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.crm-follow-audio-row audio {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
 }
 .crm-follow-btn {
   margin-top: 14px;
