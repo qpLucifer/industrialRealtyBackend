@@ -738,7 +738,6 @@ function removeMediaVideo(i: number) {
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">状态</div>
               <div class="full">
-                <label>当前状态（列表「状态」列）</label>
                 <template v-if="canChangeListingStatus">
                   <select v-model="form.externalStatus" class="status-select">
                     <option v-for="s in listingStatusLabels" :key="s">{{ s }}</option>
@@ -1352,9 +1351,6 @@ function removeMediaVideo(i: number) {
           <div class="prop-admin-panel" :class="{ active: tab === 7 }">
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">挂牌联系</div>
-              <p v-if="form.auditState === 'live'" class="hint" style="margin: 0 0 10px">
-                已上架：租售状态与主推请在「基础分类」中调整；本页仅维护联系人与备注。
-              </p>
               <div v-if="form.auditState !== 'live'">
                 <label>租售类型<span style="color: var(--rose)">*</span></label>
                 <select v-model="form.rentSaleType">
