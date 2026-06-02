@@ -742,9 +742,9 @@ function removeMediaVideo(i: number) {
                   <select v-model="form.externalStatus" class="status-select">
                     <option v-for="s in listingStatusLabels" :key="s">{{ s }}</option>
                   </select>
-                  <p class="hint" style="margin-top: 6px">
+                  <!-- <p class="hint" style="margin-top: 6px">
                     审核已通过，可在此切换对外状态（含待开发、待租、待售等）；保存后写入列表「状态」列。
-                  </p>
+                  </p> -->
                 </template>
                 <template v-else>
                   <input :value="String(form.externalStatus || '草稿')" type="text" class="ro-input-readonly" readonly tabindex="-1" />
