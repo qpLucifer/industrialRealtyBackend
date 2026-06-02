@@ -9,6 +9,7 @@ import {
   uploadVideoMultipart,
 } from '@/lib/mediaUpload'
 import { MAX_IMAGES_PER_PICK } from '@/lib/mediaUploadPolicy'
+import { applyCosImageProcess } from '@/lib/mediaImageUrl'
 import MapLatLngPicker, { type MapLocationPickPayload } from '@/components/MapLatLngPicker.vue'
 import type { PropertyFullForm, RegionDefRow } from '@/types/domain'
 import { useAuthStore } from '@/stores/auth'
@@ -292,7 +293,9 @@ function splitMediaLines(block: string) {
     .filter(Boolean)
 }
 
-const imagePreviewUrls = computed(() => splitMediaLines(mediaImageBlock.value))
+const imagePreviewUrls = computed(() =>
+  splitMediaLines(mediaImageBlock.value).map((u) => applyCosImageProcess(u)),
+)
 const videoPreviewUrls = computed(() => splitMediaLines(mediaVideoBlock.value))
 
 /** OSS/CDN hotlink rules often reject admin Referer; native preview avoids ElImageViewer missing referrerpolicy. */

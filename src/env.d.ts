@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_AMAP_WEB_KEY?: string
   /** Optional; required when your Gaode console enables security code for JS API. */
   readonly VITE_AMAP_SECURITY_JS_CODE?: string
+  /** COS CI rule without ?; default imageMogr2/format/webp/quality/88; set off to disable */
+  readonly VITE_MEDIA_IMAGE_PROCESS?: string
 }
 
 interface ImportMeta {
