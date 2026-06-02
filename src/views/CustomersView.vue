@@ -620,7 +620,7 @@ function clearRemindFilter() {
                 </a>
               </div>
               <div v-if="entry.audioUrls.length" class="crm-follow-audios">
-                <audio v-for="aud in entry.audioUrls" :key="aud" :src="aud" controls preload="none" />
+                <audio v-for="aud in entry.audioUrls" :key="aud" :src="aud" controls preload="metadata" />
               </div>
             </li>
           </ul>
@@ -661,7 +661,7 @@ function clearRemindFilter() {
                   <input type="file" accept="audio/*,.mp3,.m4a,.wav,.aac" multiple hidden @change="onFollowAudioPick" />
                 </label>
                 <div v-for="(url, idx) in followAudioUrls" :key="url" class="crm-follow-audio-row">
-                  <audio :src="url" controls preload="none" />
+                  <audio :src="url" controls preload="metadata" />
                   <button type="button" class="btn btn-sm" @click="removeFollowAudio(idx)">删除</button>
                 </div>
               </div>
