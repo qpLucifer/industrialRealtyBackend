@@ -292,6 +292,13 @@ const canChangeListingStatus = computed(() => form.auditState === 'live')
 const showFeaturedField = computed(() =>
   showFeaturedOption(form.externalStatus, form.rentSaleType),
 )
+/** Align with mini: featured on 挂牌联系 before audit; on 基础分类 status after live. */
+const showFeaturedInBasicTab = computed(
+  () => showFeaturedField.value && form.auditState === 'live',
+)
+const showFeaturedInListingTab = computed(
+  () => showFeaturedField.value && form.auditState !== 'live',
+)
 
 watch(
   () => [form.externalStatus, form.rentSaleType] as const,
@@ -753,13 +760,13 @@ function removeMediaVideo(i: number) {
                   </p>
                 </template>
               </div>
-              <div v-if="showFeaturedField" class="full">
+              <div v-if="showFeaturedInBasicTab" class="full">
                 <div class="featured-switch-row">
                   <span class="featured-switch-row__label">主推</span>
                   <el-switch v-model="form.featured" />
                 </div>
                 <p class="hint" style="margin-top: 6px">
-                  勾选后，后台与小程序房源列表将显示「主推」并靠前排序（上架为「待售」或租售类型为「出售」时有效）。
+                  勾选后，后台与小程序房源列表将显示「主推」并靠前排序（对外状态为「待售」时有效）。
                 </p>
               </div>
               <div v-if="form.auditState === 'rejected'" class="full">
@@ -1351,12 +1358,27 @@ function removeMediaVideo(i: number) {
           <div class="prop-admin-panel" :class="{ active: tab === 7 }">
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">挂牌联系</div>
-              <div v-if="form.auditState !== 'live'">
-                <label>租售类型<span style="color: var(--rose)">*</span></label>
-                <select v-model="form.rentSaleType">
-                  <option v-for="opt in RENT_SALE" :key="opt" :value="opt">{{ opt }}</option>
-                </select>
-              </div>
+              <template v-if="form.auditState !== 'live'">
+                <div class="form-section-h form-section-h--sub">内部跟进</div>
+                <div>
+                  <label>租售类型<span style="color: var(--rose)">*</span></label>
+                  <select v-model="form.rentSaleType">
+                    <option v-for="opt in RENT_SALE" :key="opt" :value="opt">{{ opt }}</option>
+                  </select>
+                </div>
+                <div v-if="showFeaturedInListingTab" class="full">
+                  <div class="featured-switch-row">
+                    <span class="featured-switch-row__label">主推</span>
+                    <el-switch v-model="form.featured" />
+                  </div>
+                  <p class="hint" style="margin-top: 6px">
+                    勾选后，上架为「待售」时将在列表显示「主推」并靠前排序（租售类型为「出售」时可先勾选）。
+                  </p>
+                </div>
+              </template>
+              <p v-else class="hint full" style="margin: 0 0 4px">
+                已上架：租售状态与主推请在「基础分类」中调整。
+              </p>
               <template v-if="showRentFields">
                 <div>
                   <label>租金挂牌（元/㎡·月）</label>
@@ -1723,5 +1745,12 @@ textarea.ro-input-readonly {
   color: var(--text);
   white-space: nowrap;
   line-height: 1.4;
+}
+.form-section-h--sub {
+  margin-top: 4px;
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
 }
 </style>
