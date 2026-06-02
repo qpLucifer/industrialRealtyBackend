@@ -174,6 +174,8 @@ export interface CustomerRow {
   company?: string
   /** contact_name */
   contactName?: string
+  /** Optional customer photo (COS/CDN URL) */
+  avatarUrl?: string
   /** title_line — list card headline */
   titleLine?: string
   phoneMasked: string

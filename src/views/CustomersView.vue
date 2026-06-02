@@ -11,11 +11,14 @@ import {
   postCustomer,
   postCustomerFollowUp,
   putCustomerApi,
+  uploadOssFile,
 } from '@/api/admin'
 import type { CodeMasterRow, CustomerDetail, CustomerGrade, CustomerRow, StaffRow } from '@/types/domain'
 import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { useAdminListPagination } from '@/composables/useAdminListPagination'
+import { customerAvatarToneClass, customerInitials } from '@/lib/customerDisplay'
+import { applyCosImageProcess } from '@/lib/mediaImageUrl'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 import { isListOnMini } from '@/lib/listOnMini'
 import { timelineLinesFromDetail } from '@/lib/customerTimeline'
@@ -50,6 +53,7 @@ const poolOptions = ref<{ itemCode: string; label: string }[]>([...DEFAULT_POOL_
 const editForm = reactive({
   company: '',
   contactName: '',
+  avatarUrl: '',
   titleLine: '',
   phone: '',
   grade: 'B 类' as CustomerGrade,
@@ -70,6 +74,33 @@ const followNote = ref('')
 const followOccurredAt = ref('')
 const followGrade = ref<'' | CustomerGrade>('')
 const followNextAt = ref('')
+const uploadingAvatar = ref(false)
+
+function customerAvatarSrc(url?: string) {
+  const u = String(url || '').trim()
+  return u ? applyCosImageProcess(u) : ''
+}
+
+async function onAvatarPick(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploadingAvatar.value = true
+  try {
+    const { url } = await uploadOssFile(file, 'customers/avatars')
+    editForm.avatarUrl = url
+    ElMessage.success('照片已上传')
+  } catch {
+    /* global http interceptor shows API error */
+  } finally {
+    uploadingAvatar.value = false
+    input.value = ''
+  }
+}
+
+function clearAvatar() {
+  editForm.avatarUrl = ''
+}
 
 async function loadRegions() {
   try {
@@ -210,6 +241,7 @@ function openNew() {
   void loadStaff()
   editForm.company = ''
   editForm.contactName = ''
+  editForm.avatarUrl = ''
   editForm.titleLine = ''
   editForm.phone = ''
   editForm.grade = 'B 类'
@@ -234,6 +266,7 @@ async function openEdit(row: CustomerRow) {
   detail.value = d
   editForm.company = d.company || ''
   editForm.contactName = d.contactName
+  editForm.avatarUrl = d.avatarUrl || ''
   editForm.titleLine =
     (d.titleLine || '').trim() || [d.contactName, d.company].filter(Boolean).join(' · ') || d.company || ''
   editForm.phone = normalizeCnMobileInput(d.phone)
@@ -267,6 +300,7 @@ async function onSaveCustomer() {
   const payload = {
     company: editForm.company.trim(),
     contactName: editForm.contactName.trim(),
+    avatarUrl: editForm.avatarUrl.trim() || null,
     titleLine: editForm.titleLine.trim(),
     phone: normalizeCnMobileInput(editForm.phone),
     grade: editForm.grade,
@@ -416,7 +450,19 @@ function clearRemindFilter() {
               <span class="crm-cell-strong">{{ r.company || '—' }}</span>
             </td>
             <td class="cell-ellipsis" :title="r.contactName || r.name">
-              <span class="crm-cell-strong">{{ r.contactName || r.name }}</span>
+              <div class="crm-name-cell">
+                <img
+                  v-if="r.avatarUrl"
+                  :src="customerAvatarSrc(r.avatarUrl)"
+                  alt=""
+                  class="crm-avatar crm-avatar--sm"
+                  referrerpolicy="no-referrer"
+                />
+                <span v-else class="crm-avatar crm-avatar--sm" :class="customerAvatarToneClass(r.grade)">
+                  {{ customerInitials(r) }}
+                </span>
+                <span class="crm-cell-strong">{{ r.contactName || r.name }}</span>
+              </div>
             </td>
             <td class="cell-ellipsis">{{ r.district || '—' }}</td>
             <td class="cell-ellipsis cell-wrap" :title="r.demandSummary">{{ r.demandSummary || '—' }}</td>
@@ -448,8 +494,22 @@ function clearRemindFilter() {
     <el-drawer v-model="drawer" :title="drawerTitle()" size="min(560px, 92vw)" destroy-on-close class="crm-drawer">
       <template v-if="drawerMode === 'detail' && detail">
         <div class="crm-hero">
-          <div class="crm-hero-title">{{ detail.company || '—' }}</div>
-          <div class="crm-hero-sub">{{ detail.titleLine || [detail.contactName, detail.company].filter(Boolean).join(' · ') }}</div>
+          <div class="crm-hero-head">
+            <img
+              v-if="detail.avatarUrl"
+              :src="customerAvatarSrc(detail.avatarUrl)"
+              alt=""
+              class="crm-avatar crm-avatar--lg"
+              referrerpolicy="no-referrer"
+            />
+            <span v-else class="crm-avatar crm-avatar--lg" :class="customerAvatarToneClass(detail.grade)">
+              {{ customerInitials(detail) }}
+            </span>
+            <div class="crm-hero-text">
+              <div class="crm-hero-title">{{ detail.company || '—' }}</div>
+              <div class="crm-hero-sub">{{ detail.titleLine || [detail.contactName, detail.company].filter(Boolean).join(' · ') }}</div>
+            </div>
+          </div>
           <div class="crm-hero-meta">
             <span>{{ detail.contactName }}</span>
             <span class="crm-dot">·</span>
@@ -511,6 +571,28 @@ function clearRemindFilter() {
 
       <template v-else>
         <div class="form-grid">
+          <div class="full">
+            <label>客户照片（可选）</label>
+            <div class="crm-avatar-edit">
+              <img
+                v-if="editForm.avatarUrl"
+                :src="customerAvatarSrc(editForm.avatarUrl)"
+                alt=""
+                class="crm-avatar crm-avatar--lg"
+                referrerpolicy="no-referrer"
+              />
+              <span v-else class="crm-avatar crm-avatar--lg" :class="customerAvatarToneClass(editForm.grade)">
+                {{ customerInitials(editForm) }}
+              </span>
+              <div class="crm-avatar-edit__actions">
+                <label class="btn btn-sm" :class="{ disabled: uploadingAvatar }">
+                  {{ uploadingAvatar ? '上传中…' : '上传照片' }}
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden @change="onAvatarPick" />
+                </label>
+                <button v-if="editForm.avatarUrl" type="button" class="btn btn-sm" @click="clearAvatar">移除</button>
+              </div>
+            </div>
+          </div>
           <div class="full">
             <label>公司 / 主体<span style="color: var(--rose)">*</span></label>
             <input v-model="editForm.company" type="text" maxlength="255" />
@@ -720,6 +802,67 @@ function clearRemindFilter() {
 .crm-cell-strong {
   font-weight: 600;
   color: #0f172a;
+}
+.crm-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.crm-avatar {
+  flex-shrink: 0;
+  border-radius: 10px;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+.crm-avatar--sm {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.crm-avatar--lg {
+  width: 56px;
+  height: 56px;
+  font-size: 18px;
+}
+.crm-avatar--brand {
+  background: linear-gradient(145deg, #1a3a6c, #2d4f8c);
+}
+.crm-avatar--blue {
+  background: linear-gradient(145deg, #0284c7, #38bdf8);
+}
+.crm-avatar--slate {
+  background: linear-gradient(145deg, #64748b, #94a3b8);
+}
+.crm-hero-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.crm-hero-text {
+  min-width: 0;
+  flex: 1;
+}
+.crm-avatar-edit {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.crm-avatar-edit__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.crm-avatar-edit .disabled {
+  opacity: 0.6;
+  pointer-events: none;
 }
 .crm-hero {
   padding: 16px 18px;
