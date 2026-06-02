@@ -1323,7 +1323,7 @@ function removeMediaVideo(i: number) {
           <div class="prop-admin-panel" :class="{ active: tab === 7 }">
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">挂牌联系</div>
-              <div>
+              <div v-if="form.auditState !== 'live'">
                 <label>租售类型<span style="color: var(--rose)">*</span></label>
                 <select v-model="form.rentSaleType">
                   <option v-for="opt in RENT_SALE" :key="opt" :value="opt">{{ opt }}</option>
@@ -1419,7 +1419,7 @@ function removeMediaVideo(i: number) {
               <section v-for="sec in RO_SECTIONS_VIEW_OTHER" :key="sec.title" class="ro-sec">
                 <h4 class="ro-h4">{{ sec.title }}</h4>
                 <div
-                  v-for="(row, ri) in roFieldRows(sec.fields)"
+                  v-for="(row, ri) in roFieldRows(sec.fields.filter((f) => !(f.key === 'rentSaleType' && form.auditState === 'live')))"
                   :key="`${sec.title}-${ri}`"
                   class="ro-row"
                   :class="{ 'ro-row-span': row.length === 1 && isRoMultiline(row[0].key) }"
