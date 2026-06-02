@@ -336,6 +336,20 @@ export default [
     },
   },
   {
+    url: '/api/property/logs',
+    method: 'get',
+    response: () =>
+      ok({
+        list: [
+          { line: '陈思远 · 新建草稿', sub: '2026-05-28 10:00' },
+          { line: '陈思远 · 保存', sub: '2026-05-28 10:15 · 黄埔区科学城路 88 号' },
+          { line: '陈思远 · 提交发布审核', sub: '2026-05-28 11:00' },
+          { line: '系统 · 进入待审核队列', sub: '2026-05-28 11:00 · 后台提交' },
+          { line: '管理员 · 审核通过', sub: '2026-05-28 14:20 · 房源已上架，对外状态为待租' },
+        ],
+      }),
+  },
+  {
     url: '/api/audit/queue',
     method: 'get',
     response: ({ query }: { query: Record<string, string | string[] | undefined> }) =>

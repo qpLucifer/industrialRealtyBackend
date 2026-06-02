@@ -216,6 +216,11 @@ export async function fetchPropertyDetail(code: string) {
   return unwrap(res) as PropertyFullForm
 }
 
+export async function fetchPropertyLogs(code: string) {
+  const res = await http.get('/property/logs', { params: { code } })
+  return unwrap(res) as { list: { line: string; sub: string }[] }
+}
+
 export async function savePropertySnapshot(payload: unknown) {
   const res = await http.post('/properties/snapshot', payload)
   return unwrap(res) as { success: boolean }
