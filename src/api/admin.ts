@@ -15,6 +15,7 @@ import type {
   LogRow,
   PropertyFullForm,
   PropertyPrivacyGrantRow,
+  PropertyLogEntry,
   PropertyRow,
   RegionBar,
   RegionBindingRow,
@@ -218,7 +219,12 @@ export async function fetchPropertyDetail(code: string) {
 
 export async function fetchPropertyLogs(code: string) {
   const res = await http.get('/property/logs', { params: { code } })
-  return unwrap(res) as { list: { line: string; sub: string }[] }
+  return unwrap(res) as { list: PropertyLogEntry[] }
+}
+
+export async function postPropertyFollowUp(payload: Record<string, unknown>) {
+  const res = await http.post('/property/follow-up', payload)
+  return unwrap(res) as { success: boolean }
 }
 
 export async function savePropertySnapshot(payload: unknown) {

@@ -5,11 +5,12 @@ import { createPropertyDraft, deletePropertyApi, fetchCodeMasterItems, fetchProp
 import type { PropertyRow, RegionDefRow } from '@/types/domain'
 import PropertyFullModal from '@/components/PropertyFullModal.vue'
 import PropertyLogModal from '@/components/PropertyLogModal.vue'
+import PropertyFollowModal from '@/components/PropertyFollowModal.vue'
 import AdminListPagination from '@/components/AdminListPagination.vue'
 import TableActionBtn from '@/components/TableActionBtn.vue'
 import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { useAuthStore } from '@/stores/auth'
-import { Delete, Document, Edit, View } from '@element-plus/icons-vue'
+import { Delete, Document, Edit, EditPen, View } from '@element-plus/icons-vue'
 
 const auth = useAuthStore()
 
@@ -23,6 +24,8 @@ const modalCode = ref('P-8821')
 const modalMode = ref<'edit' | 'view'>('edit')
 const logModalVisible = ref(false)
 const logModalCode = ref('')
+const followModalVisible = ref(false)
+const followModalCode = ref('')
 
 const filterType = ref<string>('all')
 const filterStatus = ref<string>('all')
@@ -101,6 +104,11 @@ function openLogs(code: string) {
   logModalVisible.value = true
 }
 
+function openFollow(code: string) {
+  followModalCode.value = code
+  followModalVisible.value = true
+}
+
 async function onNewDraft() {
   const submitterName = auth.user?.displayName?.trim() || undefined
   const { code } = await createPropertyDraft(submitterName ? { submitterName } : {})
@@ -171,6 +179,7 @@ async function onDeleteRow(row: PropertyRow) {
             <td class="table-actions">
               <TableActionBtn title="编辑" :icon="Edit" @click="openProp('edit', r.code)" />
               <TableActionBtn title="详情" :icon="View" @click="openProp('view', r.code)" />
+              <TableActionBtn title="写跟进" :icon="EditPen" variant="success" @click="openFollow(r.code)" />
               <TableActionBtn title="日志" :icon="Document" variant="neutral" @click="openLogs(r.code)" />
               <TableActionBtn title="删除" :icon="Delete" variant="danger" @click="onDeleteRow(r)" />
             </td>
@@ -188,6 +197,7 @@ async function onDeleteRow(row: PropertyRow) {
 
     <PropertyFullModal v-model:visible="modalVisible" :code="modalCode" :mode="modalMode" @saved="loadList" />
     <PropertyLogModal v-model:visible="logModalVisible" :code="logModalCode" />
+    <PropertyFollowModal v-model:visible="followModalVisible" :code="followModalCode" />
   </section>
 </template>
 

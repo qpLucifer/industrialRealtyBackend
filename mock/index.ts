@@ -341,13 +341,26 @@ export default [
     response: () =>
       ok({
         list: [
-          { line: '陈思远 · 新建草稿', sub: '2026-05-28 10:00' },
-          { line: '陈思远 · 保存', sub: '2026-05-28 10:15 · 黄埔区科学城路 88 号' },
-          { line: '陈思远 · 提交发布审核', sub: '2026-05-28 11:00' },
-          { line: '系统 · 进入待审核队列', sub: '2026-05-28 11:00 · 后台提交' },
-          { line: '管理员 · 审核通过', sub: '2026-05-28 14:20 · 房源已上架，对外状态为待租' },
+          {
+            line: '陈思远 · 写跟进',
+            sub: '2026-05-28 15:30 · 现场拍照，客户关注层高（图片×1）',
+            kind: 'follow-up',
+            occurredAt: '2026-05-28 15:30',
+            note: '现场拍照，客户关注层高',
+            imageUrls: [],
+            audioUrls: [],
+            displayLine: '2026-05-28 15:30 · 现场拍照，客户关注层高（图片×1）',
+          },
+          { line: '陈思远 · 新建草稿', sub: '2026-05-28 10:00', kind: 'action' },
+          { line: '陈思远 · 保存', sub: '2026-05-28 10:15 · 黄埔区科学城路 88 号', kind: 'action' },
+          { line: '管理员 · 审核通过', sub: '2026-05-28 14:20 · 房源已上架，对外状态为待租', kind: 'action' },
         ],
       }),
+  },
+  {
+    url: '/api/property/follow-up',
+    method: 'post',
+    response: () => ok({ success: true }),
   },
   {
     url: '/api/audit/queue',

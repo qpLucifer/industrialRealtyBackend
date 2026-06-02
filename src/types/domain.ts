@@ -134,6 +134,17 @@ export type PropertyStatusTag =
 /** Legacy list column; workflow merged into `status` — kept optional for older responses */
 export type AuditTag = '已通过' | '待审核' | '—'
 
+export interface PropertyLogEntry {
+  line: string
+  sub: string
+  kind?: 'follow-up' | 'action'
+  occurredAt?: string
+  note?: string
+  imageUrls?: string[]
+  audioUrls?: string[]
+  displayLine?: string
+}
+
 export interface PropertyRow {
   id: string
   code: string
