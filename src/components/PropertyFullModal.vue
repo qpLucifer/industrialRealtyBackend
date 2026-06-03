@@ -711,6 +711,51 @@ function removeMediaVideo(i: number) {
   lines.splice(i, 1)
   mediaVideoBlock.value = lines.join('\n')
 }
+
+type MediaDragKind = 'image' | 'video'
+const mediaDragKind = ref<MediaDragKind | null>(null)
+const mediaDragFrom = ref(-1)
+const mediaDragOver = ref(-1)
+
+function reorderMediaBlock(block: string, from: number, to: number) {
+  const lines = splitMediaLines(block)
+  if (from === to || from < 0 || to < 0 || from >= lines.length || to >= lines.length) return block
+  const [item] = lines.splice(from, 1)
+  lines.splice(to, 0, item)
+  return lines.join('\n')
+}
+
+function onMediaDragStart(kind: MediaDragKind, from: number, e: DragEvent) {
+  if (props.mode === 'view') return
+  mediaDragKind.value = kind
+  mediaDragFrom.value = from
+  mediaDragOver.value = from
+  e.dataTransfer?.setData('text/plain', String(from))
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+}
+
+function onMediaDragOver(kind: MediaDragKind, to: number, e: DragEvent) {
+  if (props.mode === 'view' || mediaDragKind.value !== kind) return
+  e.preventDefault()
+  mediaDragOver.value = to
+}
+
+function onMediaDrop(kind: MediaDragKind, to: number, e: DragEvent) {
+  if (props.mode === 'view' || mediaDragKind.value !== kind) return
+  e.preventDefault()
+  const from = mediaDragFrom.value
+  if (from >= 0 && from !== to) {
+    if (kind === 'image') mediaImageBlock.value = reorderMediaBlock(mediaImageBlock.value, from, to)
+    else mediaVideoBlock.value = reorderMediaBlock(mediaVideoBlock.value, from, to)
+  }
+  onMediaDragEnd()
+}
+
+function onMediaDragEnd() {
+  mediaDragKind.value = null
+  mediaDragFrom.value = -1
+  mediaDragOver.value = -1
+}
 </script>
 
 <template>
@@ -902,9 +947,27 @@ function removeMediaVideo(i: number) {
                 </div>
               </div>
               <div v-if="imagePreviewUrls.length" class="full media-preview-block">
-                <label>已上传图片（点击放大，× 移除）</label>
+                <label>已上传图片（拖拽排序，点击放大，× 移除）</label>
                 <div class="media-preview-grid">
-                  <div v-for="(url, i) in imagePreviewUrls" :key="`${url}-${i}`" class="media-thumb-wrap">
+                  <div
+                    v-for="(url, i) in imagePreviewUrls"
+                    :key="`${url}-${i}`"
+                    class="media-thumb-wrap"
+                    :class="{ 'is-drag-over': mediaDragKind === 'image' && mediaDragOver === i && mediaDragFrom !== i }"
+                    @dragover="onMediaDragOver('image', i, $event)"
+                    @drop="onMediaDrop('image', i, $event)"
+                  >
+                    <button
+                      v-if="mode !== 'view' && imagePreviewUrls.length > 1"
+                      type="button"
+                      class="media-drag-handle"
+                      draggable="true"
+                      aria-label="拖动排序"
+                      @dragstart="onMediaDragStart('image', i, $event)"
+                      @dragend="onMediaDragEnd"
+                    >
+                      ⠿
+                    </button>
                     <img
                       :src="url"
                       referrerpolicy="no-referrer"
@@ -934,10 +997,28 @@ function removeMediaVideo(i: number) {
                 </div>
               </div>
               <div v-if="videoPreviewUrls.length" class="full media-preview-block">
-                <label>已上传视频（× 移除）</label>
+                <label>已上传视频（拖拽排序，× 移除）</label>
                 <div class="media-video-list">
-                  <div v-for="(url, i) in videoPreviewUrls" :key="`${url}-${i}`" class="media-video-item">
+                  <div
+                    v-for="(url, i) in videoPreviewUrls"
+                    :key="`${url}-${i}`"
+                    class="media-video-item"
+                    :class="{ 'is-drag-over': mediaDragKind === 'video' && mediaDragOver === i && mediaDragFrom !== i }"
+                    @dragover="onMediaDragOver('video', i, $event)"
+                    @drop="onMediaDrop('video', i, $event)"
+                  >
                     <div class="media-video-item-head">
+                      <button
+                        v-if="mode !== 'view' && videoPreviewUrls.length > 1"
+                        type="button"
+                        class="media-drag-handle media-drag-handle--video"
+                        draggable="true"
+                        aria-label="拖动排序"
+                        @dragstart="onMediaDragStart('video', i, $event)"
+                        @dragend="onMediaDragEnd"
+                      >
+                        ⠿
+                      </button>
                       <video :src="url" controls preload="metadata" class="media-video" referrerpolicy="no-referrer" />
                       <button type="button" class="media-remove-btn media-remove-btn--video" aria-label="删除视频" @click="removeMediaVideo(i)">×</button>
                     </div>
@@ -1631,6 +1712,36 @@ textarea.ro-input-readonly {
 }
 .media-thumb-wrap {
   position: relative;
+}
+.media-thumb-wrap.is-drag-over,
+.media-video-item.is-drag-over {
+  outline: 2px solid var(--mint, #10b981);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+.media-drag-handle {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  z-index: 3;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: grab;
+}
+.media-drag-handle:active {
+  cursor: grabbing;
+}
+.media-drag-handle--video {
+  top: 8px;
+  bottom: auto;
+  left: 8px;
 }
 .media-remove-btn {
   position: absolute;
