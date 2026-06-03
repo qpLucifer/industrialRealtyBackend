@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FollowEntryMediaPanel from '@/components/FollowEntryMediaPanel.vue'
+import FollowAudioPlayer from '@/components/FollowAudioPlayer.vue'
 import type { PropertyLogEntry } from '@/types/domain'
 import { formatTimelineLine } from '@/lib/beijingTime'
 import { hasFollowMedia } from '@/lib/followMediaSummary'
@@ -50,7 +51,12 @@ const audioCount = () => props.entry.audioUrls?.length ?? 0
         </a>
       </div>
       <div v-if="entry.audioUrls?.length" class="property-log-audios">
-        <audio v-for="aud in entry.audioUrls" :key="aud" :src="aud" controls preload="metadata" />
+        <FollowAudioPlayer
+          v-for="(aud, j) in entry.audioUrls"
+          :key="aud"
+          :src="aud"
+          :label="`语音 ${j + 1}`"
+        />
       </div>
     </FollowEntryMediaPanel>
   </li>
@@ -122,10 +128,5 @@ const audioCount = () => props.entry.audioUrls?.length ?? 0
 
 .property-log-audios:first-child {
   margin-top: 0;
-}
-
-.property-log-audios audio {
-  width: 100%;
-  height: 32px;
 }
 </style>

@@ -23,6 +23,7 @@ import { Delete, Edit, View } from '@element-plus/icons-vue'
 import { isListOnMini } from '@/lib/listOnMini'
 import { timelineEntriesFromDetail } from '@/lib/customerTimeline'
 import FollowEntryMediaPanel from '@/components/FollowEntryMediaPanel.vue'
+import FollowAudioPlayer from '@/components/FollowAudioPlayer.vue'
 import { hasFollowMedia } from '@/lib/followMediaSummary'
 import {
   FOLLOW_UPLOAD_FOLDER,
@@ -636,7 +637,12 @@ function clearRemindFilter() {
                   </a>
                 </div>
                 <div v-if="entry.audioUrls.length" class="crm-follow-audios">
-                  <audio v-for="aud in entry.audioUrls" :key="aud" :src="aud" controls preload="metadata" />
+                  <FollowAudioPlayer
+                    v-for="(aud, j) in entry.audioUrls"
+                    :key="aud"
+                    :src="aud"
+                    :label="`语音 ${j + 1}`"
+                  />
                 </div>
               </FollowEntryMediaPanel>
             </li>
@@ -677,10 +683,14 @@ function clearRemindFilter() {
                   {{ uploadingFollowAudio ? '上传中…' : '选择音频文件' }}
                   <input type="file" accept="audio/*,.mp3,.m4a,.wav,.aac" multiple hidden @change="onFollowAudioPick" />
                 </label>
-                <div v-for="(url, idx) in followAudioUrls" :key="url" class="crm-follow-audio-row">
-                  <audio :src="url" controls preload="metadata" />
-                  <button type="button" class="btn btn-sm" @click="removeFollowAudio(idx)">删除</button>
-                </div>
+                <FollowAudioPlayer
+                  v-for="(url, idx) in followAudioUrls"
+                  :key="url"
+                  :src="url"
+                  :label="`语音 ${idx + 1}`"
+                  removable
+                  @remove="removeFollowAudio(idx)"
+                />
               </div>
             </div>
             <div>
@@ -1107,10 +1117,6 @@ function clearRemindFilter() {
   margin-top: 8px;
 }
 
-.crm-follow-audios audio {
-  width: 100%;
-  height: 32px;
-}
 .crm-follow-images--edit {
   margin-top: 6px;
 }
@@ -1161,16 +1167,6 @@ function clearRemindFilter() {
   flex-direction: column;
   gap: 8px;
   margin-top: 10px;
-}
-.crm-follow-audio-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.crm-follow-audio-row audio {
-  flex: 1;
-  min-width: 0;
-  height: 32px;
 }
 .crm-follow-btn {
   margin-top: 14px;

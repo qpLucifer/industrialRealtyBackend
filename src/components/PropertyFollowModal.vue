@@ -11,6 +11,7 @@ import {
 import { uploadAudioFile, uploadImagesBatch } from '@/lib/mediaUpload'
 import { MAX_IMAGES_PER_PICK } from '@/lib/mediaUploadPolicy'
 import { applyCosImageProcess } from '@/lib/mediaImageUrl'
+import FollowAudioPlayer from '@/components/FollowAudioPlayer.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -172,10 +173,14 @@ watch(
             {{ uploadingFollowAudio ? '上传中…' : '选择音频文件' }}
             <input type="file" accept="audio/*,.mp3,.m4a,.wav,.aac" multiple hidden @change="onFollowAudioPick" />
           </label>
-          <div v-for="(url, idx) in followAudioUrls" :key="url" class="pf-follow-audio-row">
-            <audio :src="url" controls preload="metadata" />
-            <button type="button" class="btn btn-sm" @click="removeFollowAudio(idx)">删除</button>
-          </div>
+          <FollowAudioPlayer
+            v-for="(url, idx) in followAudioUrls"
+            :key="url"
+            :src="url"
+            :label="`语音 ${idx + 1}`"
+            removable
+            @remove="removeFollowAudio(idx)"
+          />
         </div>
       </div>
       <div class="full">
@@ -245,15 +250,5 @@ watch(
   flex-direction: column;
   gap: 8px;
   margin-top: 6px;
-}
-.pf-follow-audio-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.pf-follow-audio-row audio {
-  flex: 1;
-  min-width: 0;
-  height: 32px;
 }
 </style>
