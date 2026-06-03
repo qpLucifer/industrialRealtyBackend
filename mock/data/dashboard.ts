@@ -40,7 +40,7 @@ export interface DashboardPlatformItem {
 
 export const mockKpis: KpiItem[] = [
   { label: '房源总数', value: '38', trend: '已上架 31' },
-  { label: '待租 / 待售', value: '18', trend: '主推 6 · 待审 2' },
+  { label: '出租 / 出售', value: '18', trend: '主推 6 · 待审 2' },
   { label: '客户总量', value: '126', trend: 'CRM 统筹' },
   { label: '成交备案', value: '14', trend: '带看 / 成交台账' },
 ]

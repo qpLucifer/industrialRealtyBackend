@@ -400,8 +400,8 @@ function onDownloadStaffTemplate() {
         <div class="full">
           <label>房源板块可见范围<span style="color: var(--rose)">*</span></label>
           <select v-model="form.propertySectorScope" style="width: 100%; margin-top: 4px">
-            <option value="sale">出售板块（待售 / 已售 / 待开发）</option>
-            <option value="rent">出租板块（待租 / 已租）</option>
+            <option value="sale">出售板块（出售 / 已售 / 待开发）</option>
+            <option value="rent">出租板块（出租 / 已租）</option>
             <option value="both">出售 + 出租（全部板块）</option>
           </select>
           <p class="hint" style="margin: 6px 0 0">
