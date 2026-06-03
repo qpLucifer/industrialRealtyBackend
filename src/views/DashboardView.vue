@@ -414,14 +414,16 @@ onBeforeUnmount(() => {
               <p class="dash-panel__sub">草稿 → 待审 → 上架 / 驳回 · 共 {{ pipelineTotal }} 套</p>
             </div>
           </div>
-          <div v-show="hasPipelineData" ref="pipelineEl" class="dash-chart dash-chart--pipeline" />
-          <ul v-if="hasPipelineData" class="dash-pipeline-legend">
-            <li v-for="p in pipeline" :key="p.key">
-              <span class="dash-pipeline-legend__dot" :style="{ background: pipelineColors[p.key] }" />
-              {{ p.label }}
-              <strong>{{ p.count }}</strong>
-            </li>
-          </ul>
+          <template v-if="hasPipelineData">
+            <div ref="pipelineEl" class="dash-chart dash-chart--pipeline" />
+            <ul class="dash-pipeline-legend">
+              <li v-for="p in pipeline" :key="p.key">
+                <span class="dash-pipeline-legend__dot" :style="{ background: pipelineColors[p.key] }" />
+                {{ p.label }}
+                <strong>{{ p.count }}</strong>
+              </li>
+            </ul>
+          </template>
           <p v-else class="dash-empty">暂无房源漏斗数据</p>
         </div>
 
@@ -432,7 +434,7 @@ onBeforeUnmount(() => {
               <p class="dash-panel__sub">按所属区域统计 · 共 {{ regionTotal }} 套</p>
             </div>
           </div>
-          <div v-show="hasRegionChartData" ref="barEl" class="dash-chart dash-chart--bar" />
+          <div v-if="hasRegionChartData" ref="barEl" class="dash-chart dash-chart--bar" />
           <p v-else class="dash-empty">暂无区域分布，请完善房源所属区域。</p>
         </div>
       </div>
