@@ -22,6 +22,8 @@ import { applyCosImageProcess } from '@/lib/mediaImageUrl'
 import { Delete, Edit, View } from '@element-plus/icons-vue'
 import { isListOnMini } from '@/lib/listOnMini'
 import { timelineEntriesFromDetail } from '@/lib/customerTimeline'
+import FollowEntryMediaPanel from '@/components/FollowEntryMediaPanel.vue'
+import { hasFollowMedia } from '@/lib/followMediaSummary'
 import {
   FOLLOW_UPLOAD_FOLDER,
   MAX_FOLLOW_IMAGES,
@@ -53,6 +55,7 @@ const drawer = ref(false)
 const drawerMode = ref<'detail' | 'edit' | 'new'>('detail')
 const activeSlug = ref('')
 const detail = ref<CustomerDetail | null>(null)
+const expandedTimelineIdx = ref<number | null>(null)
 
 const staffOptions = ref<StaffRow[]>([])
 const poolOptions = ref<{ itemCode: string; label: string }[]>([...DEFAULT_POOL_OPTIONS])
@@ -198,6 +201,10 @@ const detailTimelineEntries = computed(() =>
   detail.value ? timelineEntriesFromDetail(detail.value) : [],
 )
 
+function toggleTimelineMedia(idx: number) {
+  expandedTimelineIdx.value = expandedTimelineIdx.value === idx ? null : idx
+}
+
 /** 客户池为「私有」时须指定负责人 */
 const isPrivateScope = computed(() => {
   const priv = poolOptions.value.find((o) => o.itemCode === 'private')
@@ -296,6 +303,7 @@ async function openDetail(row: CustomerRow) {
   }
   activeSlug.value = slug
   drawerMode.value = 'detail'
+  expandedTimelineIdx.value = null
   detail.value = await fetchCustomerDetail(slug)
   resetFollowFields()
   drawer.value = true
@@ -436,6 +444,7 @@ async function onSaveFollow() {
   if (followAudioUrls.value.length) payload.audioUrls = [...followAudioUrls.value]
   await postCustomerFollowUp(payload)
   ElMessage.success('跟进已保存')
+  expandedTimelineIdx.value = null
   detail.value = await fetchCustomerDetail(slug)
   resetFollowFields()
   await load()
@@ -608,20 +617,28 @@ function clearRemindFilter() {
           <ul v-if="detailTimelineEntries.length" class="crm-timeline crm-timeline-rich">
             <li v-for="(entry, idx) in detailTimelineEntries" :key="idx" class="crm-timeline-entry">
               <div class="crm-timeline-head">{{ entry.displayLine }}</div>
-              <div v-if="entry.imageUrls.length" class="crm-follow-images">
-                <a
-                  v-for="img in entry.imageUrls"
-                  :key="img"
-                  :href="customerAvatarSrc(img)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <img :src="customerAvatarSrc(img)" alt="" class="crm-follow-thumb" referrerpolicy="no-referrer" />
-                </a>
-              </div>
-              <div v-if="entry.audioUrls.length" class="crm-follow-audios">
-                <audio v-for="aud in entry.audioUrls" :key="aud" :src="aud" controls preload="metadata" />
-              </div>
+              <FollowEntryMediaPanel
+                v-if="hasFollowMedia(entry.imageUrls, entry.audioUrls)"
+                :expanded="expandedTimelineIdx === idx"
+                :image-count="entry.imageUrls.length"
+                :audio-count="entry.audioUrls.length"
+                @toggle="toggleTimelineMedia(idx)"
+              >
+                <div v-if="entry.imageUrls.length" class="crm-follow-images">
+                  <a
+                    v-for="img in entry.imageUrls"
+                    :key="img"
+                    :href="customerAvatarSrc(img)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <img :src="customerAvatarSrc(img)" alt="" class="crm-follow-thumb" referrerpolicy="no-referrer" />
+                  </a>
+                </div>
+                <div v-if="entry.audioUrls.length" class="crm-follow-audios">
+                  <audio v-for="aud in entry.audioUrls" :key="aud" :src="aud" controls preload="metadata" />
+                </div>
+              </FollowEntryMediaPanel>
             </li>
           </ul>
           <p v-else class="crm-card-muted">（暂无记录）</p>
@@ -1081,7 +1098,18 @@ function clearRemindFilter() {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
+}
+
+.crm-follow-audios {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.crm-follow-audios audio {
+  width: 100%;
+  height: 32px;
 }
 .crm-follow-images--edit {
   margin-top: 6px;

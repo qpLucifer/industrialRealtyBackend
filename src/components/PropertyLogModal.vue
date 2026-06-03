@@ -18,11 +18,13 @@ const list = ref<PropertyLogEntry[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const followVisible = ref(false)
+const expandedMediaIdx = ref<number | null>(null)
 
 async function load() {
   if (!props.code) return
   loading.value = true
   loadError.value = ''
+  expandedMediaIdx.value = null
   try {
     const r = await fetchPropertyLogs(props.code)
     list.value = r.list
@@ -44,6 +46,10 @@ function openFollow() {
 
 function onFollowSaved() {
   void load()
+}
+
+function toggleLogMedia(idx: number) {
+  expandedMediaIdx.value = expandedMediaIdx.value === idx ? null : idx
 }
 
 watch(
@@ -70,7 +76,13 @@ watch(
         <button type="button" class="btn btn-sm" @click="load">重试</button>
       </div>
       <ul v-else-if="list.length" class="property-log-list">
-        <PropertyLogEntryRow v-for="(row, idx) in list" :key="idx" :entry="row" />
+        <PropertyLogEntryRow
+          v-for="(row, idx) in list"
+          :key="idx"
+          :entry="row"
+          :media-expanded="expandedMediaIdx === idx"
+          @toggle-media="toggleLogMedia(idx)"
+        />
       </ul>
       <div v-else class="property-log-state">暂无操作日志</div>
       <template #footer>

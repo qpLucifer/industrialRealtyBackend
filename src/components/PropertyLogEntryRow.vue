@@ -1,9 +1,16 @@
 <script setup lang="ts">
+import FollowEntryMediaPanel from '@/components/FollowEntryMediaPanel.vue'
 import type { PropertyLogEntry } from '@/types/domain'
 import { formatTimelineLine } from '@/lib/beijingTime'
+import { hasFollowMedia } from '@/lib/followMediaSummary'
 import { applyCosImageProcess } from '@/lib/mediaImageUrl'
 
-defineProps<{ entry: PropertyLogEntry }>()
+const props = defineProps<{
+  entry: PropertyLogEntry
+  mediaExpanded?: boolean
+}>()
+
+defineEmits<{ 'toggle-media': [] }>()
 
 function isReject(entry: PropertyLogEntry) {
   return /驳回/.test(`${entry.line} ${entry.sub}`)
@@ -12,6 +19,9 @@ function isReject(entry: PropertyLogEntry) {
 function imageSrc(url: string) {
   return applyCosImageProcess(url)
 }
+
+const imageCount = () => props.entry.imageUrls?.length ?? 0
+const audioCount = () => props.entry.audioUrls?.length ?? 0
 </script>
 
 <template>
@@ -20,20 +30,29 @@ function imageSrc(url: string) {
     <div v-if="entry.kind === 'follow-up' && entry.displayLine" class="property-log-sub">{{ entry.displayLine }}</div>
     <div v-else-if="entry.sub" class="property-log-sub">{{ formatTimelineLine(entry.sub) }}</div>
     <p v-if="entry.kind === 'follow-up' && entry.note" class="property-log-note">{{ entry.note }}</p>
-    <div v-if="entry.imageUrls?.length" class="property-log-images">
-      <a
-        v-for="img in entry.imageUrls"
-        :key="img"
-        :href="imageSrc(img)"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <img :src="imageSrc(img)" alt="" class="property-log-thumb" referrerpolicy="no-referrer" />
-      </a>
-    </div>
-    <div v-if="entry.audioUrls?.length" class="property-log-audios">
-      <audio v-for="aud in entry.audioUrls" :key="aud" :src="aud" controls preload="metadata" />
-    </div>
+
+    <FollowEntryMediaPanel
+      v-if="hasFollowMedia(entry.imageUrls, entry.audioUrls)"
+      :expanded="!!mediaExpanded"
+      :image-count="imageCount()"
+      :audio-count="audioCount()"
+      @toggle="$emit('toggle-media')"
+    >
+      <div v-if="entry.imageUrls?.length" class="property-log-images">
+        <a
+          v-for="img in entry.imageUrls"
+          :key="img"
+          :href="imageSrc(img)"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img :src="imageSrc(img)" alt="" class="property-log-thumb" referrerpolicy="no-referrer" />
+        </a>
+      </div>
+      <div v-if="entry.audioUrls?.length" class="property-log-audios">
+        <audio v-for="aud in entry.audioUrls" :key="aud" :src="aud" controls preload="metadata" />
+      </div>
+    </FollowEntryMediaPanel>
   </li>
 </template>
 
@@ -83,7 +102,6 @@ function imageSrc(url: string) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
 }
 
 .property-log-thumb {
@@ -99,7 +117,11 @@ function imageSrc(url: string) {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
+}
+
+.property-log-audios:first-child {
+  margin-top: 0;
 }
 
 .property-log-audios audio {
