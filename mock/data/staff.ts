@@ -13,6 +13,8 @@ export interface StaffRow {
   title: string
   regions: string
   status: StaffStatus
+  propertySectorScope?: 'sale' | 'rent' | 'both'
+  propertySectorLabel?: string
 }
 
 export interface StaffForm {
@@ -39,6 +41,8 @@ export const mockStaffRows: StaffRow[] = [
     title: '高级业务员',
     regions: '黄埔区、增城区',
     status: '正常',
+    propertySectorScope: 'both',
+    propertySectorLabel: '出售+出租',
   },
   {
     id: 's2',
@@ -49,6 +53,8 @@ export const mockStaffRows: StaffRow[] = [
     title: '业务经理',
     regions: '花都区',
     status: '正常',
+    propertySectorScope: 'rent',
+    propertySectorLabel: '出租板块',
   },
 ]
 

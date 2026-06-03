@@ -16,6 +16,7 @@ import {
   preventNonDigitPhoneBeforeInput,
   preventNonDigitPhoneKeys,
 } from '@/lib/inputValidators'
+import { staffPropertySectorLabel } from '@/lib/propertySectorScope'
 
 const list = ref<StaffRow[]>([])
 const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, listQueryParams } =
@@ -202,9 +203,21 @@ async function onDelete(row: StaffRow) {
 }
 
 function onExportStaffCsv() {
-  const header = ['id', 'employeeNo', 'name', 'phoneMasked', 'department', 'title', 'regions', 'status']
+  const header = ['id', 'employeeNo', 'name', 'phoneMasked', 'department', 'title', 'regions', 'propertySector', 'status']
   const rows = list.value.map((r) =>
-    [r.id, r.employeeNo, r.name, r.phoneMasked, r.department, r.title, r.regions, r.status].map((c) => csvEscape(c)).join(','),
+    [
+      r.id,
+      r.employeeNo,
+      r.name,
+      r.phoneMasked,
+      r.department,
+      r.title,
+      r.regions,
+      r.propertySectorLabel || staffPropertySectorLabel(r.propertySectorScope),
+      r.status,
+    ]
+      .map((c) => csvEscape(c))
+      .join(','),
   )
   const csv = [header.join(','), ...rows].join('\n')
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
@@ -272,6 +285,7 @@ function onDownloadStaffTemplate() {
             <th>部门</th>
             <th>职位</th>
             <th>负责区域</th>
+            <th>房源板块</th>
             <th>状态</th>
             <th>操作</th>
           </tr>
@@ -284,6 +298,7 @@ function onDownloadStaffTemplate() {
             <td class="cell-wrap">{{ s.department || '—' }}</td>
             <td class="cell-wrap">{{ s.title || '—' }}</td>
             <td>{{ s.regions }}</td>
+            <td>{{ s.propertySectorLabel || staffPropertySectorLabel(s.propertySectorScope) }}</td>
             <td><span class="tag" :class="s.status === '正常' ? 'mint' : 'rose'">{{ s.status }}</span></td>
             <td>
               <div class="row-actions">

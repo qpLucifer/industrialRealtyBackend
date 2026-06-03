@@ -59,68 +59,6 @@ const attentionRoutes: Record<string, string> = {
   viewings: '/app/viewings',
 }
 
-type DashboardModuleLink = {
-  to: string
-  title: string
-  desc: string
-  tag?: string
-  tone: string
-}
-
-const moduleLinks: DashboardModuleLink[] = [
-  {
-    to: '/app/properties',
-    title: '房源管理',
-    desc: '全字段维护 · 上下架 · 主推',
-    tag: '核心',
-    tone: 'navy',
-  },
-  {
-    to: '/app/audit',
-    title: '审核中心',
-    desc: '待审队列 · 通过 / 驳回',
-    tag: '待办',
-    tone: 'amber',
-  },
-  {
-    to: '/app/property-privacy',
-    title: '房源隐私',
-    desc: '隐私查看 · 小程序编辑授权',
-    tag: '权限',
-    tone: 'violet',
-  },
-  {
-    to: '/app/customers',
-    title: '客户统筹',
-    desc: 'ABC 分级 · 跟进 · 公私有池',
-    tone: 'teal',
-  },
-  {
-    to: '/app/viewings',
-    title: '带看 / 成交',
-    desc: '带看台账 · 成交备案',
-    tone: 'sky',
-  },
-  {
-    to: '/app/land-auction',
-    title: '工业土地',
-    desc: '挂拍预告 · 在拍 · 成交统计',
-    tone: 'gold',
-  },
-  {
-    to: '/app/video-faq',
-    title: '视频 FAQ',
-    desc: '短视频库 · 小程序可搜',
-    tone: 'rose',
-  },
-  {
-    to: '/app/staff',
-    title: '组织与安全',
-    desc: '员工 · 白名单 · 区域 · 板块',
-    tone: 'slate',
-  },
-]
-
 const todayLabel = computed(() => {
   const d = new Date()
   const w = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
@@ -438,28 +376,6 @@ onBeforeUnmount(() => {
           <p v-else class="dash-empty">暂无区域分布，请完善房源所属区域。</p>
         </div>
       </div>
-
-      <section class="dash-section">
-        <div class="dash-section__head">
-          <h3 class="dash-section__title">业务模块</h3>
-          <p class="dash-section__sub">覆盖当前版本全部核心能力，一键进入管理页</p>
-        </div>
-        <div class="dash-modules">
-          <RouterLink
-            v-for="m in moduleLinks"
-            :key="m.to"
-            :to="m.to"
-            class="dash-module"
-            :class="m.tone ? `dash-module--${m.tone}` : ''"
-          >
-            <div class="dash-module__top">
-              <span class="dash-module__title">{{ m.title }}</span>
-              <span v-if="m.tag" class="dash-module__tag">{{ m.tag }}</span>
-            </div>
-            <p class="dash-module__desc">{{ m.desc }}</p>
-          </RouterLink>
-        </div>
-      </section>
 
       <section class="dash-section">
         <div class="dash-section__head">
@@ -847,88 +763,6 @@ onBeforeUnmount(() => {
   border-radius: 50%;
 }
 
-.dash-modules {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-@media (max-width: 1200px) {
-  .dash-modules {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.dash-module {
-  display: block;
-  padding: 16px 16px 14px;
-  border-radius: 16px;
-  text-decoration: none;
-  background: #fff;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-
-.dash-module:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
-}
-
-.dash-module__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.dash-module__title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.dash-module__tag {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(245, 158, 11, 0.14);
-  color: #b45309;
-}
-
-.dash-module__desc {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #64748b;
-}
-
-.dash-module--navy {
-  border-top: 3px solid #1a3a6c;
-}
-.dash-module--amber {
-  border-top: 3px solid #f59e0b;
-}
-.dash-module--violet {
-  border-top: 3px solid #7c3aed;
-}
-.dash-module--teal {
-  border-top: 3px solid #0d9488;
-}
-.dash-module--sky {
-  border-top: 3px solid #0284c7;
-}
-.dash-module--gold {
-  border-top: 3px solid #d97706;
-}
-.dash-module--rose {
-  border-top: 3px solid #e11d48;
-}
-.dash-module--slate {
-  border-top: 3px solid #64748b;
-}
-
 .dash-platform {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1049,8 +883,7 @@ onBeforeUnmount(() => {
   .dash-live-pill__dot {
     animation: none;
   }
-  .dash-attention__card,
-  .dash-module {
+  .dash-attention__card {
     transition: none;
   }
 }

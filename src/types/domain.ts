@@ -85,6 +85,8 @@ export interface StaffRow {
   title: string
   regions: string
   status: StaffStatus
+  propertySectorScope?: StaffPropertySectorScope
+  propertySectorLabel?: string
 }
 
 export type StaffPropertySectorScope = 'sale' | 'rent' | 'both'
