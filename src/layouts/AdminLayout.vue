@@ -30,7 +30,7 @@ const pageCrumb = computed(() => {
   return navMeta[name]?.crumb ?? ''
 })
 
-const navPrimary = { to: '/app/dashboard', name: 'dashboard', label: '数据总览' }
+const navPrimary = { to: '/app/dashboard', name: 'dashboard', label: '运营驾驶舱' }
 
 const navGroups: { section: string; items: { to: string; name: string; label: string }[] }[] = [
   {

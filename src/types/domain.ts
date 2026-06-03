@@ -43,6 +43,34 @@ export interface StaffActivityRow {
   deals: number
 }
 
+export interface DashboardPipelineItem {
+  key: string
+  label: string
+  count: number
+}
+
+export interface DashboardAttentionItem {
+  key: string
+  label: string
+  value: string
+  hint?: string
+}
+
+export interface DashboardPlatformItem {
+  key: string
+  label: string
+  value: string
+}
+
+export interface DashboardSummary {
+  kpis: KpiItem[]
+  regionBars: RegionBar[]
+  staffActivity: StaffActivityRow[]
+  pipeline: DashboardPipelineItem[]
+  attention: DashboardAttentionItem[]
+  platform: DashboardPlatformItem[]
+}
+
 export type StaffStatus = string
 export type StaffAccountStatus = string
 

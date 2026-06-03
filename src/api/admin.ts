@@ -9,7 +9,6 @@ import type {
   CustomerDetail,
   CustomerRow,
   DealRow,
-  KpiItem,
   LandAuctionRow,
   LandAuctionStats,
   LogRow,
@@ -17,12 +16,11 @@ import type {
   PropertyPrivacyGrantRow,
   PropertyLogEntry,
   PropertyRow,
-  RegionBar,
   RegionBindingRow,
   RegionDefRow,
   RegionTreeLine,
   SecuritySwitch,
-  StaffActivityRow,
+  DashboardSummary,
   StaffForm,
   StaffRow,
   SysAdminUserRow,
@@ -33,11 +31,7 @@ import type {
 
 export async function fetchDashboard() {
   const res = await http.get('/dashboard/summary')
-  return unwrap(res) as {
-    kpis: KpiItem[]
-    regionBars: RegionBar[]
-    staffActivity: StaffActivityRow[]
-  }
+  return unwrap(res) as DashboardSummary
 }
 
 export type PagedList<T> = {

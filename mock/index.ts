@@ -1,5 +1,5 @@
 import type { MockMethod } from 'vite-plugin-mock'
-import { mockKpis, mockRegionBars, mockStaffActivity } from './data/dashboard'
+import { mockKpis, mockRegionBars, mockStaffActivity, mockPipeline, mockAttention, mockPlatform } from './data/dashboard'
 import { mockStaffRows, mockStaffFormDefault } from './data/staff'
 import { mockWhitelistRows } from './data/whitelist'
 import { mockRegionTreeLines, mockRegionBindings } from './data/regions'
@@ -121,6 +121,9 @@ export default [
         kpis: mockKpis,
         regionBars: mockRegionBars,
         staffActivity: mockStaffActivity,
+        pipeline: mockPipeline,
+        attention: mockAttention,
+        platform: mockPlatform,
       }),
   },
   {

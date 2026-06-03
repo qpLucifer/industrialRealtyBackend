@@ -5,6 +5,17 @@ import { BarChart, PieChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LabelLayout, UniversalTransition } from 'echarts/features'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
+import { fetchDashboard } from '@/api/admin'
+import type {
+  DashboardAttentionItem,
+  DashboardPipelineItem,
+  DashboardPlatformItem,
+  KpiItem,
+  RegionBar,
+  StaffActivityRow,
+} from '@/types/domain'
 
 echarts.use([
   BarChart,
@@ -17,35 +28,110 @@ echarts.use([
   UniversalTransition,
 ])
 
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { fetchDashboard } from '@/api/admin'
-import type { KpiItem, RegionBar, StaffActivityRow } from '@/types/domain'
-
 const kpis = ref<KpiItem[]>([])
 const regionBars = ref<RegionBar[]>([])
 const staffActivity = ref<StaffActivityRow[]>([])
+const pipeline = ref<DashboardPipelineItem[]>([])
+const attention = ref<DashboardAttentionItem[]>([])
+const platform = ref<DashboardPlatformItem[]>([])
 const loading = ref(false)
 const loadError = ref('')
 
-const pieEl = ref<HTMLElement | null>(null)
+const pipelineEl = ref<HTMLElement | null>(null)
 const barEl = ref<HTMLElement | null>(null)
-let pieChart: ReturnType<typeof echarts.init> | null = null
+let pipelineChart: ReturnType<typeof echarts.init> | null = null
 let barChart: ReturnType<typeof echarts.init> | null = null
-let roPie: ResizeObserver | null = null
+let roPipeline: ResizeObserver | null = null
 let roBar: ResizeObserver | null = null
 
-const chartPalette = ['#1a3a6c', '#2d4f8c', '#4a6fa8', '#5eead4', '#38bdf8', '#94a3b8', '#c5d4e8']
+const chartPalette = ['#10b981', '#f59e0b', '#64748b', '#f43f5e', '#1a3a6c', '#38bdf8']
+const pipelineColors: Record<string, string> = {
+  live: '#10b981',
+  pending: '#f59e0b',
+  draft: '#64748b',
+  rejected: '#f43f5e',
+}
 
-const kpiAccents = [
-  { tone: 'navy', icon: 'prop' },
-  { tone: 'teal', icon: 'vacant' },
-  { tone: 'sky', icon: 'cust' },
-  { tone: 'gold', icon: 'deal' },
-] as const
+const attentionRoutes: Record<string, string> = {
+  audit: '/app/audit',
+  draft: '/app/properties',
+  rejected: '/app/audit',
+  viewings: '/app/viewings',
+}
+
+type DashboardModuleLink = {
+  to: string
+  title: string
+  desc: string
+  tag?: string
+  tone: string
+}
+
+const moduleLinks: DashboardModuleLink[] = [
+  {
+    to: '/app/properties',
+    title: '房源管理',
+    desc: '全字段维护 · 上下架 · 主推',
+    tag: '核心',
+    tone: 'navy',
+  },
+  {
+    to: '/app/audit',
+    title: '审核中心',
+    desc: '待审队列 · 通过 / 驳回',
+    tag: '待办',
+    tone: 'amber',
+  },
+  {
+    to: '/app/property-privacy',
+    title: '房源隐私',
+    desc: '隐私查看 · 小程序编辑授权',
+    tag: '权限',
+    tone: 'violet',
+  },
+  {
+    to: '/app/customers',
+    title: '客户统筹',
+    desc: 'ABC 分级 · 跟进 · 公私有池',
+    tone: 'teal',
+  },
+  {
+    to: '/app/viewings',
+    title: '带看 / 成交',
+    desc: '带看台账 · 成交备案',
+    tone: 'sky',
+  },
+  {
+    to: '/app/land-auction',
+    title: '工业土地',
+    desc: '挂拍预告 · 在拍 · 成交统计',
+    tone: 'gold',
+  },
+  {
+    to: '/app/video-faq',
+    title: '视频 FAQ',
+    desc: '短视频库 · 小程序可搜',
+    tone: 'rose',
+  },
+  {
+    to: '/app/staff',
+    title: '组织与安全',
+    desc: '员工 · 白名单 · 区域 · 板块',
+    tone: 'slate',
+  },
+]
+
+const todayLabel = computed(() => {
+  const d = new Date()
+  const w = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 · 周${w}`
+})
 
 const regionTotal = computed(() => regionBars.value.reduce((s, b) => s + regionCount(b), 0))
-
+const pipelineTotal = computed(() => pipeline.value.reduce((s, p) => s + (p.count || 0), 0))
 const hasRegionChartData = computed(() => regionTotal.value > 0)
+const hasPipelineData = computed(() => pipelineTotal.value > 0)
+const topStaff = computed(() => staffActivity.value.slice(0, 8))
 
 function regionCount(b: RegionBar) {
   const n = Number(b.count)
@@ -56,88 +142,79 @@ function regionCount(b: RegionBar) {
   return Math.round((pct / 100) * max)
 }
 
-function disposeCharts() {
-  roPie?.disconnect()
-  roBar?.disconnect()
-  roPie = null
-  roBar = null
-  pieChart?.dispose()
-  barChart?.dispose()
-  pieChart = null
-  barChart = null
-}
-
 function sortedRegions(source: RegionBar[]) {
   return [...source].sort((a, b) => regionCount(b) - regionCount(a))
 }
 
-function renderPieChart(bars: RegionBar[]) {
-  if (!pieEl.value) return
-  pieChart?.dispose()
-  pieChart = echarts.init(pieEl.value, undefined, { renderer: 'canvas' })
+function attentionRoute(key: string) {
+  return attentionRoutes[key] || '/app/dashboard'
+}
 
-  const sorted = sortedRegions(bars).filter((b) => regionCount(b) > 0)
-  const data = sorted.map((b, i) => ({
-    name: b.label,
-    value: regionCount(b),
-    itemStyle: { color: chartPalette[i % chartPalette.length] },
-  }))
+function disposeCharts() {
+  roPipeline?.disconnect()
+  roBar?.disconnect()
+  roPipeline = null
+  roBar = null
+  pipelineChart?.dispose()
+  barChart?.dispose()
+  pipelineChart = null
+  barChart = null
+}
 
-  pieChart.setOption(
+function renderPipelineChart(items: DashboardPipelineItem[]) {
+  if (!pipelineEl.value) return
+  pipelineChart?.dispose()
+  pipelineChart = echarts.init(pipelineEl.value, undefined, { renderer: 'canvas' })
+
+  const data = items
+    .filter((p) => p.count > 0)
+    .map((p) => ({
+      name: p.label,
+      value: p.count,
+      itemStyle: { color: pipelineColors[p.key] || chartPalette[0] },
+    }))
+
+  pipelineChart.setOption(
     {
       backgroundColor: 'transparent',
-      color: chartPalette,
       tooltip: {
         trigger: 'item',
         backgroundColor: 'rgba(15,23,42,0.92)',
         borderWidth: 0,
-        padding: [10, 14],
         textStyle: { color: '#f8fafc', fontSize: 12 },
         formatter: (p: { name?: string; value?: number; percent?: number }) =>
           `${p.name ?? ''}<br/>${p.value ?? 0} 套 · ${p.percent ?? 0}%`,
       },
       legend: {
-        orient: 'vertical',
-        right: 4,
-        top: 'middle',
+        bottom: 0,
         itemWidth: 10,
         itemHeight: 10,
-        itemGap: 10,
-        textStyle: { color: '#475569', fontSize: 12 },
+        textStyle: { color: '#64748b', fontSize: 12 },
       },
       series: [
         {
           type: 'pie',
-          radius: ['42%', '68%'],
-          center: ['38%', '50%'],
-          avoidLabelOverlap: true,
+          radius: ['46%', '72%'],
+          center: ['50%', '44%'],
           itemStyle: {
-            borderRadius: 8,
-            borderColor: 'rgba(255,255,255,0.85)',
+            borderRadius: 10,
+            borderColor: 'rgba(255,255,255,0.9)',
             borderWidth: 2,
           },
           label: { show: false },
           emphasis: {
             scale: true,
             scaleSize: 6,
-            label: {
-              show: true,
-              fontSize: 13,
-              fontWeight: 700,
-              color: '#0f172a',
-              formatter: '{b}\n{c} 套',
-            },
+            label: { show: true, fontWeight: 700, formatter: '{b}\n{c}' },
           },
-          labelLine: { show: false },
           data,
-          animationDuration: 720,
-          animationEasing: 'cubicOut',
+          animationDuration: 680,
         },
       ],
     },
     { notMerge: true },
   )
-  pieChart.resize()
+  pipelineChart.resize()
 }
 
 function renderBarChart(bars: RegionBar[]) {
@@ -184,20 +261,19 @@ function renderBarChart(bars: RegionBar[]) {
             itemStyle: {
               color: new graphic.LinearGradient(0, 0, 1, 0, [
                 { offset: 0, color: chartPalette[i % chartPalette.length] },
-                { offset: 1, color: `${chartPalette[i % chartPalette.length]}99` },
+                { offset: 1, color: `${chartPalette[i % chartPalette.length]}88` },
               ]),
               borderRadius: [0, 8, 8, 0],
             },
           })),
-          barWidth: '48%',
+          barWidth: '52%',
           label: {
             show: true,
             position: 'right',
             fontSize: 11,
             color: '#64748b',
-            formatter: (p: { value?: number }) => String(p.value ?? ''),
           },
-          animationDuration: 600,
+          animationDuration: 620,
         },
       ],
     },
@@ -208,7 +284,7 @@ function renderBarChart(bars: RegionBar[]) {
 
 function renderAllCharts() {
   if (loading.value) return
-  renderPieChart(regionBars.value)
+  renderPipelineChart(pipeline.value)
   renderBarChart(regionBars.value)
 }
 
@@ -216,13 +292,13 @@ function scheduleChartPaint() {
   void nextTick().then(() => {
     requestAnimationFrame(() => {
       renderAllCharts()
-      pieChart?.resize()
+      pipelineChart?.resize()
       barChart?.resize()
     })
   })
 }
 
-watch(regionBars, () => scheduleChartPaint(), { deep: true })
+watch([regionBars, pipeline], () => scheduleChartPaint(), { deep: true })
 watch(loading, (v) => {
   if (!v) scheduleChartPaint()
 })
@@ -235,6 +311,9 @@ async function loadDashboard() {
     kpis.value = data.kpis ?? []
     regionBars.value = Array.isArray(data.regionBars) ? data.regionBars : []
     staffActivity.value = Array.isArray(data.staffActivity) ? data.staffActivity : []
+    pipeline.value = Array.isArray(data.pipeline) ? data.pipeline : []
+    attention.value = Array.isArray(data.attention) ? data.attention : []
+    platform.value = Array.isArray(data.platform) ? data.platform : []
   } catch {
     loadError.value = '加载失败'
   } finally {
@@ -244,13 +323,11 @@ async function loadDashboard() {
 }
 
 function bindResize() {
-  roPie?.disconnect()
+  roPipeline?.disconnect()
   roBar?.disconnect()
-  roPie = null
-  roBar = null
-  if (pieEl.value && typeof ResizeObserver !== 'undefined') {
-    roPie = new ResizeObserver(() => pieChart?.resize())
-    roPie.observe(pieEl.value)
+  if (pipelineEl.value && typeof ResizeObserver !== 'undefined') {
+    roPipeline = new ResizeObserver(() => pipelineChart?.resize())
+    roPipeline.observe(pipelineEl.value)
   }
   if (barEl.value && typeof ResizeObserver !== 'undefined') {
     roBar = new ResizeObserver(() => barChart?.resize())
@@ -259,7 +336,7 @@ function bindResize() {
 }
 
 function onWinResize() {
-  pieChart?.resize()
+  pipelineChart?.resize()
   barChart?.resize()
 }
 
@@ -277,19 +354,28 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="panel active dashboard-page">
-    <div class="dash-atmosphere" aria-hidden="true">
-      <div class="dash-blob dash-blob--a" />
-      <div class="dash-blob dash-blob--b" />
-      <div class="dash-blob dash-blob--c" />
-    </div>
-
-    <header class="dash-header">
-      <div>
-        <h2 class="dash-title">数据总览</h2>
-        <p class="dash-sub">房源、客户与成交核心指标一览</p>
+  <section class="dash">
+    <header class="dash-hero">
+      <div class="dash-hero__mesh" aria-hidden="true" />
+      <div class="dash-hero__inner">
+        <div class="dash-hero__copy">
+          <p class="dash-hero__eyebrow">Operations Command</p>
+          <h2 class="dash-hero__title">运营驾驶舱</h2>
+          <p class="dash-hero__sub">
+            房源审核漏斗 · 小程序生态 · 带看成交 · 土地与内容模块一屏总览
+          </p>
+          <p class="dash-hero__date">{{ todayLabel }}</p>
+        </div>
+        <div class="dash-hero__actions">
+          <span v-if="!loading && !loadError" class="dash-live-pill">
+            <span class="dash-live-pill__dot" />
+            实时统计
+          </span>
+          <button type="button" class="dash-refresh-btn" :disabled="loading" @click="loadDashboard">
+            {{ loading ? '刷新中…' : '刷新数据' }}
+          </button>
+        </div>
       </div>
-      <span v-if="!loading && !loadError" class="dash-live-tag">实时统计</span>
     </header>
 
     <p v-if="loading" class="dash-status">加载中…</p>
@@ -299,187 +385,254 @@ onBeforeUnmount(() => {
     </p>
 
     <div v-else class="dash-body">
-      <div class="dash-kpis">
-        <article
-          v-for="(k, i) in kpis"
-          :key="k.label"
-          class="dash-kpi-glass"
-          :class="`dash-kpi-glass--${kpiAccents[i % kpiAccents.length]?.tone ?? 'navy'}`"
-        >
-          <div class="dash-kpi-glass__shine" aria-hidden="true" />
-          <div class="dash-kpi-glass__icon" :class="`dash-kpi-icon--${kpiAccents[i % kpiAccents.length]?.icon ?? 'prop'}`" aria-hidden="true">
-            <svg v-if="kpiAccents[i % kpiAccents.length]?.icon === 'prop'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <svg v-else-if="kpiAccents[i % kpiAccents.length]?.icon === 'vacant'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <path d="M8 12h8M12 8v8" stroke-linecap="round" />
-            </svg>
-            <svg v-else-if="kpiAccents[i % kpiAccents.length]?.icon === 'cust'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <circle cx="9" cy="8" r="3" />
-              <circle cx="17" cy="9" r="2.5" />
-              <path d="M3 20c0-3 3-5 6-5s6 2 6 5M14 20c0-2 2-3.5 4-3.5" stroke-linecap="round" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </div>
-          <div class="dash-kpi-glass__text">
-            <p class="dash-kpi-label">{{ k.label }}</p>
-            <p class="dash-kpi-value">{{ k.value }}</p>
-            <p v-if="k.trend" class="dash-kpi-trend">{{ k.trend }}</p>
-          </div>
+      <div class="dash-kpi-grid">
+        <article v-for="(k, i) in kpis" :key="k.label" class="dash-kpi" :class="`dash-kpi--${i}`">
+          <p class="dash-kpi__label">{{ k.label }}</p>
+          <p class="dash-kpi__value">{{ k.value }}</p>
+          <p v-if="k.trend" class="dash-kpi__trend">{{ k.trend }}</p>
         </article>
       </div>
 
-      <div class="dash-charts">
-        <div class="dash-glass dash-glass--chart">
-          <div class="dash-glass-head">
+      <div class="dash-attention">
+        <RouterLink
+          v-for="item in attention"
+          :key="item.key"
+          :to="attentionRoute(item.key)"
+          class="dash-attention__card"
+        >
+          <span class="dash-attention__value">{{ item.value }}</span>
+          <span class="dash-attention__label">{{ item.label }}</span>
+          <span v-if="item.hint" class="dash-attention__hint">{{ item.hint }} →</span>
+        </RouterLink>
+      </div>
+
+      <div class="dash-main-grid">
+        <div class="dash-panel">
+          <div class="dash-panel__head">
             <div>
-              <h3 class="dash-h3">区域房源分布</h3>
-              <p class="dash-h3-sub">环形占比 · 共 {{ regionTotal }} 套</p>
+              <h3 class="dash-panel__title">房源审核漏斗</h3>
+              <p class="dash-panel__sub">草稿 → 待审 → 上架 / 驳回 · 共 {{ pipelineTotal }} 套</p>
             </div>
           </div>
-          <div v-show="hasRegionChartData" ref="pieEl" class="dash-chart dash-chart--pie" />
-          <p v-if="!hasRegionChartData" class="dash-chart-empty">暂无区域分布数据，请先在房源中填写所属区域。</p>
+          <div v-show="hasPipelineData" ref="pipelineEl" class="dash-chart dash-chart--pipeline" />
+          <ul v-if="hasPipelineData" class="dash-pipeline-legend">
+            <li v-for="p in pipeline" :key="p.key">
+              <span class="dash-pipeline-legend__dot" :style="{ background: pipelineColors[p.key] }" />
+              {{ p.label }}
+              <strong>{{ p.count }}</strong>
+            </li>
+          </ul>
+          <p v-else class="dash-empty">暂无房源漏斗数据</p>
         </div>
 
-        <div class="dash-glass dash-glass--chart">
-          <div class="dash-glass-head">
+        <div class="dash-panel">
+          <div class="dash-panel__head">
             <div>
-              <h3 class="dash-h3">区域排名</h3>
-              <p class="dash-h3-sub">横向对比各区域房源量</p>
+              <h3 class="dash-panel__title">区域房源分布</h3>
+              <p class="dash-panel__sub">按所属区域统计 · 共 {{ regionTotal }} 套</p>
             </div>
           </div>
           <div v-show="hasRegionChartData" ref="barEl" class="dash-chart dash-chart--bar" />
-          <p v-if="!hasRegionChartData" class="dash-chart-empty">暂无区域排名数据。</p>
-        </div>
-
-        <div class="dash-glass dash-glass--table">
-          <div class="dash-glass-head">
-            <div>
-              <h3 class="dash-h3">员工跟进活跃</h3>
-              <p class="dash-h3-sub">近 7 日跟进、带看与成交</p>
-            </div>
-          </div>
-          <div class="dash-table-wrap">
-            <table class="dash-table">
-              <thead>
-                <tr>
-                  <th>员工</th>
-                  <th>跟进</th>
-                  <th>带看</th>
-                  <th>成交单</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="r in staffActivity" :key="r.name">
-                  <td>
-                    <span class="dash-staff-name">{{ r.name }}</span>
-                  </td>
-                  <td>{{ r.followUps }}</td>
-                  <td>{{ r.viewings }}</td>
-                  <td>
-                    <span class="dash-deal-pill" :class="{ 'dash-deal-pill--on': r.deals > 0 }">{{ r.deals }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-if="staffActivity.length === 0" class="dash-empty">暂无员工活跃数据。</p>
-          </div>
+          <p v-else class="dash-empty">暂无区域分布，请完善房源所属区域。</p>
         </div>
       </div>
+
+      <section class="dash-section">
+        <div class="dash-section__head">
+          <h3 class="dash-section__title">业务模块</h3>
+          <p class="dash-section__sub">覆盖当前版本全部核心能力，一键进入管理页</p>
+        </div>
+        <div class="dash-modules">
+          <RouterLink
+            v-for="m in moduleLinks"
+            :key="m.to"
+            :to="m.to"
+            class="dash-module"
+            :class="m.tone ? `dash-module--${m.tone}` : ''"
+          >
+            <div class="dash-module__top">
+              <span class="dash-module__title">{{ m.title }}</span>
+              <span v-if="m.tag" class="dash-module__tag">{{ m.tag }}</span>
+            </div>
+            <p class="dash-module__desc">{{ m.desc }}</p>
+          </RouterLink>
+        </div>
+      </section>
+
+      <section class="dash-section">
+        <div class="dash-section__head">
+          <h3 class="dash-section__title">小程序生态</h3>
+          <p class="dash-section__sub">组织准入 · 隐私授权 · 内容与客户触达</p>
+        </div>
+        <div class="dash-platform">
+          <div v-for="p in platform" :key="p.key" class="dash-platform__item">
+            <span class="dash-platform__value">{{ p.value }}</span>
+            <span class="dash-platform__label">{{ p.label }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="dash-panel dash-panel--table">
+        <div class="dash-panel__head">
+          <div>
+            <h3 class="dash-panel__title">团队活跃榜</h3>
+            <p class="dash-panel__sub">近 7 日跟进 · 带看 · 成交（Top 8）</p>
+          </div>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>员工</th>
+                <th>跟进</th>
+                <th>带看</th>
+                <th>成交</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(r, idx) in topStaff" :key="r.name">
+                <td><span class="dash-rank" :class="{ 'dash-rank--top': idx < 3 }">{{ idx + 1 }}</span></td>
+                <td><span class="dash-staff-name">{{ r.name }}</span></td>
+                <td>{{ r.followUps }}</td>
+                <td>{{ r.viewings }}</td>
+                <td>
+                  <span class="dash-deal-pill" :class="{ 'dash-deal-pill--on': r.deals > 0 }">{{ r.deals }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-if="topStaff.length === 0" class="dash-empty">暂无员工活跃数据。</p>
+        </div>
+      </section>
     </div>
   </section>
 </template>
 
 <style scoped>
-.dashboard-page {
+.dash {
   position: relative;
-  width: 100%;
   min-height: 100%;
+}
+
+.dash-hero {
+  position: relative;
+  margin: -4px -4px 22px;
+  padding: 28px 28px 26px;
+  border-radius: 22px;
   overflow: hidden;
+  background: linear-gradient(135deg, #0f172a 0%, #1a3a6c 52%, #0f766e 100%);
+  color: #f8fafc;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
 }
 
-.dash-atmosphere {
+.dash-hero__mesh {
   position: absolute;
-  inset: -40px -24px 0;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(94, 234, 212, 0.22), transparent 42%),
+    radial-gradient(circle at 88% 10%, rgba(56, 189, 248, 0.18), transparent 36%),
+    radial-gradient(circle at 70% 90%, rgba(255, 255, 255, 0.08), transparent 40%);
   pointer-events: none;
-  z-index: 0;
 }
 
-.dash-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(72px);
-  opacity: 0.45;
-}
-
-.dash-blob--a {
-  width: 320px;
-  height: 320px;
-  top: -80px;
-  right: 8%;
-  background: radial-gradient(circle, rgba(74, 111, 168, 0.35), transparent 70%);
-}
-
-.dash-blob--b {
-  width: 280px;
-  height: 280px;
-  left: -60px;
-  top: 120px;
-  background: radial-gradient(circle, rgba(94, 234, 212, 0.22), transparent 70%);
-}
-
-.dash-blob--c {
-  width: 240px;
-  height: 240px;
-  right: 30%;
-  bottom: -40px;
-  background: radial-gradient(circle, rgba(26, 58, 108, 0.18), transparent 70%);
-}
-
-.dash-header,
-.dash-status,
-.dash-body {
+.dash-hero__inner {
   position: relative;
   z-index: 1;
-}
-
-.dash-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
-.dash-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #0f172a;
-}
-
-.dash-sub {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: #64748b;
-}
-
-.dash-live-tag {
+.dash-hero__eyebrow {
+  margin: 0 0 8px;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #0d9488;
-  padding: 6px 12px;
+  color: rgba(248, 250, 252, 0.62);
+}
+
+.dash-hero__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.dash-hero__sub {
+  margin: 10px 0 0;
+  max-width: 560px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(248, 250, 252, 0.78);
+}
+
+.dash-hero__date {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.dash-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dash-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(94, 234, 212, 0.35);
-  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.12);
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.dash-live-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5eead4;
+  box-shadow: 0 0 0 4px rgba(94, 234, 212, 0.22);
+  animation: dash-pulse 2s ease-in-out infinite;
+}
+
+@keyframes dash-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.dash-refresh-btn {
+  padding: 9px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.dash-refresh-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.dash-refresh-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .dash-status {
@@ -492,205 +645,320 @@ onBeforeUnmount(() => {
   color: var(--rose, #e11d48);
 }
 
-.dash-kpis {
+.dash-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dash-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 14px;
 }
 
 @media (max-width: 1100px) {
-  .dash-kpis {
+  .dash-kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-.dash-kpi-glass {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 20px 18px;
+.dash-kpi {
+  padding: 18px 18px 16px;
   border-radius: 18px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.52);
-  backdrop-filter: blur(18px) saturate(1.35);
-  -webkit-backdrop-filter: blur(18px) saturate(1.35);
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  box-shadow:
-    0 10px 40px rgba(26, 58, 108, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.25);
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
 }
 
-.dash-kpi-glass:hover {
-  transform: translateY(-3px);
-  box-shadow:
-    0 16px 48px rgba(26, 58, 108, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+.dash-kpi--0 {
+  border-top: 3px solid #1a3a6c;
+}
+.dash-kpi--1 {
+  border-top: 3px solid #0d9488;
+}
+.dash-kpi--2 {
+  border-top: 3px solid #0284c7;
+}
+.dash-kpi--3 {
+  border-top: 3px solid #d97706;
 }
 
-.dash-kpi-glass__shine {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, transparent 42%, transparent 100%);
-  pointer-events: none;
-}
-
-.dash-kpi-glass--navy {
-  box-shadow:
-    0 10px 40px rgba(26, 58, 108, 0.1),
-    0 0 0 1px rgba(26, 58, 108, 0.06) inset;
-}
-.dash-kpi-glass--teal {
-  box-shadow:
-    0 10px 40px rgba(13, 148, 136, 0.1),
-    0 0 0 1px rgba(94, 234, 212, 0.12) inset;
-}
-.dash-kpi-glass--sky {
-  box-shadow:
-    0 10px 40px rgba(56, 189, 248, 0.1),
-    0 0 0 1px rgba(56, 189, 248, 0.1) inset;
-}
-.dash-kpi-glass--gold {
-  box-shadow:
-    0 10px 40px rgba(217, 119, 6, 0.1),
-    0 0 0 1px rgba(251, 191, 36, 0.15) inset;
-}
-
-.dash-kpi-glass__icon {
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.dash-kpi-glass__icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.dash-kpi-icon--prop {
-  color: #1a3a6c;
-  background: linear-gradient(145deg, rgba(74, 111, 168, 0.2), rgba(255, 255, 255, 0.5));
-}
-.dash-kpi-icon--vacant {
-  color: #0d9488;
-  background: linear-gradient(145deg, rgba(94, 234, 212, 0.25), rgba(255, 255, 255, 0.5));
-}
-.dash-kpi-icon--cust {
-  color: #0284c7;
-  background: linear-gradient(145deg, rgba(56, 189, 248, 0.22), rgba(255, 255, 255, 0.5));
-}
-.dash-kpi-icon--deal {
-  color: #b45309;
-  background: linear-gradient(145deg, rgba(251, 191, 36, 0.28), rgba(255, 255, 255, 0.5));
-}
-
-.dash-kpi-glass__text {
-  min-width: 0;
-  flex: 1;
-}
-
-.dash-kpi-label {
-  margin: 0 0 6px;
+.dash-kpi__label {
+  margin: 0;
   font-size: 12px;
   font-weight: 600;
   color: #64748b;
-  letter-spacing: 0.02em;
 }
 
-.dash-kpi-value {
-  margin: 0;
-  font-size: 26px;
+.dash-kpi__value {
+  margin: 8px 0 0;
+  font-size: 30px;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: #0f172a;
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
-.dash-kpi-trend {
-  margin: 6px 0 0;
+.dash-kpi__trend {
+  margin: 8px 0 0;
   font-size: 11px;
   color: #0d9488;
 }
 
-.dash-charts {
+.dash-attention {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto;
-  gap: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
 }
 
-.dash-glass--table {
-  grid-column: 1 / -1;
+@media (max-width: 960px) {
+  .dash-attention {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.dash-attention__card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  text-decoration: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.dash-attention__card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(26, 58, 108, 0.14);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+}
+
+.dash-attention__value {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.dash-attention__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.dash-attention__hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #0d9488;
+  font-weight: 600;
+}
+
+.dash-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 14px;
 }
 
 @media (max-width: 1024px) {
-  .dash-charts {
+  .dash-main-grid {
     grid-template-columns: 1fr;
   }
-  .dash-glass--table {
-    grid-column: 1;
-  }
 }
 
-.dash-glass {
-  border-radius: 18px;
+.dash-panel {
   padding: 18px 20px 20px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
   min-width: 0;
-  background: rgba(255, 255, 255, 0.48);
-  backdrop-filter: blur(16px) saturate(1.25);
-  -webkit-backdrop-filter: blur(16px) saturate(1.25);
-  border: 1px solid rgba(255, 255, 255, 0.68);
-  box-shadow:
-    0 8px 32px rgba(26, 58, 108, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
-.dash-glass-head {
+.dash-panel--table {
+  margin-top: 0;
+}
+
+.dash-panel__head {
   margin-bottom: 8px;
 }
 
-.dash-h3 {
+.dash-panel__title,
+.dash-section__title {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: #0f172a;
 }
 
-.dash-h3-sub {
+.dash-panel__sub,
+.dash-section__sub {
   margin: 4px 0 0;
   font-size: 12px;
   color: #94a3b8;
+}
+
+.dash-section__head {
+  margin-bottom: 12px;
 }
 
 .dash-chart {
   width: 100%;
 }
 
-.dash-chart--pie {
-  height: 280px;
+.dash-chart--pipeline {
+  height: 260px;
 }
 
 .dash-chart--bar {
-  height: 280px;
+  height: 300px;
 }
 
-.dash-chart-empty {
-  margin: 24px 0 8px;
-  padding: 32px 16px;
-  text-align: center;
-  font-size: 13px;
-  color: #94a3b8;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.35);
+.dash-pipeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dash-pipeline-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dash-pipeline-legend strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.dash-pipeline-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dash-modules {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .dash-modules {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.dash-module {
+  display: block;
+  padding: 16px 16px 14px;
+  border-radius: 16px;
+  text-decoration: none;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dash-module:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+}
+
+.dash-module__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dash-module__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dash-module__tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+.dash-module__desc {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.dash-module--navy {
+  border-top: 3px solid #1a3a6c;
+}
+.dash-module--amber {
+  border-top: 3px solid #f59e0b;
+}
+.dash-module--violet {
+  border-top: 3px solid #7c3aed;
+}
+.dash-module--teal {
+  border-top: 3px solid #0d9488;
+}
+.dash-module--sky {
+  border-top: 3px solid #0284c7;
+}
+.dash-module--gold {
+  border-top: 3px solid #d97706;
+}
+.dash-module--rose {
+  border-top: 3px solid #e11d48;
+}
+.dash-module--slate {
+  border-top: 3px solid #64748b;
+}
+
+.dash-platform {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 960px) {
+  .dash-platform {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.dash-platform__item {
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff, #f8fafc);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.dash-platform__value {
+  display: block;
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.dash-platform__label {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #64748b;
 }
 
 .dash-table-wrap {
@@ -721,12 +989,26 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(15, 23, 42, 0.04);
 }
 
-.dash-table tbody tr {
-  transition: background 0.15s ease;
+.dash-table tbody tr:hover {
+  background: rgba(248, 250, 252, 0.9);
 }
 
-.dash-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.45);
+.dash-rank {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.dash-rank--top {
+  color: #0f766e;
+  background: rgba(94, 234, 212, 0.22);
 }
 
 .dash-staff-name {
@@ -752,17 +1034,22 @@ onBeforeUnmount(() => {
 }
 
 .dash-empty {
-  margin: 12px 0 0;
+  margin: 20px 0 8px;
+  padding: 28px 16px;
+  text-align: center;
   font-size: 13px;
   color: #94a3b8;
+  border-radius: 12px;
+  background: #f8fafc;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dash-kpi-glass {
-    transition: none;
+  .dash-live-pill__dot {
+    animation: none;
   }
-  .dash-kpi-glass:hover {
-    transform: none;
+  .dash-attention__card,
+  .dash-module {
+    transition: none;
   }
 }
 </style>

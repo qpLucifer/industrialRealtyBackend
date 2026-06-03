@@ -7,7 +7,7 @@ export const navMeta: Record<
     crumb: string
   }
 > = {
-  dashboard: { title: '数据总览', crumb: '全局 KPI · 区域分布 · 活跃度' },
+  dashboard: { title: '运营驾驶舱', crumb: '房源漏斗 · 小程序生态 · 待办与团队活跃' },
   staff: { title: '员工与账号', crumb: '部门 · 职位 · 区域绑定 · 账号状态' },
   whitelist: { title: '手机号白名单', crumb: '小程序准入双重校验' },
   regions: { title: '区域名称', crumb: '业务区域名称（与员工负责区、房源区域一致）' },
