@@ -85,6 +85,7 @@ export interface PropertyPrivacyGrantRow {
   propertyCode: string
   propertyTitle: string
   canViewPrivacy: boolean
+  canEditProperty: boolean
   remark: string
   updatedBy?: string | null
   updatedAt?: string | null

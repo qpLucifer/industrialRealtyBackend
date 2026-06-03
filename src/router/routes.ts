@@ -13,7 +13,7 @@ export const navMeta: Record<
   regions: { title: '区域名称', crumb: '业务区域名称（与员工负责区、房源区域一致）' },
   'code-master': { title: '代码字典', crumb: '职位 · 部门 · 角色 · 房源类型与状态等下拉维护' },
   properties: { title: '房源管理', crumb: '全字段维护 · 审核状态' },
-  'property-privacy': { title: '房源隐私', crumb: '员工 × 房源 · 须授权后才可查看隐私' },
+  'property-privacy': { title: '房源隐私', crumb: '员工 × 房源 · 隐私查看与小程序编辑授权' },
   audit: { title: '审核中心', crumb: '待审队列 · 风控' },
   customers: { title: '客户统筹', crumb: '跟进表 · ABC 分级 · 系统提醒' },
   'video-faq': { title: '视频 FAQ', crumb: '客户问题采集 · 短视频库 · 小程序可搜' },

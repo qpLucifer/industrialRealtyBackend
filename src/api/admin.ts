@@ -121,19 +121,39 @@ export async function fetchPropertyPrivacyGrants(params?: {
   return unwrap(res) as PagedList<PropertyPrivacyGrantRow>
 }
 
-export async function savePropertyPrivacyGrant(payload: {
-  staffId: string
-  propertyId: string
+export type PropertyPrivacyGrantSavePayload = {
   canViewPrivacy: boolean
+  canEditProperty?: boolean
   remark?: string
-}) {
+} & (
+  | {
+      staffId: string
+      propertyId: string
+    }
+  | {
+      staffIds: string[]
+      propertyIds?: string[]
+      propertyAll?: boolean
+    }
+)
+
+export async function savePropertyPrivacyGrant(payload: PropertyPrivacyGrantSavePayload) {
   const res = await http.post('/property-privacy/grants', payload)
-  return unwrap(res) as { success: boolean; id: number; created: boolean }
+  return unwrap(res) as
+    | { success: boolean; id: number; created: boolean }
+    | {
+        success: boolean
+        created: number
+        updated: number
+        total: number
+        staffCount: number
+        propertyCount: number
+      }
 }
 
 export async function patchPropertyPrivacyGrant(
   id: number,
-  payload: Partial<Pick<PropertyPrivacyGrantRow, 'canViewPrivacy' | 'remark'>>,
+  payload: Partial<Pick<PropertyPrivacyGrantRow, 'canViewPrivacy' | 'canEditProperty' | 'remark'>>,
 ) {
   const res = await http.put(`/property-privacy/grants/${id}`, payload)
   return unwrap(res) as { success: boolean }
