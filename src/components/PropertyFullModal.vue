@@ -958,7 +958,7 @@ function onMediaDragEnd() {
                     @drop="onMediaDrop('image', i, $event)"
                   >
                     <button
-                      v-if="mode !== 'view' && imagePreviewUrls.length > 1"
+                      v-if="imagePreviewUrls.length > 1"
                       type="button"
                       class="media-drag-handle"
                       draggable="true"
@@ -1009,7 +1009,7 @@ function onMediaDragEnd() {
                   >
                     <div class="media-video-item-head">
                       <button
-                        v-if="mode !== 'view' && videoPreviewUrls.length > 1"
+                        v-if="videoPreviewUrls.length > 1"
                         type="button"
                         class="media-drag-handle media-drag-handle--video"
                         draggable="true"
