@@ -59,6 +59,8 @@ export interface StaffRow {
   status: StaffStatus
 }
 
+export type StaffPropertySectorScope = 'sale' | 'rent' | 'both'
+
 export interface StaffForm {
   id?: string
   employeeNo: string
@@ -71,6 +73,8 @@ export interface StaffForm {
   accountStatus: StaffAccountStatus
   /** region_defs.id */
   regionIds: number[]
+  /** Mini property list sector: sale | rent | both */
+  propertySectorScope: StaffPropertySectorScope
   dataScopeHint: string
   remark: string
 }

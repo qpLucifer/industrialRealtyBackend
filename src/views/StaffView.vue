@@ -305,7 +305,7 @@ function onDownloadStaffTemplate() {
     />
 
     <p class="hint" style="margin-top: 12px">
-      一人一号 · 小程序登录须<strong>白名单 + 本表手机号一致</strong>且状态正常；<strong>负责区域</strong>决定小程序房源可见范围；离职「禁用」后无法登录小程序。
+      一人一号 · 小程序登录须<strong>白名单 + 本表手机号一致</strong>且状态正常；<strong>负责区域</strong>决定可见范围；<strong>房源板块</strong>决定出租/出售分类；离职「禁用」后无法登录小程序。
     </p>
 
     <el-drawer v-model="drawer" direction="rtl" size="min(520px, 100%)" :show-close="true" title="">
@@ -381,6 +381,17 @@ function onDownloadStaffTemplate() {
           <select v-model="form.accountStatus">
             <option v-for="lab in accountStatusFormLabels" :key="'acct-' + lab" :value="lab">{{ lab }}</option>
           </select>
+        </div>
+        <div class="full">
+          <label>房源板块可见范围<span style="color: var(--rose)">*</span></label>
+          <select v-model="form.propertySectorScope" style="width: 100%; margin-top: 4px">
+            <option value="sale">出售板块（待售 / 已售 / 待开发）</option>
+            <option value="rent">出租板块（待租 / 已租）</option>
+            <option value="both">出售 + 出租（全部板块）</option>
+          </select>
+          <p class="hint" style="margin: 6px 0 0">
+            决定小程序「房源库」分类 Tab 与可见房源范围；「全部」含草稿、待审核、驳回及对应板块状态。
+          </p>
         </div>
         <div class="full">
           <label>负责区域（与「区域名称」页一致，可多选）</label>
