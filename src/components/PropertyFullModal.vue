@@ -571,7 +571,6 @@ function collectPropertyRequiredMiss(): string[] {
     .filter(Boolean).length
   if (!hasImg && !hasVid) miss.push('图片或视频（至少一类）')
   if (form.landMu == null || Number(form.landMu) <= 0) miss.push('土地（亩）')
-  if (form.powerKva == null || Number(form.powerKva) <= 0) miss.push('电力总容量')
   if (!String(form.rentSaleType || '').trim()) miss.push('租售类型')
   if (!String(form.contactName || '').trim()) miss.push('联系人姓名')
   if (!String(form.contactPhone || '').trim()) miss.push('联系人电话')
@@ -1099,7 +1098,7 @@ function onMediaDragEnd() {
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">电力 · 货梯 · 货运</div>
               <div>
-                <label>电力总容量（kVA）<span style="color: var(--rose)">*</span></label>
+                <label>电力总容量（kVA）</label>
                 <input :value="numStr(form.powerKva)" type="text" inputmode="numeric" maxlength="10" @input="setInt('powerKva', $event)" />
               </div>
               <div>
