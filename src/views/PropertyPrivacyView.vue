@@ -6,6 +6,7 @@ import TableActionBtn from '@/components/TableActionBtn.vue'
 import { useAdminListPagination } from '@/composables/useAdminListPagination'
 import { Delete, Edit } from '@element-plus/icons-vue'
 import {
+  clearPropertyPrivacyGrants,
   deletePropertyPrivacyGrant,
   fetchProperties,
   fetchPropertyPrivacyGrants,
@@ -21,6 +22,12 @@ const { listPage, listPageSize, listTotal, resetListPage, applyPagedResult, list
 const staffOptions = ref<StaffRow[]>([])
 const propertyOptions = ref<PropertyRow[]>([])
 const saving = ref(false)
+const clearing = ref(false)
+const clearDrawerOpen = ref(false)
+const clearForm = reactive({
+  staffIds: [] as string[],
+  staffAll: false,
+})
 
 const filterQ = ref('')
 const drawerOpen = ref(false)
@@ -225,6 +232,78 @@ async function onDelete(row: PropertyPrivacyGrantRow) {
   await load()
 }
 
+function openClearDrawer() {
+  clearForm.staffIds = []
+  clearForm.staffAll = false
+  clearDrawerOpen.value = true
+}
+
+function selectAllStaffForClear() {
+  if (!staffOptions.value.length) {
+    ElMessage.warning('暂无员工可选')
+    return
+  }
+  clearForm.staffAll = true
+  clearForm.staffIds = []
+}
+
+function clearClearStaffSelection() {
+  clearForm.staffAll = false
+  clearForm.staffIds = []
+}
+
+function onClearStaffIdsChange() {
+  if (clearForm.staffIds.length) clearForm.staffAll = false
+}
+
+const clearStaffScopeHint = computed(() => {
+  if (clearForm.staffAll) return `全部员工（${staffOptions.value.length} 人）`
+  if (!clearForm.staffIds.length) return ''
+  return `已选 ${clearForm.staffIds.length} 人`
+})
+
+async function onConfirmClear() {
+  if (!clearForm.staffAll && !clearForm.staffIds.length) {
+    ElMessage.warning('请选择员工，或点击「全部员工」')
+    return
+  }
+  const scope = clearForm.staffAll
+    ? `全部 ${staffOptions.value.length} 名员工`
+    : `所选 ${clearForm.staffIds.length} 名员工`
+  try {
+    await ElMessageBox.confirm(
+      `将清除 ${scope} 的所有房源隐私/编辑授权记录。\n\n删除后这些员工在小程序将恢复默认规则（隐私不可见、已上架不可编辑）。\n\n此操作不可恢复，是否继续？`,
+      '确认清除授权',
+      {
+        type: 'warning',
+        confirmButtonText: '确认清除',
+        cancelButtonText: '取消',
+      },
+    )
+  } catch {
+    return
+  }
+  clearing.value = true
+  try {
+    const result = await clearPropertyPrivacyGrants({
+      staffIds: clearForm.staffAll ? undefined : clearForm.staffIds,
+      staffAll: clearForm.staffAll,
+    })
+    if (!result.deleted) {
+      ElMessage.info('所选范围内没有授权记录')
+    } else {
+      ElMessage.success(`已清除 ${result.deleted} 条授权`)
+    }
+    clearDrawerOpen.value = false
+    resetListPage()
+    await load()
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '清除失败')
+  } finally {
+    clearing.value = false
+  }
+}
+
 function propertyLabel(p: PropertyRow) {
   return `${p.code} · ${p.title}`
 }
@@ -257,6 +336,14 @@ onMounted(async () => {
       />
       <button type="button" class="btn btn-primary" @click="onFilterChange">查询</button>
       <button type="button" class="btn btn-primary" @click="openNew">＋ 新增授权</button>
+      <button
+        type="button"
+        class="btn btn-clear-all"
+        :disabled="clearing"
+        @click="openClearDrawer"
+      >
+        一键清除授权
+      </button>
     </div>
 
     <div class="card">
@@ -413,6 +500,51 @@ onMounted(async () => {
         <button type="button" class="btn" @click="drawerOpen = false">取消</button>
       </div>
     </el-drawer>
+
+    <el-drawer v-model="clearDrawerOpen" title="按员工清除授权" direction="rtl" size="min(480px, 100%)">
+      <p class="hint" style="margin: 0 0 12px">
+        清除指定员工的所有房源隐私/编辑授权。可选<strong>单个或多个员工</strong>，或<strong>全部员工</strong>。
+      </p>
+      <div class="form-grid">
+        <div class="full">
+          <label>清除范围<span class="req">*</span></label>
+          <div class="select-toolbar">
+            <button type="button" class="btn" @click="selectAllStaffForClear">全部员工</button>
+            <button type="button" class="btn" @click="clearClearStaffSelection">清空</button>
+            <span v-if="clearStaffScopeHint" class="hint">{{ clearStaffScopeHint }}</span>
+          </div>
+          <el-select
+            v-model="clearForm.staffIds"
+            multiple
+            filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            :max-collapse-tags="3"
+            :disabled="clearForm.staffAll"
+            placeholder="或选择单个/多个员工"
+            style="width: 100%; margin-top: 8px"
+            @change="onClearStaffIdsChange"
+          >
+            <el-option
+              v-for="s in staffOptions"
+              :key="s.id"
+              :label="`${s.name}（${s.employeeNo}）`"
+              :value="s.id"
+            />
+          </el-select>
+          <p v-if="clearForm.staffAll" class="hint property-all-hint">
+            将清除系统中全部员工的房源授权记录
+          </p>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 18px">
+        <button type="button" class="btn btn-clear-all" :disabled="clearing" @click="onConfirmClear">
+          {{ clearing ? '清除中…' : '确认清除' }}
+        </button>
+        <button type="button" class="btn" @click="clearDrawerOpen = false">取消</button>
+      </div>
+    </el-drawer>
   </section>
 </template>
 
@@ -441,5 +573,17 @@ onMounted(async () => {
   padding: 8px 10px;
   background: #f8fafc;
   border-radius: 8px;
+}
+.btn-clear-all {
+  color: #be123c;
+  border: 1px solid rgba(190, 18, 60, 0.35);
+  background: #fff;
+}
+.btn-clear-all:hover:not(:disabled) {
+  background: #fff1f2;
+}
+.btn-clear-all:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

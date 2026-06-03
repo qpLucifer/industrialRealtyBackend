@@ -164,6 +164,25 @@ export async function deletePropertyPrivacyGrant(id: number) {
   return unwrap(res) as { success: boolean }
 }
 
+export async function clearPropertyPrivacyGrants(payload: {
+  staffIds?: string[]
+  staffAll?: boolean
+}) {
+  const res = await http.post('/property-privacy/grants/clear', payload)
+  return unwrap(res) as {
+    success: boolean
+    deleted: number
+    staffAll?: boolean
+    staffCount?: number
+  }
+}
+
+/** @deprecated Use clearPropertyPrivacyGrants({ staffAll: true }) */
+export async function deleteAllPropertyPrivacyGrants() {
+  const res = await http.delete('/property-privacy/grants/all')
+  return unwrap(res) as { success: boolean; deleted: number }
+}
+
 export async function fetchRegionDefs(params?: { page?: number; pageSize?: number; all?: boolean }) {
   const res = await http.get('/regions/defs', {
     params: params?.all ? { all: '1' } : listPageParams(params),
