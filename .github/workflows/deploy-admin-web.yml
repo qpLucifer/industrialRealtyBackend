@@ -75,8 +75,8 @@ jobs:
             cd "${PUB_DIR}"
             # Baota may create .user.ini (often immutable); never delete it. Optional: keep .htaccess if you customize it.
             find . -mindepth 1 ! -name '.user.ini' ! -name '.htaccess' -delete
-            cp -a "${STAGING}/." "${PUB_DIR}/"
-            # Keep files group-readable for nginx (www); deploy should be in group www on the server.
+            # Do not use cp -a: cannot utime/chmod www-owned site root (setgid backend).
+            rsync -r --omit-dir-times --no-perms --no-owner --no-group "${STAGING}/" "${PUB_DIR}/"
+            # Readable by nginx (www); deploy must be in group www and backend dir g+w (e.g. chmod 2775).
             chgrp -R www "${PUB_DIR}" 2>/dev/null || true
-            find "${PUB_DIR}" -type d -exec chmod g+rwx {} + 2>/dev/null || true
-            find "${PUB_DIR}" -type f -exec chmod g+r {} + 2>/dev/null || true
+            chmod -R a+rX "${PUB_DIR}" 2>/dev/null || true
