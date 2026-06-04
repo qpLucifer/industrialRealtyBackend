@@ -80,7 +80,7 @@ function isActive(name: string) {
             <img class="brand-logo" src="/favicon.svg" alt="鹏基" />
           </div>
           <div class="brand-text">
-            <div class="brand-title">浙江企鹏工业地产</div>
+            <div class="brand-title">鹏基工业地产</div>
             <div class="brand-sub">内部管理后台</div>
           </div>
         </div>
