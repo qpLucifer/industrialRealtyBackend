@@ -158,9 +158,9 @@ export type PropertyStatusTag =
   | '待审核'
   | '驳回'
   | '待开发'
-  | '待租'
+  | '出租'
   | '已租'
-  | '待售'
+  | '出售'
   | '已售'
   | '待租售'
   | '意向中'
@@ -488,7 +488,7 @@ export interface PropertyFullForm {
   risks: string
   assessment: string
   externalStatus: string
-  /** 主推（仅 status_tag / externalStatus 为待售时有效） */
+  /** 主推（仅 status_tag / externalStatus 为出售时有效） */
   featured?: boolean
   rentSaleType: string
   rentListSqm: number

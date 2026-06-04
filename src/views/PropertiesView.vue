@@ -55,7 +55,7 @@ function onFilterChange() {
 }
 
 const FALLBACK_PROPERTY_TYPES = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺']
-const FALLBACK_PROPERTY_STATUSES = ['草稿', '待审核', '驳回', '待开发', '待租', '已租', '待售', '已售', '待租售', '意向中', '下架封存']
+const FALLBACK_PROPERTY_STATUSES = ['草稿', '待审核', '驳回', '待开发', '出租', '已租', '出售', '已售', '待租售', '意向中', '下架封存']
 
 const propertyTypeFilterLabels = ref<string[]>([...FALLBACK_PROPERTY_TYPES])
 const propertyStatusFilterLabels = ref<string[]>([...FALLBACK_PROPERTY_STATUSES])
@@ -83,13 +83,13 @@ onMounted(async () => {
 })
 
 function statusTagClass(s: string) {
-  if (s === '待租') return 'mint'
+  if (s === '出租' || s === '待租') return 'mint'
   if (s === '待审核') return 'amber'
   if (s === '驳回') return 'rose'
   if (s === '意向中' || s === '待租售' || s === '待开发') return 'amber'
   if (s === '草稿') return 'neutral'
   if (s === '已租' || s === '已售') return 'cyan'
-  if (s === '下架封存' || s === '待售') return 'rose'
+  if (s === '下架封存' || s === '出售' || s === '待售') return 'rose'
   return 'mint'
 }
 

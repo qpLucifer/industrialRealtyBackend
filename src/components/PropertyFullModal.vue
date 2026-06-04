@@ -433,7 +433,7 @@ watch(imagePreviewUrls, (urls) => {
 })
 
 const FALLBACK_PROPERTY_TYPES = ['标准厂房', '独门独院厂房', '仓库', '工业用地', '写字楼', '产业园商铺']
-const FALLBACK_LISTING_STATUSES = ['待开发', '待租', '已租', '待售', '已售', '待租售', '意向中', '下架封存']
+const FALLBACK_LISTING_STATUSES = ['待开发', '出租', '已租', '出售', '已售', '待租售', '意向中', '下架封存']
 
 const propertyTypeLabels = ref<string[]>([...FALLBACK_PROPERTY_TYPES])
 const listingStatusLabels = ref<string[]>([...FALLBACK_LISTING_STATUSES])
@@ -571,7 +571,6 @@ function collectPropertyRequiredMiss(): string[] {
     .filter(Boolean).length
   if (!hasImg && !hasVid) miss.push('图片或视频（至少一类）')
   if (form.landMu == null || Number(form.landMu) <= 0) miss.push('土地（亩）')
-  if (form.powerKva == null || Number(form.powerKva) <= 0) miss.push('电力总容量')
   if (!String(form.rentSaleType || '').trim()) miss.push('租售类型')
   if (!String(form.contactName || '').trim()) miss.push('联系人姓名')
   if (!String(form.contactPhone || '').trim()) miss.push('联系人电话')
@@ -607,7 +606,7 @@ async function onPublish() {
   }
   try {
     await ElMessageBox.confirm(
-      '确定提交发布？提交后房源将进入「待审核」队列，管理员审核通过后为「待租」，驳回需填写原因。',
+      '确定提交发布？提交后房源将进入「待审核」队列，管理员审核通过后为「出租」，驳回需填写原因。',
       '确认发布',
       { type: 'warning', confirmButtonText: '确认发布', cancelButtonText: '取消' },
     )
@@ -795,13 +794,13 @@ function onMediaDragEnd() {
                     <option v-for="s in listingStatusLabels" :key="s">{{ s }}</option>
                   </select>
                   <!-- <p class="hint" style="margin-top: 6px">
-                    审核已通过，可在此切换对外状态（含待开发、待租、待售等）；保存后写入列表「状态」列。
+                    审核已通过，可在此切换对外状态（含待开发、出租、出售等）；保存后写入列表「状态」列。
                   </p> -->
                 </template>
                 <template v-else>
                   <input :value="String(form.externalStatus || '草稿')" type="text" class="ro-input-readonly" readonly tabindex="-1" />
                   <p class="hint" style="margin-top: 6px">
-                    未发布为「草稿」；点底部「发布」后为「待审核」；审核通过后可设为待开发、待租、待售等；驳回为「驳回」并显示原因。
+                    未发布为「草稿」；点底部「发布」后为「待审核」；审核通过后可设为待开发、出租、出售等；驳回为「驳回」并显示原因。
                   </p>
                 </template>
               </div>
@@ -811,7 +810,7 @@ function onMediaDragEnd() {
                   <el-switch v-model="form.featured" />
                 </div>
                 <p class="hint" style="margin-top: 6px">
-                  勾选后，后台与小程序房源列表将显示「主推」并靠前排序（对外状态为「待售」时有效）。
+                  勾选后，后台与小程序房源列表将显示「主推」并靠前排序（对外状态为「出售」时有效）。
                 </p>
               </div>
               <div v-if="form.auditState === 'rejected'" class="full">
@@ -1099,7 +1098,7 @@ function onMediaDragEnd() {
             <div class="form-grid" style="margin-top: 0">
               <div class="form-section-h">电力 · 货梯 · 货运</div>
               <div>
-                <label>电力总容量（kVA）<span style="color: var(--rose)">*</span></label>
+                <label>电力总容量（kVA）</label>
                 <input :value="numStr(form.powerKva)" type="text" inputmode="numeric" maxlength="10" @input="setInt('powerKva', $event)" />
               </div>
               <div>
@@ -1453,7 +1452,7 @@ function onMediaDragEnd() {
                     <el-switch v-model="form.featured" />
                   </div>
                   <p class="hint" style="margin-top: 6px">
-                    勾选后，上架为「待售」时将在列表显示「主推」并靠前排序（租售类型为「出售」时可先勾选）。
+                    勾选后，上架为「出售」时将在列表显示「主推」并靠前排序（租售类型为「出售」时可先勾选）。
                   </p>
                 </div>
               </template>

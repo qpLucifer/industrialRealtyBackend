@@ -5,9 +5,9 @@ export type PropertyStatusTag =
   | '待审核'
   | '驳回'
   | '待开发'
-  | '待租'
+  | '出租'
   | '已租'
-  | '待售'
+  | '出售'
   | '已售'
   | '待租售'
   | '意向中'
@@ -35,8 +35,8 @@ export const mockPropertyRows: PropertyRow[] = [
     title: '黄埔科学城 · 单层厂房',
     district: '黄埔区',
     type: '标准厂房',
-    status: '待租',
-    listingLine1: '待租',
+    status: '出租',
+    listingLine1: '出租',
     listingLine2: '审核通过 · 已上架',
     submitter: '陈思远',
   },
