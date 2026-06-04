@@ -45,7 +45,7 @@ async function onSubmit() {
         <div class="login-brand-logo-wrap">
           <img class="login-brand-logo" src="/favicon.svg" alt="鹏基" />
         </div>
-        <h1 class="login-brand-title">浙江企鹏工业地产</h1>
+        <h1 class="login-brand-title">鹏基工业地产</h1>
         <p class="login-brand-sub">内部管理后台</p>
       </div>
       <div class="login-card">
