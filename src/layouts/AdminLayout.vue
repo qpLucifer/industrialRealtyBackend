@@ -58,11 +58,7 @@ const navGroups: { section: string; items: { to: string; name: string; label: st
   },
   {
     section: '审计',
-    items: [
-      { to: '/app/logs', name: 'logs', label: '日志查询' },
-      { to: '/app/settings', name: 'settings', label: '系统设置' },
-      // { to: '/app/future', name: 'future', label: '扩展预留' },
-    ],
+    items: [{ to: '/app/logs', name: 'logs', label: '日志查询' }],
   },
 ]
 

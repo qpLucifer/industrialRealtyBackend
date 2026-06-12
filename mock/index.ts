@@ -462,8 +462,16 @@ export default [
       let rows = mockLogs.filter(() => true)
       const k = queryScalar(query, 'kind')
       const a = queryScalar(query, 'action')
-      if (k && k !== 'all') rows = rows.filter((r) => r.kind === k)
+      const actor = String(queryScalar(query, 'actor') || '').trim()
+      if (k && k !== 'all') {
+        if (k === 'viewing') rows = rows.filter((r) => String(r.objectLabel || '').startsWith('带看'))
+        else rows = rows.filter((r) => r.kind === k)
+      }
       if (a && a !== 'all') rows = rows.filter((r) => r.action === a)
+      if (actor) {
+        const low = actor.toLowerCase()
+        rows = rows.filter((r) => String(r.actor || '').toLowerCase().includes(low))
+      }
       const q = String(queryScalar(query, 'q') || '')
         .trim()
         .toLowerCase()

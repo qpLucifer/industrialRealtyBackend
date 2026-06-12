@@ -370,7 +370,7 @@ export interface LandAuctionStats {
   total: number
 }
 
-export type LogKind = 'prop' | 'cust' | 'acct'
+export type LogKind = 'prop' | 'cust' | 'acct' | 'viewing'
 export type LogAction = 'login' | 'view' | 'edit' | 'share' | 'export'
 
 export interface LogRow {

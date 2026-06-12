@@ -555,6 +555,7 @@ export async function deleteCodeMasterItem(id: number) {
 export async function fetchLogs(params?: {
   kind?: string
   action?: string
+  actor?: string
   q?: string
   dateFrom?: string
   dateTo?: string
@@ -565,6 +566,7 @@ export async function fetchLogs(params?: {
     params: {
       ...(params?.kind ? { kind: params.kind } : {}),
       ...(params?.action ? { action: params.action } : {}),
+      ...(params?.actor?.trim() ? { actor: params.actor.trim() } : {}),
       ...(params?.q?.trim() ? { q: params.q.trim() } : {}),
       ...(params?.dateFrom ? { dateFrom: params.dateFrom } : {}),
       ...(params?.dateTo ? { dateTo: params.dateTo } : {}),
@@ -572,6 +574,31 @@ export async function fetchLogs(params?: {
     },
   })
   return unwrap(res) as PagedList<LogRow>
+}
+
+/** Download CSV export for current log filters (max 10k rows on server). */
+export async function exportLogsCsv(params: {
+  actor: string
+  withinDays: number
+  kind?: string
+  action?: string
+  q?: string
+  dateFrom?: string
+  dateTo?: string
+}) {
+  const res = await http.get('/logs/export', {
+    params: {
+      actor: params.actor.trim(),
+      withinDays: params.withinDays,
+      ...(params.kind ? { kind: params.kind } : {}),
+      ...(params.action ? { action: params.action } : {}),
+      ...(params.q?.trim() ? { q: params.q.trim() } : {}),
+      ...(params.dateFrom ? { dateFrom: params.dateFrom } : {}),
+      ...(params.dateTo ? { dateTo: params.dateTo } : {}),
+    },
+    responseType: 'blob',
+  })
+  return res.data as Blob
 }
 
 export async function fetchLogsCount(params?: {
